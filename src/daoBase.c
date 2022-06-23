@@ -568,7 +568,7 @@ int_fast8_t daoImage2ShmSI32(int *procim, int nbVal, IMAGE *image)
 }
 
 
-int_fast8_t krtcImageCreateSem(IMAGE *image, long NBsem)
+int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 {
     char sname[200];
     long s, s1;
@@ -629,7 +629,7 @@ int_fast8_t krtcImageCreateSem(IMAGE *image, long NBsem)
 
 
 
-int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size, uint8_t atype, int shared, int NBkw)
+int_fast8_t daoImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size, uint8_t atype, int shared, int NBkw)
 {
     long i;//,ii;
 //    time_t lt;
@@ -727,7 +727,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
         result = lseek(SM_fd, sharedsize-1, SEEK_SET);
         if (result == -1) {
             close(SM_fd);
-            krtcError("Error calling lseek() to 'stretch' the file\n");
+            daoError("Error calling lseek() to 'stretch' the file\n");
             exit(0);
         }
 
@@ -785,7 +785,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.UI8 == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -816,7 +816,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.SI8 == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -848,7 +848,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.UI16 == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -878,7 +878,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.SI16 == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -909,7 +909,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.UI32 == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -941,7 +941,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.SI32 == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -973,7 +973,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.SI64 == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -1003,7 +1003,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.SI64 == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -1033,7 +1033,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.F == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -1063,7 +1063,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
   
         if(image->array.D == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -1093,7 +1093,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.CF == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -1123,7 +1123,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
 
         if(image->array.CD == NULL)
         {
-            krtcError("memory allocation failed\n");
+            daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
             fprintf(stderr,"Image name = %s\n",name);
             fprintf(stderr,"Image size = ");
@@ -1149,7 +1149,7 @@ int_fast8_t krtcImageCreate(IMAGE *image, const char *name, long naxis, uint32_t
     image->md[0].nelement = nelement;
 
     if(shared==1)
-        krtcImageCreateSem(image, 10); // by default, create 10 semaphores
+        daoImageCreateSem(image, 10); // by default, create 10 semaphores
     else
 		image->md[0].sem = 0; // no semaphores
      
