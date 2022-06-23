@@ -1,0 +1,11 @@
+#! /usr/bin/env python
+
+bld.shlib(
+	source = 'daoBase.c',
+	includes = '../include',
+	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
+	target = 'daoBase',
+	name   = 'daoBase',
+	vnum   = '0.0.1')
+
+

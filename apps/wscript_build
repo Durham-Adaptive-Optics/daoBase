@@ -1,0 +1,11 @@
+#! /usr/bin/env python
+
+daoRandWriter = bld.program(
+	source = 'daoRandWriter.c',
+	target = 'daoRandWriter',
+	includes = '../include',
+	linkflags = ['-L../build/src/'],
+	ldflags = ['-ldaoBase' , '-lpthread', '-lrt', '-lm'],
+	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
+	use = 'daoBase'
+	)
