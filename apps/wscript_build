@@ -19,3 +19,23 @@ daoClock = bld.program(
 	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
 	use = 'daoBase'
 	)
+
+daoTimeDiff = bld.program(
+	source = 'daoTimeDiff.c',
+	target = 'daoTimeDiff',
+	includes = '../include',
+	linkflags = ['-L../build/src/'],
+	ldflags = ['-ldaoBase' , '-lpthread', '-lrt', '-lm'],
+	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
+	use = 'daoBase'
+	)
+
+daoReadWrite = bld.program(
+	source = 'daoReadWrite.c',
+	target = 'daoReadWrite',
+	includes = '../include',
+	linkflags = ['-L../build/src/'],
+	ldflags = ['-ldaoBase' , '-lpthread', '-lrt', '-lm'],
+	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
+	use = 'daoBase'
+	)
