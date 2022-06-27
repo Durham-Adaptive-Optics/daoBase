@@ -30,4 +30,4 @@ def build(bld):
 	bld.install_files(bld.env.PREFIX+'/include', 'include/daoImageStruct.h', relative_trick=False)
 	bld.install_files(bld.env.PREFIX+'/python', 'src/python/shmlib.py', relative_trick=False)
 	bld.install_files(bld.env.PREFIX+'/bin', 'apps/daoExampleBuildShm.py', relative_trick=False)
-	os.chmod(bld.env.PREFIX+'/bin/daoExampleBuildShm.py', 0o755)
+#os.chmod(bld.env.PREFIX+'/bin/daoExampleBuildShm.py', 0o755)
