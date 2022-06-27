@@ -1,0 +1,36 @@
+#!/bin/bash
+
+echo "Starting DAO Demo process..."
+datestr="$( date -u )"
+echo "$datestr" 
+
+tmuxname="DEMOClock"
+tmux send-keys -t $tmuxname C-c 2> /dev/null
+sleep 1
+echo "Executing daoClock -L demoClock $1 in tmux session $tmuxname"
+tmux new -d -s $tmuxname
+sleep 1
+tmux send-keys -t $tmuxname "daoClock -L demoClock $1" C-M
+echo "Done starting DAO Demo clock process."
+
+tmuxname="DEMORandWriter"
+tmux send-keys -t $tmuxname C-c 2> /dev/null
+sleep 1
+echo "Executing daoRandWriteSync -L demo demoClock in tmux session $tmuxname"
+tmux new -d -s $tmuxname
+sleep 1
+tmux send-keys -t $tmuxname "daoClock -L demo demoClock" C-M
+echo "Done starting DAO Demo random writer process."
+
+
+tmuxname="DEMOTimeDiff"
+tmux send-keys -t $tmuxname C-c 2> /dev/null
+sleep 1
+echo "Executing daoTimeDiff -L demoClock demo 1 1 demoLatency in tmux session $tmuxname"
+tmux new -d -s $tmuxname
+sleep 1
+tmux send-keys -t $tmuxname "daoTimeDiff -L demoClock demo 1 1 demoLatency" C-M
+echo "Done starting DAO Demo time differenc process."
+
+
+
