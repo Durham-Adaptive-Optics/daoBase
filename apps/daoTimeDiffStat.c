@@ -222,9 +222,11 @@ static void DecodeArgs(int argc, char **argv)
                         daoDebug("will sleep for %d usec\n",a1);
                         (void)usleep(a1);
                         break;
-            case 's':	(void)sscanf(*argv++,"%s",shmName); argc -= 1;
+            case 's':	
+                        (void)sscanf(*argv++,"%s",shmName); argc -= 1;
                         sprintf(shmNameAvg,"%sAvg", shmName);
                         sprintf(shmNameRms,"%sRms", shmName);
+                        daoInfo("SHM = %s\n", shmName);
                         break;
             case 't':	(void)sscanf(*argv++,"%d",&popSize); argc -= 1;	break;
             case 'L':

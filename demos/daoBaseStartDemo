@@ -23,7 +23,7 @@ tmux send-keys -t $tmuxname "daoClock -L demo demoClock" C-M
 echo "Done starting DAO Demo random writer process."
 
 
-tmuxname="DEMOTimeDiff"
+tmuxname="DEMOtiming"
 tmux send-keys -t $tmuxname C-c 2> /dev/null
 sleep 1
 echo "Executing daoTimeDiff -L demoClock demo 1 1 demoLatency in tmux session $tmuxname"
@@ -33,4 +33,12 @@ tmux send-keys -t $tmuxname "daoTimeDiff -L demoClock demo 1 1 demoLatency" C-M
 echo "Done starting DAO Demo time differenc process."
 
 
+muxname="DEMOtimingStat"
+tmux send-keys -t $tmuxname C-c 2> /dev/null
+sleep 1
+echo "Executing daoTimeDiffStat -s demoLatency -t 100 -L in tmux session $tmuxname"
+tmux new -d -s $tmuxname
+sleep 1
+tmux send-keys -t $tmuxname "daoTimeDiffStat -s demoLatency -t 100 -L" C-M
+echo "Done starting DAO Demo time statistic process."
 
