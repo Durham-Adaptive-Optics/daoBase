@@ -59,13 +59,13 @@ int NBIMAGES = 10;
  */
 char * daoGetTimeStamp()
 {
-    struct timeval curTime;
+    struct timespec curTime;
     //gettimeofday(&curTime, NULL);
     clock_gettime(CLOCK_REALTIME, &curTime);
-    int micro = curTime.tv_usec;
+    int micro = (int)((double)curTime.tv_nsec/1000);
     char buffer [80];
     strftime(buffer, 80, "%Y-%m-%d_%H:%M:%S", localtime(&curTime.tv_sec));
-    static char currentTime[32] = "";
+    static char currentTime[128] = "";
     sprintf(currentTime, "%s:%d", buffer, micro);
     return currentTime;
 }
@@ -342,10 +342,10 @@ int_fast8_t daoImage2Shm(float *procim, int nbVal, IMAGE *image)
 
     image[IMAGE_INDEX].md[0].write = 0;
     image[IMAGE_INDEX].md[0].cnt0++;
-    struct timeval t;
+    struct timespec t;
     //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_usec);
+    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }
@@ -356,8 +356,6 @@ int_fast8_t daoImage2Shm(float *procim, int nbVal, IMAGE *image)
 int_fast8_t daoImagePart2Shm(float *procim, int nbVal, IMAGE *image, int position) 
 {
     daoTrace("\n");
-    int semval = 0;
-    int ss;
     int pp;
     image[IMAGE_INDEX].md[0].write = 1;
 
@@ -395,10 +393,10 @@ int_fast8_t daoImagePart2ShmFinalize(IMAGE *image)
             sem_post(image[IMAGE_INDEX].semlog);
         }
     }
-    struct timeval t;
+    struct timespec t;
     //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_usec);
+    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
     image[IMAGE_INDEX].md[0].cnt0++;
     return DAO_SUCCESS;
 }
@@ -436,10 +434,10 @@ int_fast8_t daoImage2ShmUI16(unsigned short *procim, int nbVal, IMAGE *image)
 
     image[IMAGE_INDEX].md[0].write = 0;
     image[IMAGE_INDEX].md[0].cnt0++;
-    struct timeval t;
+    struct timespec t;
     //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_usec);
+    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }
@@ -477,10 +475,10 @@ int_fast8_t daoImage2ShmSI16(short *procim, int nbVal, IMAGE *image)
 
     image[IMAGE_INDEX].md[0].write = 0;
     image[IMAGE_INDEX].md[0].cnt0++;
-    struct timeval t;
+    struct timespec t;
     //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_usec);
+    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }
@@ -518,10 +516,10 @@ int_fast8_t daoImage2ShmUI32(unsigned int *procim, int nbVal, IMAGE *image)
 
     image[IMAGE_INDEX].md[0].write = 0;
     image[IMAGE_INDEX].md[0].cnt0++;
-    struct timeval t;
+    struct timespec t;
     //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_usec);
+    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }
@@ -559,10 +557,10 @@ int_fast8_t daoImage2ShmSI32(int *procim, int nbVal, IMAGE *image)
 
     image[IMAGE_INDEX].md[0].write = 0;
     image[IMAGE_INDEX].md[0].cnt0++;
-    struct timeval t;
+    struct timespec t;
     //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_usec);
+    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }

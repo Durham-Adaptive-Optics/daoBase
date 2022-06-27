@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 bld.shlib(
-	source = 'daoBase.c',
+	source = 'c/daoBase.c',
 	includes = '../include',
 	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
 	target = 'daoBase',

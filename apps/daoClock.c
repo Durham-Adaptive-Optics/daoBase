@@ -42,7 +42,6 @@ typedef int bool_t;
 #endif
 
 /*==========================================================================*/
-static int	sDebug=0;						/* show debug output */
 static int	sNdx=0;							/* board index */
 static int	sExit=0;						/* program exit code */
 
@@ -94,21 +93,12 @@ static void ShowHelp(void)
 /*--------------------------------------------------------------------------*/
 static int clockRealTimeLoop(void *thread_data)
 {
-    int status;
-    long cntloop;
-    long cnt;
-    long ii;
-    int k;
-
 
     // MAIN LOOP
     printf("ENTERING LOOP\n");
     fflush(stdout);
-    cntloop = 0;
     struct timeval t[2];
     double elapsedTime;
-    double freq;
-    int tcnt=0;    
     unsigned int clock[1]; 
     int frameCnt = 0;
     gettimeofday(&t[1],NULL);  
@@ -134,13 +124,13 @@ static int clockRealTimeLoop(void *thread_data)
     printf("EXITING MAIN LOOP\n");
     fflush(stdout);
 
-    return 0;
+    return DAO_SUCCESS;
 }
     
 /*--------------------------------------------------------------------------*/
 static int realTimeLoop()
 {
-    int status, k;
+    int status;
     // register interrupt signal to terminate the main loop
     signal(SIGINT, endme);
 
@@ -160,8 +150,13 @@ static int realTimeLoop()
 
     int camThreadVal=0;
     camThreadVal = pthread_create(&controllerThread, NULL, clockRealTimeLoop, (void *)&threadIdCtrl);
+    if (camThreadVal != 0)
+    {
+        daoError("Cannot create thread, err\n");
+        return DAO_ERROR;
+    }
     pthread_join(controllerThread, NULL);
-    return 0;
+    return DAO_SUCCESS;
 }
 
 static void DecodeArgs(int argc, char **argv)
@@ -170,7 +165,7 @@ static void DecodeArgs(int argc, char **argv)
      */
 {
     char	*str;
-    int status, a1;
+    int a1;
 
     argv += 1;	argc -= 1;					/* skip program name */
 

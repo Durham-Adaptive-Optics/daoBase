@@ -88,7 +88,6 @@ static int realTimeLoop()
     int outSize = outShm[0].md[0].size[0]*outShm[0].md[0].size[1];
     struct timeval t[4];
     double elapsedTime;
-    double writeTime=0;
     gettimeofday(&t[1],NULL);    
     int k;
     float outCmd[outSize];
