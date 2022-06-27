@@ -49,3 +49,13 @@ daoTimeDiffStat = bld.program(
 	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
 	use = 'daoBase'
 	)
+
+daoCommandFilter = bld.program(
+	source = 'daoCommandFilter.c',
+	target = 'daoCommandFilter',
+	includes = '../include',
+	linkflags = ['-L../build/src/'],
+	ldflags = ['-ldaoBase' , '-lpthread', '-lrt', '-lm'],
+	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
+	use = 'daoBase'
+	)
