@@ -180,7 +180,7 @@ static void DecodeArgs(int argc, char **argv)
                         break;
                         break;
             case 'L':
-                        printf("Simple Camera Reader and Writer from SHM real time control\n");
+                        printf("Time Difference between 2 SHM write\n");
                     	(void)sscanf(*argv++,"%s",shm0Name); argc -= 1;
                     	(void)sscanf(*argv++,"%s",shm1Name); argc -= 1;
                     	(void)sscanf(*argv++,"%d",&sem0); argc -= 1;

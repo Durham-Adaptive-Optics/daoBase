@@ -39,3 +39,13 @@ daoReadWrite = bld.program(
 	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
 	use = 'daoBase'
 	)
+
+daoTimeDiffStat = bld.program(
+	source = 'daoTimeDiffStat.c',
+	target = 'daoTimeDiffStat',
+	includes = '../include',
+	linkflags = ['-L../build/src/'],
+	ldflags = ['-ldaoBase' , '-lpthread', '-lrt', '-lm'],
+	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
+	use = 'daoBase'
+	)

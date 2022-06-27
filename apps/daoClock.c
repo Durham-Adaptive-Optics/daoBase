@@ -100,7 +100,6 @@ static int clockRealTimeLoop(void *thread_data)
     struct timeval t[2];
     double elapsedTime;
     unsigned int clock[1]; 
-    int frameCnt = 0;
     gettimeofday(&t[1],NULL);  
     float pauseTime;
     pauseTime = 1e6/frequency-50;
@@ -110,8 +109,8 @@ static int clockRealTimeLoop(void *thread_data)
     {
         usleep(pauseTime);
         clock[0]++;// = clock[0] + 1;
+        shm[0].md[0].cnt2++; 
         daoImage2ShmUI32((unsigned int*)clock, 1, &shm[0]);
-        frameCnt++;
         t[0]=t[1];        
         gettimeofday(&t[1],NULL);
         elapsedTime = (t[1].tv_sec - t[0].tv_sec) * 1000.0;    // sec to ms

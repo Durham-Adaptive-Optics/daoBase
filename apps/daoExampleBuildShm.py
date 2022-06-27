@@ -10,3 +10,6 @@ import shmlib
 import numpy as np
 shm=shmlib.shm('/tmp/demoShm.im.shm',np.zeros((100,100)).astype(np.float32))
 clockShm=shmlib.shm('/tmp/demoClockShm.im.shm',np.zeros((1,1)).astype(np.uint32))
+
+latency = shmlib.shm('/tmp/demoLatencyShm.im.shm',\
+                np.zeros((1, 1)).astype(np.float32))

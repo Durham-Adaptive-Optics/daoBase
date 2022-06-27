@@ -99,7 +99,7 @@ static int realTimeLoop()
         if (sem_timedwait(clockShm[0].semptr[0], &timeout) != -1)
         {
             t[0] = t[1];
-            outShm[0].md[0].cnt2 = outShm[0].md[0].cnt2 + 1;
+            outShm[0].md[0].cnt2 = clockShm[0].md[0].cnt2;
             gettimeofday(&t[2], NULL);
             for (k = 0; k < outSize; k++)
             {
