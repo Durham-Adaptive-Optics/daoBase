@@ -29,5 +29,7 @@ def build(bld):
 	bld.install_files(bld.env.PREFIX+'/include', 'include/daoBase.h', relative_trick=False)
 	bld.install_files(bld.env.PREFIX+'/include', 'include/daoImageStruct.h', relative_trick=False)
 	bld.install_files(bld.env.PREFIX+'/python', 'src/python/shmlib.py', relative_trick=False)
-	bld.install_files(bld.env.PREFIX+'/bin', 'apps/daoExampleBuildShm.py', relative_trick=False)
+	bld.install_files(bld.env.PREFIX+'/bin', 'demos/daoBaseDemoBuildShm.py', relative_trick=False)
+	bld.install_files(bld.env.PREFIX+'/bin', 'demos/daoBaseStartDemo', relative_trick=False)
+	bld.install_files(bld.env.PREFIX+'/bin', 'demos/daoBaseStopDemo', relative_trick=False)
 #os.chmod(bld.env.PREFIX+'/bin/daoExampleBuildShm.py', 0o755)
