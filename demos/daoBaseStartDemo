@@ -6,39 +6,39 @@ echo "$datestr"
 
 tmuxname="DEMOClock"
 tmux send-keys -t $tmuxname C-c 2> /dev/null
-sleep 1
+sleep 0.1
 echo "Executing daoClock -L demoClock $1 in tmux session $tmuxname"
 tmux new -d -s $tmuxname
-sleep 1
+sleep 0.1
 tmux send-keys -t $tmuxname "daoClock -L demoClock $1" C-M
 echo "Done starting DAO Demo clock process."
 
 tmuxname="DEMORandWriter"
 tmux send-keys -t $tmuxname C-c 2> /dev/null
-sleep 1
-echo "Executing daoRandWriteSync -L demo demoClock in tmux session $tmuxname"
+sleep 0.1
+echo "Executing daoRandWriterSync -L demo demoClock in tmux session $tmuxname"
 tmux new -d -s $tmuxname
-sleep 1
-tmux send-keys -t $tmuxname "daoClock -L demo demoClock" C-M
+sleep 0.1
+tmux send-keys -t $tmuxname "daoRandWriterSync -L demo demoClock" C-M
 echo "Done starting DAO Demo random writer process."
 
 
 tmuxname="DEMOtiming"
 tmux send-keys -t $tmuxname C-c 2> /dev/null
-sleep 1
+sleep 0.1
 echo "Executing daoTimeDiff -L demoClock demo 1 1 demoLatency in tmux session $tmuxname"
 tmux new -d -s $tmuxname
-sleep 1
+sleep 0.1
 tmux send-keys -t $tmuxname "daoTimeDiff -L demoClock demo 1 1 demoLatency" C-M
 echo "Done starting DAO Demo time differenc process."
 
 
-muxname="DEMOtimingStat"
+tmuxname="DEMOtimingStat"
 tmux send-keys -t $tmuxname C-c 2> /dev/null
-sleep 1
+sleep 0.1
 echo "Executing daoTimeDiffStat -s demoLatency -t 100 -L in tmux session $tmuxname"
 tmux new -d -s $tmuxname
-sleep 1
+sleep 0.1
 tmux send-keys -t $tmuxname "daoTimeDiffStat -s demoLatency -t 100 -L" C-M
 echo "Done starting DAO Demo time statistic process."
 
