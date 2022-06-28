@@ -194,8 +194,8 @@ class shm:
         # feed the relevant dictionary entries with available data
         # ---------------------------------------------------------
         self.npdtype          = data.dtype
-        print(fname.split('/')[2].split('.')[0])
-        self.mtdata['imname'] = fname.split('/')[2].split('.')[0]#fname.ljust(80, ' ')
+        print(fname.split('/')[-1].split('.')[0])
+        self.mtdata['imname'] = fname.split('/')[-1].split('.')[0]#fname.ljust(80, ' ')
         self.mtdata['naxis']  = data.ndim
         self.mtdata['size']   = data.shape
         self.mtdata['nel']    = data.size
