@@ -146,7 +146,7 @@ class shm:
         self.fname = fname
         # ---------------
         # Creating semaphore, x9
-        singleName=self.fname.split('/')[2].split('.')[0]
+        singleName=self.fname.split('/')[-1].split('.')[0]
         self.semaphores = []
         for k in range(10):
             semName = '/'+singleName+'_sem'+'0'+str(k)
