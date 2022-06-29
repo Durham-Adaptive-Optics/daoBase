@@ -86,11 +86,12 @@ static int realTimeLoop()
     daoShm2Img(clockShmName, "", &clockShm[0]);
 
     int outSize = outShm[0].md[0].size[0]*outShm[0].md[0].size[1];
-    struct timeval t[4];
+    struct timespec t[4];
     double elapsedTime;
-    gettimeofday(&t[1],NULL);    
+    clock_gettime(CLOCK_REALTIME, &t[1]);
     int k;
     float outCmd[outSize];
+    // time out for semaphore wait
     struct timespec timeout;
     timeout.tv_sec = 1; // 1 second timeout
     while (end ==0)
@@ -100,7 +101,7 @@ static int realTimeLoop()
         {
             t[0] = t[1];
             outShm[0].md[0].cnt2 = outShm[0].md[0].cnt2 + 1;
-            gettimeofday(&t[2], NULL);
+            clock_gettime(CLOCK_REALTIME, &t[2]);
             for (k = 0; k < outSize; k++)
             {
                 outCmd[k] = 1 - 2 * (float)rand() / (float)RAND_MAX;
@@ -108,9 +109,9 @@ static int realTimeLoop()
 
             daoImage2Shm((float *)outCmd, outSize, &outShm[0]);
 
-            gettimeofday(&t[1], NULL);
-            elapsedTime = (t[1].tv_sec - t[0].tv_sec) * 1000.0;
-            elapsedTime += (t[1].tv_usec - t[0].tv_usec) / 1000.0;
+            clock_gettime(CLOCK_REALTIME, &t[1]);
+            elapsedTime = (t[1].tv_sec - t[0].tv_sec) * 1e3;
+            elapsedTime += (t[1].tv_nsec - t[0].tv_nsec) / 1e6;
             printf("\rfps = %.3f Hz, out[%6.3f, %6.3f,...,%6.3f]", 1e6 / (1000 * elapsedTime),
                    outShm[0].array.F[0],
                    outShm[0].array.F[1],

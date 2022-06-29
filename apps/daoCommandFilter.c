@@ -87,9 +87,9 @@ static int realTimeLoop()
 
     int inSize = inShm[0].md[0].size[0]*inShm[0].md[0].size[1];
     int outSize = outShm[0].md[0].size[0]*outShm[0].md[0].size[1];
-    struct timeval t[3];
+    struct timespec t[3];
     double elapsedTime;
-    gettimeofday(&t[1],NULL);    
+    clock_gettime(CLOCK_REALTIME, &t[1]);
     int k;
     float outCmd[outSize];
     float dummyFilter;
@@ -109,9 +109,9 @@ static int realTimeLoop()
         daoImage2Shm((float*)outCmd, outSize, &outShm[0]);
         //daoImage2Shm(&inShm[0].array.F[0], outSize, &outShm[0]);
 
-        gettimeofday(&t[1],NULL);
-        elapsedTime = (t[1].tv_sec - t[0].tv_sec) * 1000.0;
-        elapsedTime += (t[1].tv_usec - t[0].tv_usec) / 1000.0;
+        clock_gettime(CLOCK_REALTIME, &t[1]);
+        elapsedTime = (t[1].tv_sec - t[0].tv_sec) * 1e3;
+        elapsedTime += (t[1].tv_nsec - t[0].tv_nsec) / 1e6;
         printf("\r fps = %.3f Hz, %d in=[%6.3f,%6.3f,...,%6.3f], out[%6.3f, %6.3f,...,%6.3f]", 1e6/(1000*elapsedTime), 
                                                                               inSize, inShm[0].array.F[0],
                                                                               inShm[0].array.F[1],

@@ -97,10 +97,10 @@ static int clockRealTimeLoop(void *thread_data)
     // MAIN LOOP
     printf("ENTERING LOOP\n");
     fflush(stdout);
-    struct timeval t[2];
+    struct timespec t[2];
     double elapsedTime;
     unsigned int clock[1]; 
-    gettimeofday(&t[1],NULL);  
+    clock_gettime(CLOCK_REALTIME, &t[1]);
     float pauseTime;
     pauseTime = 1e6/frequency-50;
     // timing emulation there is a small offset of about 50 us...
@@ -111,10 +111,10 @@ static int clockRealTimeLoop(void *thread_data)
         clock[0]++;// = clock[0] + 1;
         shm[0].md[0].cnt2++; 
         daoImage2ShmUI32((unsigned int*)clock, 1, &shm[0]);
-        t[0]=t[1];        
-        gettimeofday(&t[1],NULL);
-        elapsedTime = (t[1].tv_sec - t[0].tv_sec) * 1000.0;    // sec to ms
-        elapsedTime += (t[1].tv_usec - t[0].tv_usec) / 1000.0; // us to ms
+        t[0]=t[1];
+        clock_gettime(CLOCK_REALTIME, &t[1]);
+        elapsedTime = (t[1].tv_sec - t[0].tv_sec) * 1e3;    // sec to ms
+        elapsedTime += (t[1].tv_nsec - t[0].tv_nsec) / 1e6; // us to ms
         elapsedTime = elapsedTime; // in sec... :-)
         printf("\rfps = %.3f Hz,", 1e6/(1000*elapsedTime));
         fflush(stdout);

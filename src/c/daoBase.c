@@ -60,7 +60,6 @@ int NBIMAGES = 10;
 char * daoGetTimeStamp()
 {
     struct timespec curTime;
-    //gettimeofday(&curTime, NULL);
     clock_gettime(CLOCK_REALTIME, &curTime);
     int micro = (int)((double)curTime.tv_nsec/1000);
     char buffer [80];
@@ -343,7 +342,6 @@ int_fast8_t daoImage2Shm(float *procim, int nbVal, IMAGE *image)
     image[IMAGE_INDEX].md[0].write = 0;
     image[IMAGE_INDEX].md[0].cnt0++;
     struct timespec t;
-    //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
     image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
@@ -394,7 +392,6 @@ int_fast8_t daoImagePart2ShmFinalize(IMAGE *image)
         }
     }
     struct timespec t;
-    //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
     image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
     image[IMAGE_INDEX].md[0].cnt0++;
@@ -435,7 +432,6 @@ int_fast8_t daoImage2ShmUI16(unsigned short *procim, int nbVal, IMAGE *image)
     image[IMAGE_INDEX].md[0].write = 0;
     image[IMAGE_INDEX].md[0].cnt0++;
     struct timespec t;
-    //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
     image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
@@ -476,7 +472,6 @@ int_fast8_t daoImage2ShmSI16(short *procim, int nbVal, IMAGE *image)
     image[IMAGE_INDEX].md[0].write = 0;
     image[IMAGE_INDEX].md[0].cnt0++;
     struct timespec t;
-    //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
     image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
@@ -517,7 +512,6 @@ int_fast8_t daoImage2ShmUI32(unsigned int *procim, int nbVal, IMAGE *image)
     image[IMAGE_INDEX].md[0].write = 0;
     image[IMAGE_INDEX].md[0].cnt0++;
     struct timespec t;
-    //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
     image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
@@ -558,7 +552,6 @@ int_fast8_t daoImage2ShmSI32(int *procim, int nbVal, IMAGE *image)
     image[IMAGE_INDEX].md[0].write = 0;
     image[IMAGE_INDEX].md[0].cnt0++;
     struct timespec t;
-    //gettimeofday(&t, NULL);
     clock_gettime(CLOCK_REALTIME, &t);
     image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 

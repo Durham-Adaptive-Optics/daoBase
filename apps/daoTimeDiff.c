@@ -95,50 +95,95 @@ static int realTimeLoop()
     int64_t elapsedTimeNs;
     int64_t frameId0;
     int64_t frameId1;
+    int64_t frameIdDiff;
     int last = 0;
     float latency[1];
+    struct timespec timeout;
     while (end ==0)
     {
+        clock_gettime(CLOCK_REALTIME, &timeout);
+        timeout.tv_sec += 1; // 1 second timeout
         // Wait for new image
-        sem_wait(shm0[0].semptr[sem0]);
-        // wait for 2nd shm
-        sem_wait(shm1[0].semptr[sem1]);
-        t[0] = shm0[0].md[0].atime.tsfixed.secondlong;
-        t[1] = shm1[0].md[0].atime.tsfixed.secondlong;
-        frameId0 = shm0[0].md[0].cnt2;
-        frameId1 = shm1[0].md[0].cnt2;
-        elapsedTimeNs = t[1] - t[0];
-
-        latency[0] = (float)elapsedTimeNs / 1e3;
-        if (frameId0 == frameId1)
+        if (sem_timedwait(shm0[0].semptr[sem0], &timeout) != -1)
         {
-            daoImage2Shm((float *)latency, 1, &latencyShm[0]);
-            if (last == 0)
+            //sem_wait(shm0[0].semptr[sem0]);
+            t[0] = shm0[0].md[0].atime.tsfixed.secondlong;
+            frameId0 = shm0[0].md[0].cnt2;
+            clock_gettime(CLOCK_REALTIME, &timeout);
+            timeout.tv_sec += 1; // 1 second timeout
+            // wait for 2nd shm
+            if (sem_timedwait(shm1[0].semptr[sem1], &timeout) != -1)
             {
-                printf("\n");
+                // sem_wait(shm1[0].semptr[sem1]);
+                t[1] = shm1[0].md[0].atime.tsfixed.secondlong;
+                frameId1 = shm1[0].md[0].cnt2;
+                // t[0] = shm0[0].md[0].atime.tsfixed.secondlong;
+                // frameId0 = shm0[0].md[0].cnt2;
+                // Check if timeout
+                elapsedTimeNs = t[1] - t[0];
+                latency[0] = (float)elapsedTimeNs / 1e3;
+                frameIdDiff = frameId1-frameId0;
+                if (frameId0 == frameId1)
+                {
+                    daoImage2Shm((float *)latency, 1, &latencyShm[0]);
+                    if (last == 0)
+                    {
+                        printf("\n");
+                    }
+                    printf("\r    sync frame %ld %ld delta = %ld, %12ld-%12ld=%ld -> dt = %.3f us",
+                           frameId0, frameId1, frameIdDiff, t[0], t[1], elapsedTimeNs, (double)elapsedTimeNs / 1e3);
+                    last = 1;
+                }
+                else
+                {
+                    if (last == 1)
+                    {
+                        printf("\n");
+                    }
+                    printf("\r de-sync frame %ld %ld, delta = %ld                 -> dt = %.3f us",
+                           frameId0, frameId1, frameIdDiff, (double)elapsedTimeNs / 1e3);
+                    // try to resync
+                    if (frameIdDiff > 0)
+                    {
+
+                        clock_gettime(CLOCK_REALTIME, &timeout);
+                        timeout.tv_sec += 1; // 1 second timeout
+                        // Wait for new image
+                        if (sem_timedwait(shm0[0].semptr[sem0], &timeout) == -1)
+                        {
+                            printf("Cannot resync input...");
+                        }
+                    }
+                    else
+                    {
+                        clock_gettime(CLOCK_REALTIME, &timeout);
+                        timeout.tv_sec += 1; // 1 second timeout
+                        // Wait for new image
+                        if (sem_timedwait(shm1[0].semptr[sem1], &timeout) == -1)
+                        {
+                            printf("Cannot resync ouput...");
+                        }
+                        
+                    }
+                    last = 0;
+                }
+                fflush(stdout);
             }
-            printf("\r    sync frame %ld %ld, %12ld-%12ld=%ld -> dt = %.3f us", 
-                   frameId0, frameId1, t[0], t[1], elapsedTimeNs, (double)elapsedTimeNs/1e3);
-            last = 1;
+            else
+            {
+                printf("\rTimeout: shm1, error:%s", strerror(errno));
+                fflush(stdout);
+            }
         }
         else
         {
-            if (last == 1)
-            {
-                printf("\n");
-            }
-            printf("\r de-sync frame %ld %ld                  -> dt = %.3f us", 
-                    frameId0, frameId1, (double)elapsedTimeNs/1e3);
-            last = 0;
+            printf("\rTimeout: shm0, error:%s", strerror(errno));
+            fflush(stdout);
         }
-        fflush(stdout);
     }
-
 
     printf("EXITING MAIN LOOP\n");
     fflush(stdout);
-
-
 
     return 0;
 }
@@ -180,7 +225,7 @@ static void DecodeArgs(int argc, char **argv)
                         break;
                         break;
             case 'L':
-                        printf("Time Difference between 2 SHM write\n");
+                        printf("Simple Camera Reader and Writer from SHM real time control\n");
                     	(void)sscanf(*argv++,"%s",shm0Name); argc -= 1;
                     	(void)sscanf(*argv++,"%s",shm1Name); argc -= 1;
                     	(void)sscanf(*argv++,"%d",&sem0); argc -= 1;

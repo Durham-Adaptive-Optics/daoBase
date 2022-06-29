@@ -117,67 +117,71 @@ static int realTimeLoop()
     int head=0;
     int c=0;
     printf("Average telemetry running for %s -> %s, popSize=%d\n",shmName, shmNameAvg, popSize );
-    struct timeval t[3];
-    gettimeofday(&t[1],NULL);    
+
+    struct timespec timeout;
+
     while (end ==0)
     {
+        clock_gettime(CLOCK_REALTIME, &timeout);
+        timeout.tv_sec += 1; // 1 second timeout
         // Wait for new image
-        sem_wait(shm[0].semptr[1]);
-        // if new image, add it in the cir buf.
-        for (k=0; k<nbValue; k++)
+        if (sem_timedwait(shm[0].semptr[9], &timeout) != -1)
         {
-            valueCircBufAvg[k][tail] = shm[0].array.F[k]/popSize;
-            valueCircBuf[k][tail] = shm[0].array.F[k];
-            if (isnan(valueCircBufAvg[k][tail]))
+            // if new image, add it in the cir buf.
+            for (k = 0; k < nbValue; k++)
             {
-                valueCircBufAvg[k][tail] = 0.0;
-                valueCircBuf[k][tail] = 0.0;
-            }
-        }
-        tail = (tail + 1) % (popSize + 1);
-        for (k=0; k<nbValue; k++)
-        {
-            if (!isnan(valueCircBufAvg[k][head]))
-            {
-                // add value in the head
-                avgValue[k] += valueCircBufAvg[k][head];
-            }
-            else
-            {
-                // add value in the head
-                avgValue[k] += 0.0;
-            }
-            // remove the tail value
-            avgValue[k] -= valueCircBufAvg[k][tail];
-        }
-        for (k=0; k<nbValue; k++)
-        {
-            for (c=0; c< popSize; c++)
-            {
-                if (!isnan(valueCircBuf[k][c]))
+                valueCircBufAvg[k][tail] = shm[0].array.F[k] / popSize;
+                valueCircBuf[k][tail] = shm[0].array.F[k];
+                if (isnan(valueCircBufAvg[k][tail]))
                 {
-                    // add value in the c
-                    rmsValue[k] += pow(valueCircBuf[k][c] - avgValue[k], 2);
+                    valueCircBufAvg[k][tail] = 0.0;
+                    valueCircBuf[k][tail] = 0.0;
+                }
+            }
+            tail = (tail + 1) % (popSize + 1);
+            for (k = 0; k < nbValue; k++)
+            {
+                if (!isnan(valueCircBufAvg[k][head]))
+                {
+                    // add value in the head
+                    avgValue[k] += valueCircBufAvg[k][head];
                 }
                 else
                 {
                     // add value in the head
-                    rmsValue[k] += 0.0;
+                    avgValue[k] += 0.0;
                 }
+                // remove the tail value
+                avgValue[k] -= valueCircBufAvg[k][tail];
             }
-            rmsValue[k] = sqrt(rmsValue[k] / popSize);
+            for (k = 0; k < nbValue; k++)
+            {
+                for (c = 0; c < popSize; c++)
+                {
+                    if (!isnan(valueCircBuf[k][c]))
+                    {
+                        // add value in the c
+                        rmsValue[k] += pow(valueCircBuf[k][c] - avgValue[k], 2);
+                    }
+                    else
+                    {
+                        // add value in the head
+                        rmsValue[k] += 0.0;
+                    }
+                }
+                rmsValue[k] = sqrt(rmsValue[k] / popSize);
+            }
+            head = (head + 1) % (popSize + 1);
+
+            daoImage2Shm(avgValue, nbValue, &shmAvg[0]);
+            daoImage2Shm(rmsValue, nbValue, &shmRms[0]);
+            printf("\r(%.3f,%.3f) -> AVG(%.3f,%.3f), RMS(%.3f,%.3f)",
+                   shm[0].array.F[0], shm[0].array.F[1],
+                   shmAvg[0].array.F[0], shmAvg[0].array.F[1],
+                   shmRms[0].array.F[0], shmRms[0].array.F[1]);
+            fflush(stdout);
         }
-        head = (head + 1) % (popSize + 1);
-
-        daoImage2Shm(avgValue, nbValue, &shmAvg[0]);
-        daoImage2Shm(rmsValue, nbValue, &shmRms[0]);
-        printf("\r(%.3f,%.3f) -> AVG(%.3f,%.3f), RMS(%.3f,%.3f)",
-                shm[0].array.F[0], shm[0].array.F[1],
-                shmAvg[0].array.F[0], shmAvg[0].array.F[1],
-                shmRms[0].array.F[0], shmRms[0].array.F[1]);
-        fflush(stdout);
     }
-
 
     printf("EXITING MAIN LOOP\n");
     fflush(stdout);
