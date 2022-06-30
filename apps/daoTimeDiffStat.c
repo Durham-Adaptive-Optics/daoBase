@@ -67,17 +67,17 @@ static char	*sArgv0=NULL;					/* name of executable */
 
 static void ShowHelp(void)
 {
-    printf("%s of " __DATE__ " at " __TIME__ "\n",sArgv0);
-    printf("   arguments:\n");
-    printf("   -h               display this message and exit\n");
-    printf("   -d               display program debug output\n");
+    daoInfo("%s of " __DATE__ " at " __TIME__ "\n",sArgv0);
+    daoInfo("   arguments:\n");
+    daoInfo("   -h               display this message and exit\n");
+    daoInfo("   -d               display program debug output\n");
     /*
      **	Post init tests
      */
-    printf("   -L               real time control loop\n");
-    printf("   -s str           shared memory name to average\n");
-    printf("   -t nloops        number of frame to average\n");
-    printf("\n");
+    daoInfo("   -L               real time control loop\n");
+    daoInfo("   -s str           shared memory name to average\n");
+    daoInfo("   -t nloops        number of frame to average\n");
+    daoInfo("\n");
 }
 
 /*--------------------------------------------------------------------------*/
@@ -86,8 +86,8 @@ static int realTimeLoop()
     // register interrupt signal to terminate the main loop
     signal(SIGINT, endme);
 
-    printf("Starting loop, %s -> %s, popSize=%d\n",shmName, shmNameAvg, popSize );
-    printf("               %s -> %s, popSize=%d\n",shmName, shmNameRms, popSize );
+    daoInfo("Starting loop, %s -> %s, popSize=%d\n",shmName, shmNameAvg, popSize );
+    daoInfo("               %s -> %s, popSize=%d\n",shmName, shmNameRms, popSize );
     fflush(stdout);
     shm = (IMAGE*) malloc(sizeof(IMAGE));
     shmAvg = (IMAGE*) malloc(sizeof(IMAGE));
@@ -116,7 +116,7 @@ static int realTimeLoop()
     int tail=0;
     int head=0;
     int c=0;
-    printf("Average telemetry running for %s -> %s, popSize=%d\n",shmName, shmNameAvg, popSize );
+    daoInfo("Average telemetry running for %s -> %s, popSize=%d\n",shmName, shmNameAvg, popSize );
 
     struct timespec timeout;
 
@@ -183,7 +183,7 @@ static int realTimeLoop()
         }
     }
 
-    printf("EXITING MAIN LOOP\n");
+    daoInfo("EXITING MAIN LOOP\n");
     fflush(stdout);
 
 
@@ -234,7 +234,7 @@ static void DecodeArgs(int argc, char **argv)
                         break;
             case 't':	(void)sscanf(*argv++,"%d",&popSize); argc -= 1;	break;
             case 'L':
-                        printf("Average Telemetry real time control\n");
+                        daoInfo("Average Telemetry real time control\n");
                         realTimeLoop();
                         break;
             default:

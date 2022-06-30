@@ -75,27 +75,27 @@ static char	*sArgv0=NULL;					/* name of executable */
 
 static void ShowHelp(void)
 {
-    printf("%s of " __DATE__ " at " __TIME__ "\n",sArgv0);
-    printf("   arguments:\n");
-    printf("   -h               display this message and exit\n");
-    printf("   -d               display program debug output\n");
-    printf("   -l str           display str in output\n");
+    daoInfo("%s of " __DATE__ " at " __TIME__ "\n",sArgv0);
+    daoInfo("   arguments:\n");
+    daoInfo("   -h               display this message and exit\n");
+    daoInfo("   -d               display program debug output\n");
+    daoInfo("   -l str           display str in output\n");
     /*
      **	Post init tests
      */
-    printf("   -L Nb            real time control loop: example camsimClock -L harmoniClock 500\n");
+    daoInfo("   -L Nb            real time control loop: example camsimClock -L harmoniClock 500\n");
     /*
      **	Timing tests
      */
-    printf("   -t nloops        test timing for i/o\n");
-    printf("\n");
+    daoInfo("   -t nloops        test timing for i/o\n");
+    daoInfo("\n");
 }
 /*--------------------------------------------------------------------------*/
 static int clockRealTimeLoop(void *thread_data)
 {
 
     // MAIN LOOP
-    printf("ENTERING LOOP\n");
+    daoInfo("ENTERING LOOP\n");
     fflush(stdout);
     struct timespec t[2];
     double elapsedTime;
@@ -120,7 +120,7 @@ static int clockRealTimeLoop(void *thread_data)
         fflush(stdout);
     }
 
-    printf("EXITING MAIN LOOP\n");
+    daoInfo("EXITING MAIN LOOP\n");
     fflush(stdout);
 
     return DAO_SUCCESS;
@@ -143,8 +143,8 @@ static int realTimeLoop()
     usleep(1000);
     done=clock();
     diff = (double)(done - launch) / CLOCKS_PER_SEC;
-    printf("\n%ld, %ld, %ld\n",done, launch, CLOCKS_PER_SEC);
-    printf("clock init status = %d, init time=%.3f\n", status, diff);
+    daoInfo("\n%ld, %ld, %ld\n",done, launch, CLOCKS_PER_SEC);
+    daoInfo("clock init status = %d, init time=%.3f\n", status, diff);
     fflush(stdout);
 
     int camThreadVal=0;

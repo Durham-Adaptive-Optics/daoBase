@@ -581,10 +581,10 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
         for(s1=NBsem; s1<100; s1++)
         {
             sprintf(fname, "/dev/shm/sem.%s_sem%02ld", image->md[0].name, s1);
-            //printf("removing %s\n", fname);
+            daoDebug("removing %s\n", fname);
             remove(fname);
         }
-        //printf("Done\n");
+        daoDebug("Done\n");
         free(image->semptr);
         image->semptr = NULL;
     }
@@ -596,7 +596,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
             free(image->semptr);
 
         image->md[0].sem = NBsem;
-        printf("malloc semptr %d entries\n", image->md[0].sem);
+        daoInfo("malloc semptr %d entries\n", image->md[0].sem);
         image->semptr = (sem_t**) malloc(sizeof(sem_t**)*image->md[0].sem);
 
 

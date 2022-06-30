@@ -61,15 +61,15 @@ static char	*sArgv0=NULL;					/* name of executable */
 
 static void ShowHelp(void)
 {
-    printf("%s of " __DATE__ " at " __TIME__ "\n",sArgv0);
-    printf("   arguments:\n");
-    printf("   -h               display this message and exit\n");
-    printf("   -d               display program debug output\n");
+    daoInfo("%s of " __DATE__ " at " __TIME__ "\n",sArgv0);
+    daoInfo("   arguments:\n");
+    daoInfo("   -h               display this message and exit\n");
+    daoInfo("   -d               display program debug output\n");
     /*
      **	Post init tests
      */
-    printf("   -L sham              real time control loop\n");
-    printf("\n");
+    daoInfo("   -L sham              real time control loop\n");
+    daoInfo("\n");
 }
 
 /*--------------------------------------------------------------------------*/
@@ -123,7 +123,7 @@ static int realTimeLoop()
     }
 
 
-    printf("EXITING MAIN LOOP\n");
+    daoInfo("EXITING MAIN LOOP\n");
     fflush(stdout);
 
 
@@ -168,7 +168,7 @@ static void DecodeArgs(int argc, char **argv)
                         break;
                         break;
             case 'L':
-                        printf("Simple filter from SHM real time control\n");
+                        daoInfo("Simple filter from SHM real time control\n");
                     	(void)sscanf(*argv++,"%s",inShmName); argc -= 1;
                     	(void)sscanf(*argv++,"%s",outShmName); argc -= 1;
                         realTimeLoop();

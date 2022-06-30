@@ -65,15 +65,15 @@ static char	*sArgv0=NULL;					/* name of executable */
 
 static void ShowHelp(void)
 {
-    printf("%s of " __DATE__ " at " __TIME__ "\n",sArgv0);
-    printf("   arguments:\n");
-    printf("   -h               display this message and exit\n");
-    printf("   -d               display program debug output\n");
+    daoInfo("%s of " __DATE__ " at " __TIME__ "\n",sArgv0);
+    daoInfo("   arguments:\n");
+    daoInfo("   -h               display this message and exit\n");
+    daoInfo("   -d               display program debug output\n");
     /*
      **	Post init tests
      */
-    printf("   -L sham              real time control loop\n");
-    printf("\n");
+    daoInfo("   -L sham              real time control loop\n");
+    daoInfo("\n");
 }
 
 /*--------------------------------------------------------------------------*/
@@ -151,7 +151,7 @@ static int realTimeLoop()
                         // Wait for new image
                         if (sem_timedwait(shm0[0].semptr[sem0], &timeout) == -1)
                         {
-                            printf("Cannot resync input...");
+                            daoWarning("Cannot resync input...\n");
                         }
                     }
                     else
@@ -161,7 +161,7 @@ static int realTimeLoop()
                         // Wait for new image
                         if (sem_timedwait(shm1[0].semptr[sem1], &timeout) == -1)
                         {
-                            printf("Cannot resync ouput...");
+                            daoWarning("Cannot resync ouput...\n");
                         }
                         
                     }
@@ -182,7 +182,7 @@ static int realTimeLoop()
         }
     }
 
-    printf("EXITING MAIN LOOP\n");
+    daoInfo("EXITING MAIN LOOP\n");
     fflush(stdout);
 
     return 0;
@@ -225,7 +225,7 @@ static void DecodeArgs(int argc, char **argv)
                         break;
                         break;
             case 'L':
-                        printf("Simple Camera Reader and Writer from SHM real time control\n");
+                        daoInfo("Simple Camera Reader and Writer from SHM real time control\n");
                     	(void)sscanf(*argv++,"%s",shm0Name); argc -= 1;
                     	(void)sscanf(*argv++,"%s",shm1Name); argc -= 1;
                     	(void)sscanf(*argv++,"%d",&sem0); argc -= 1;
