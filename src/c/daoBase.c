@@ -632,7 +632,7 @@ int_fast8_t daoImageCreate(IMAGE *image, const char *name, long naxis, uint32_t 
     int SM_fd; // shared memory file descriptor
     char SM_fname[200];
     int result;
-    IMAGE_METADATA *map;
+    IMAGE_METADATA *map=NULL;
     char *mapv; // pointed cast in bytes
 
     int kw;

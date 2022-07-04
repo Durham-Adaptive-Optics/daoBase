@@ -51,8 +51,8 @@ IMAGE *shmAvg;
 IMAGE *shmRms;
 
 char shmName[32];
-char shmNameAvg[32];
-char shmNameRms[32];
+char shmNameAvg[64];
+char shmNameRms[64];
 int popSize;
 
 static int   		end     = 0;		           // termination flag

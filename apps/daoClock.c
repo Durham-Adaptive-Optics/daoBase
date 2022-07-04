@@ -91,9 +91,9 @@ static void ShowHelp(void)
     daoInfo("\n");
 }
 /*--------------------------------------------------------------------------*/
-static int clockRealTimeLoop(void *thread_data)
+void * clockRealTimeLoop(void *thread_data)
 {
-
+    daoInfo("ThreadId=%p\n", thread_data);
     // MAIN LOOP
     daoInfo("ENTERING LOOP\n");
     fflush(stdout);
