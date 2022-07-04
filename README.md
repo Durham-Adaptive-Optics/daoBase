@@ -2,7 +2,7 @@
 basic tools for dao: shm, logging, error,...
 
 # Prerequiries
-waf needs to be installed and in the path: see https://waf.io/book/.
+waf needs to be installed and in the path: see https://waf.io/book/.  
 Another dependency is the posix_ipc python module. Usually the installation is as simple as 
 ```
 pip3 install posx_ipc
