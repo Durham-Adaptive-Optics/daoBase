@@ -24,11 +24,7 @@ def configure(conf):
 
 def build(bld):
 	bld.env.DEFINES=['WAF=1']
-	bld.recurse('src apps')
-	#bld.install_files('/tmp/foo', 'wscript')
+	bld.recurse('src')
 	bld.install_files(bld.env.PREFIX+'/include', 'include/daoBase.h', relative_trick=False)
 	bld.install_files(bld.env.PREFIX+'/include', 'include/daoImageStruct.h', relative_trick=False)
 	bld.install_files(bld.env.PREFIX+'/python', 'src/python/shmlib.py', relative_trick=False)
-	bld.install_files(bld.env.PREFIX+'/bin', 'demos/daoBaseDemoBuildShm.py', relative_trick=False, chmod=0o755)
-	bld.install_files(bld.env.PREFIX+'/bin', 'demos/daoBaseStartDemo', relative_trick=False, chmod=0o755)
-	bld.install_files(bld.env.PREFIX+'/bin', 'demos/daoBaseStopDemo', relative_trick=False, chmod=0o755)
