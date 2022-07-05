@@ -376,6 +376,8 @@ typedef struct          		/**< structure used to store data arrays              
         complex_float *CF;
         complex_double *CD;
 
+        void * V; // add so the cpp interface and reinterpret cast using templaces to required type.
+
 		EVENT_UI8_UI8_UI16_UI8 *event1121;
     } array;                 	/**< pointer to data array */
 	// mem offset 120
