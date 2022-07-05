@@ -15,10 +15,10 @@ from waflib import Configure, Logs, Utils, Context
 #Configure.autoconfig = True # True/False/'clobber'
 
 def options(opt):
-	opt.load('compiler_c gnu_dirs')
+	opt.load('compiler_c compiler_cxx gnu_dirs')
 
 def configure(conf):
-	conf.load('compiler_c gnu_dirs')
+	conf.load('compiler_c compiler_cxx gnu_dirs')
 	conf.write_config_header('config.h')
 	print('→ prefix is ' + conf.options.prefix)
 
@@ -27,4 +27,5 @@ def build(bld):
 	bld.recurse('src')
 	bld.install_files(bld.env.PREFIX+'/include', 'include/daoBase.h', relative_trick=False)
 	bld.install_files(bld.env.PREFIX+'/include', 'include/daoImageStruct.h', relative_trick=False)
+	bld.install_files(bld.env.PREFIX+'/include', 'include/daoShmIfce.hpp', relative_trick=False)
 	bld.install_files(bld.env.PREFIX+'/python', 'src/python/shmlib.py', relative_trick=False)
