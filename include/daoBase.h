@@ -21,18 +21,20 @@
 #define DAO_DEBUG 2
 #define DAO_TRACE 3
 
+#define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
+
 int daoLogLevel = 1;
 #define daoError(fmt, ...) fprintf(stderr, "%s [error] %s:%d: " fmt, daoGetTimeStamp(), __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #define	daoPrint(fmt, ...) \
             do { fprintf(stdout, "%s:%d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
 #define	daoWarning(fmt, ...) \
-            do { if (daoLogLevel>=DAO_WARNING) fprintf(stdout, "%s [warning] %s:%d: " fmt, daoGetTimeStamp(), __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
+            do { if (daoLogLevel>=DAO_WARNING) fprintf(stdout, "%s [warning] %s:%s:%d: " fmt, daoGetTimeStamp(), __FILENAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
 #define	daoInfo(fmt, ...) \
-            do { if (daoLogLevel>=DAO_INFO) fprintf(stdout, "%s [info] %s:%d: " fmt, daoGetTimeStamp(), __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
+            do { if (daoLogLevel>=DAO_INFO) fprintf(stdout, "%s [info] %s:%s:%d: " fmt, daoGetTimeStamp(), __FILENAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
 #define	daoDebug(fmt, ...) \
-            do { if (daoLogLevel>=DAO_DEBUG) fprintf(stdout, "%s [debug] %s:%d: " fmt, daoGetTimeStamp(), __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
+            do { if (daoLogLevel>=DAO_DEBUG) fprintf(stdout, "%s [debug] %s:%s:%d: " fmt, daoGetTimeStamp(), __FILENAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
 #define daoTrace(fmt, ...) \
-            do { if (daoLogLevel>=DAO_TRACE) fprintf(stdout, "%s [trace] %s:%d " fmt, daoGetTimeStamp(), __FUNCTION__, __LINE__, ##__VA_ARGS__); } while (0)
+            do { if (daoLogLevel>=DAO_TRACE) fprintf(stdout, "%s [trace] %s:%s:%d " fmt, daoGetTimeStamp(), __FILENAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while (0)
 
 
 #include "daoImageStruct.h" // data structure
