@@ -23,5 +23,5 @@ mkdir $HOME/DAOROOT
 ```
 waf configure --prefix=$DAOROOT
 waf
-wad install
+waf install
 ```
