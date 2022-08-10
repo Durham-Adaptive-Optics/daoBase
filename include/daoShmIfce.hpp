@@ -418,6 +418,22 @@ class DaoShmIfce {
             }
         }
 
+        void clean_sems()
+        {
+            printf("Cleaning semaphores to begin processing");
+            int retval = 0;
+            for(int i = 0; i < shm[0].md[0].sem; i++)
+            {
+                printf("cleaning semaphore %d \n", i);
+                while(retval>=0)
+                {
+                    retval = sem_trywait(shm[0].semptr[i]);
+                }
+                printf("rSemaphore %d clean\n", i);
+                retval = 0;
+            }
+        }
+
     protected:
 
         void reset()
