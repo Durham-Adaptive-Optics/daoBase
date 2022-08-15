@@ -14,7 +14,7 @@ pip3 install astropy
 export DAOROOT=$HOME/DAOROOT
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$DAOROOT/lib:$DAOROOT/lib64
 export PATH=$PATH:$HOME/DAOROOT/bin
-
+export PYTHONPATH=$DAOROOT/python
 ```
 !! BE SURE THE DAOROOT exists. In the example
 ```
