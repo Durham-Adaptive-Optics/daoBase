@@ -401,6 +401,45 @@ int_fast8_t daoImagePart2ShmFinalize(IMAGE *image)
 /*
  * The image is send to the shared memory.
  */
+int_fast8_t daoImage2ShmUI8(unsigned char *procim, int nbVal, IMAGE *image) 
+{
+    daoTrace("\n");
+    int semval = 0;
+    int ss;
+    int pp;
+    image[IMAGE_INDEX].md[0].write = 1;
+
+    for(pp = 0; pp < nbVal; pp++)
+    {
+            image[IMAGE_INDEX].array.UI8[pp] = procim[pp];
+    }
+    for(ss = 0; ss < image[IMAGE_INDEX].md[0].sem; ss++)
+    {
+        sem_getvalue(image[IMAGE_INDEX].semptr[ss], &semval);
+        if(semval < SEMAPHORE_MAXVAL )
+            sem_post(image[IMAGE_INDEX].semptr[ss]);
+    }
+
+    if(image[IMAGE_INDEX].semlog != NULL)
+    {
+        sem_getvalue(image[IMAGE_INDEX].semlog, &semval);
+        if(semval < SEMAPHORE_MAXVAL)
+        {
+            sem_post(image[IMAGE_INDEX].semlog);
+        }
+    }
+
+    image[IMAGE_INDEX].md[0].write = 0;
+    image[IMAGE_INDEX].md[0].cnt0++;
+    struct timespec t;
+    clock_gettime(CLOCK_REALTIME, &t);
+    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+
+    return DAO_SUCCESS;
+}
+/*
+ * The image is send to the shared memory.
+ */
 int_fast8_t daoImage2ShmUI16(unsigned short *procim, int nbVal, IMAGE *image) 
 {
     daoTrace("\n");
@@ -438,6 +477,45 @@ int_fast8_t daoImage2ShmUI16(unsigned short *procim, int nbVal, IMAGE *image)
     return DAO_SUCCESS;
 }
 
+/*
+ * The image is send to the shared memory.
+ */
+int_fast8_t daoImage2ShmSI8(char *procim, int nbVal, IMAGE *image) 
+{
+    daoTrace("\n");
+    int semval = 0;
+    int ss;
+    int pp;
+    image[IMAGE_INDEX].md[0].write = 1;
+
+    for(pp = 0; pp < nbVal; pp++)
+    {
+            image[IMAGE_INDEX].array.SI8[pp] = procim[pp];
+    }
+    for(ss = 0; ss < image[IMAGE_INDEX].md[0].sem; ss++)
+    {
+        sem_getvalue(image[IMAGE_INDEX].semptr[ss], &semval);
+        if(semval < SEMAPHORE_MAXVAL )
+            sem_post(image[IMAGE_INDEX].semptr[ss]);
+    }
+
+    if(image[IMAGE_INDEX].semlog != NULL)
+    {
+        sem_getvalue(image[IMAGE_INDEX].semlog, &semval);
+        if(semval < SEMAPHORE_MAXVAL)
+        {
+            sem_post(image[IMAGE_INDEX].semlog);
+        }
+    }
+
+    image[IMAGE_INDEX].md[0].write = 0;
+    image[IMAGE_INDEX].md[0].cnt0++;
+    struct timespec t;
+    clock_gettime(CLOCK_REALTIME, &t);
+    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+
+    return DAO_SUCCESS;
+}
 /*
  * The image is send to the shared memory.
  */
