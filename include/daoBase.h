@@ -43,16 +43,21 @@ char * daoGetTimeStamp();
 
 int_fast8_t daoInit1D(const char *name, char *prefix, int nbVal, IMAGE **image);
 int_fast8_t daoShm2Img(const char *name, char *prefix, IMAGE *image);
-int_fast8_t daoImage2Shm(float *procim, int nbVal, IMAGE *image); 
-int_fast8_t daoImagePart2Shm(float *procim, int nbVal, IMAGE *image, int position); 
+
+//int_fast8_t daoImage2Shm(float *procim, int nbVal, IMAGE *image); 
+int_fast8_t daoImage2Shm(void *procim, int nbVal, IMAGE *image); 
+
+int_fast8_t daoImagePart2Shm(void *procim, int nbVal, IMAGE *image, int position); 
 int_fast8_t daoImagePart2ShmFinalize(IMAGE *image); 
-int_fast8_t daoImage2ShmUI8(unsigned char *procim, int nbVal, IMAGE *image); 
-int_fast8_t daoImage2ShmUI16(unsigned short *procim, int nbVal, IMAGE *image); 
-int_fast8_t daoImage2ShmSI8(char *procim, int nbVal, IMAGE *image); 
-int_fast8_t daoImage2ShmSI16(short *procim, int nbVal, IMAGE *image); 
-int_fast8_t daoImage2ShmUI32(unsigned int *procim, int nbVal, IMAGE *image); 
-int_fast8_t daoImage2ShmSI32(int *procim, int nbVal, IMAGE *image); 
+
 int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem);
 int_fast8_t daoImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size, uint8_t atype, int shared, int NBkw);
+
+//int_fast8_t daoImage2ShmUI8(unsigned char *procim, int nbVal, IMAGE *image); 
+//int_fast8_t daoImage2ShmUI16(unsigned short *procim, int nbVal, IMAGE *image); 
+//int_fast8_t daoImage2ShmSI8(char *procim, int nbVal, IMAGE *image); 
+//int_fast8_t daoImage2ShmSI16(short *procim, int nbVal, IMAGE *image); 
+//int_fast8_t daoImage2ShmUI32(unsigned int *procim, int nbVal, IMAGE *image); 
+//int_fast8_t daoImage2ShmSI32(int *procim, int nbVal, IMAGE *image); 
 
 #endif
