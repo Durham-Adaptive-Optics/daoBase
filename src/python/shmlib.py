@@ -41,14 +41,15 @@ mtkeys = ['imname', 'naxis',  'size',    'nel',   'atype',
           'crtime', 'latime', 'tvsec',   'tvnsec', 
           'shared', 'status', 'logflag', 'sem',
           'cnt0',   'cnt1',   'cnt2',
-          'write',  'nbkw']
+          'write',  'nbkw', 'lastPos', 'lastNb',
+          'packetNb', 'packetTotal', 'lastNbArray']
 
 # ------------------------------------------------------
 #    string used to decode the binary shm structure
 # ------------------------------------------------------
-hdr_fmt = '80s B 3I Q B d d q q B B B H5x Q Q Q B H'
-hdr_fmt_pck = '80s B 3I Q B d d q q B B B H5x Q Q Q B H'           # packed style
-hdr_fmt_aln = '80s B3x 3I Q B7x d d q q B B B1x H2x Q Q Q B1x H4x' # aligned style
+hdr_fmt     = '80s B 3I Q B d d q q B B B H5x Q Q Q B H I I I I 512H'
+hdr_fmt_pck = '80s B 3I Q B d d q q B B B H5x Q Q Q B H I I I I 512H'           # packed style
+hdr_fmt_aln = '80s B3x 3I Q B7x d d q q B B B1x H2x Q Q Q B1x H4x I I I I 512H' # aligned style
 
 
 
@@ -131,7 +132,12 @@ class shm:
                        'cnt1'  : 0,
                        'cnt2': 0,
                        'write' : 0,
-                       'nbkw'  : 0}
+                       'nbkw'  : 0,
+                       'lastPos': 0,
+                       'lastNb' : 0,
+                       'packetNb':0,
+                       'packetTotal':0,
+                       'lastNbArray':tuple([int(0)]*512)}
 
         # --------------------------------------------------------------------
         #          dictionary describing the content of a keyword
@@ -202,7 +208,7 @@ class shm:
         self.mtdata['atype']  = self.select_atype()
         self.mtdata['shared'] = 1
         self.mtdata['nbkw']   = nbkw
-        self.mtdata['sem']   = 10
+        self.mtdata['sem']    = 10
         
         if data.ndim == 2:
             self.mtdata['size'] = self.mtdata['size'] + (0,)
@@ -215,14 +221,17 @@ class shm:
         fmts = self.hdr_fmt.split(' ')
         minibuf = ''.encode()
         for i, fmt in enumerate(fmts):
-            if i != 2:
+            if i == 2:# tuple size 3
+                tpl = self.mtdata[mtkeys[i]]
+                minibuf += struct.pack(fmt, tpl[0], tpl[1], tpl[2])
+            elif i == 22:# tuple size 512
+                lst = list(self.mtdata[mtkeys[i]])
+                minibuf += struct.pack(fmt, *lst)# slat lst
+            else:
                 if isinstance(self.mtdata[mtkeys[i]],str):
                     minibuf += struct.pack(fmt, self.mtdata[mtkeys[i]].encode())
                 else:
                     minibuf += struct.pack(fmt, self.mtdata[mtkeys[i]])
-            else:
-                tpl = self.mtdata[mtkeys[i]]
-                minibuf += struct.pack(fmt, tpl[0], tpl[1], tpl[2])
             if mtkeys[i] == "sem": # the mkey before "cnt0" !
                 self.c0_offset = len(minibuf)
         self.im_offset = len(minibuf)
@@ -284,10 +293,12 @@ class shm:
         for i, fmt in enumerate(fmts):
             hlen = struct.calcsize(fmt)
             mdata_bit = struct.unpack(fmt, self.buf[offset:offset+hlen])
-            if i != 2:
-                self.mtdata[mtkeys[i]] = mdata_bit[0]
-            else:
+            if i == 2:
                 self.mtdata[mtkeys[i]] = mdata_bit
+            elif i == 22:
+                self.mtdata[mtkeys[i]] = mdata_bit
+            else:
+                self.mtdata[mtkeys[i]] = mdata_bit[0]
             offset += hlen
 
 #        self.mtdata['imname'] = self.mtdata['imname'].strip('\x00')

@@ -3,8 +3,8 @@
 bld.shlib(
 	source = 'c/daoBase.c',
 	includes = '../include',
-	cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
-	#cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
+	#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
+	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
 	target = 'daoBase',
 	name   = 'daoBase',
 	vnum   = '0.0.1')
