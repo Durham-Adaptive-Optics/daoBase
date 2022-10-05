@@ -277,7 +277,7 @@ int_fast8_t daoShm2Img(const char *name, char *prefix, IMAGE *image)
 /**
  * Init 1D array in shared memory
  */
-int_fast8_t daoInit1D(const char *name, char *prefix, int nbVal, IMAGE **image)
+int_fast8_t daoInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image)
 {
     daoTrace("\n");
     int naxis = 2;
@@ -311,7 +311,7 @@ int_fast8_t daoInit1D(const char *name, char *prefix, int nbVal, IMAGE **image)
 /*
  * The image is send to the shared memory.
  */
-int_fast8_t daoImage2Shm(void *procim, int nbVal, IMAGE *image) 
+int_fast8_t daoImage2Shm(void *procim, uint32_t nbVal, IMAGE *image) 
 {
     daoTrace("\n");
     int semval = 0;
@@ -367,7 +367,8 @@ int_fast8_t daoImage2Shm(void *procim, int nbVal, IMAGE *image)
  * The image is send to the shared memory.
  * No release of semaphore since it is a part write
  */
-int_fast8_t daoImagePart2Shm(void *procim, int nbVal, IMAGE *image, int position, unsigned short packetId, unsigned short packetTotal) 
+int_fast8_t daoImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_t position,
+                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber) 
 {
     daoTrace("\n");
     //int pp;
@@ -398,7 +399,7 @@ int_fast8_t daoImagePart2Shm(void *procim, int nbVal, IMAGE *image, int position
     image[IMAGE_INDEX].md[0].lastNb = nbVal;
     image[IMAGE_INDEX].md[0].packetNb = packetId;
     image[IMAGE_INDEX].md[0].packetTotal = packetTotal;
-    image[IMAGE_INDEX].md[0].lastNbArray[packetId-1]++;
+    image[IMAGE_INDEX].md[0].lastNbArray[packetId-1] = frameNumber;
     image[IMAGE_INDEX].md[0].write = 0;
 
     return DAO_SUCCESS;

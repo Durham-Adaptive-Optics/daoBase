@@ -305,7 +305,7 @@ typedef struct
     uint32_t packetNb;
     uint32_t packetTotal;
     // total size is 187 bytes = 1496 bit when packed
-    uint16_t lastNbArray[512];
+    uint64_t lastNbArray[512];
     // total size is 1211 bytes = 9688 bit when packed
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;

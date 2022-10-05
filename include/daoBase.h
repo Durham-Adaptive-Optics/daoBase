@@ -41,13 +41,14 @@ int daoLogLevel = 1;
 
 char * daoGetTimeStamp();
 
-int_fast8_t daoInit1D(const char *name, char *prefix, int nbVal, IMAGE **image);
+int_fast8_t daoInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
 int_fast8_t daoShm2Img(const char *name, char *prefix, IMAGE *image);
 
 //int_fast8_t daoImage2Shm(float *procim, int nbVal, IMAGE *image); 
-int_fast8_t daoImage2Shm(void *procim, int nbVal, IMAGE *image); 
+int_fast8_t daoImage2Shm(void *procim, uint32_t nbVal, IMAGE *image); 
 
-int_fast8_t daoImagePart2Shm(void *procim, int nbVal, IMAGE *image, int position, unsigned short packetId, unsigned short packetTotal); 
+int_fast8_t daoImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_t position,
+                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber); 
 int_fast8_t daoImagePart2ShmFinalize(IMAGE *image); 
 
 int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem);

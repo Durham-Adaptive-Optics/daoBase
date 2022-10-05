@@ -49,7 +49,7 @@ mtkeys = ['imname', 'naxis',  'size',    'nel',   'atype',
 # ------------------------------------------------------
 hdr_fmt     = '80s B 3I Q B d d q q B B B H5x Q Q Q B H I I I I 512H'
 hdr_fmt_pck = '80s B 3I Q B d d q q B B B H5x Q Q Q B H I I I I 512H'           # packed style
-hdr_fmt_aln = '80s B3x 3I Q B7x d d q q B B B1x H2x Q Q Q B1x H4x I I I I 512H' # aligned style
+hdr_fmt_aln = '80s B3x 3I Q B7x d d q q B B B1x H2x Q Q Q B1x H4x I I I I 512L' # aligned style
 
 
 
