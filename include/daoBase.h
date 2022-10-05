@@ -47,7 +47,7 @@ int_fast8_t daoShm2Img(const char *name, char *prefix, IMAGE *image);
 //int_fast8_t daoImage2Shm(float *procim, int nbVal, IMAGE *image); 
 int_fast8_t daoImage2Shm(void *procim, int nbVal, IMAGE *image); 
 
-int_fast8_t daoImagePart2Shm(void *procim, int nbVal, IMAGE *image, int position, unsigned short packetId, unsigned packetTotal); 
+int_fast8_t daoImagePart2Shm(void *procim, int nbVal, IMAGE *image, int position, unsigned short packetId, unsigned short packetTotal); 
 int_fast8_t daoImagePart2ShmFinalize(IMAGE *image); 
 
 int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem);

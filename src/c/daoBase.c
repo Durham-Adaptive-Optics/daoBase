@@ -316,13 +316,8 @@ int_fast8_t daoImage2Shm(void *procim, int nbVal, IMAGE *image)
     daoTrace("\n");
     int semval = 0;
     int ss;
-    //int pp;
     image[IMAGE_INDEX].md[0].write = 1;
 
-    //for(pp = 0; pp < nbVal; pp++)
-    //{
-    //        image[IMAGE_INDEX].array.F[pp] = procim[pp];
-    //}
     if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT8)
         memcpy(image[IMAGE_INDEX].array.UI8, (unsigned char *)procim, nbVal*sizeof(unsigned char)); 
     if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT8)
@@ -372,7 +367,7 @@ int_fast8_t daoImage2Shm(void *procim, int nbVal, IMAGE *image)
  * The image is send to the shared memory.
  * No release of semaphore since it is a part write
  */
-int_fast8_t daoImagePart2Shm(void *procim, int nbVal, IMAGE *image, int position, unsigned short packetId, unsigned packetTotal) 
+int_fast8_t daoImagePart2Shm(void *procim, int nbVal, IMAGE *image, int position, unsigned short packetId, unsigned short packetTotal) 
 {
     daoTrace("\n");
     //int pp;
