@@ -52,7 +52,8 @@ int_fast8_t daoImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_
 int_fast8_t daoImagePart2ShmFinalize(IMAGE *image); 
 
 int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem);
-int_fast8_t daoImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size, uint8_t atype, int shared, int NBkw);
+int_fast8_t daoImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
+                           uint8_t atype, int shared, int NBkw);
 
 //int_fast8_t daoImage2ShmUI8(unsigned char *procim, int nbVal, IMAGE *image); 
 //int_fast8_t daoImage2ShmUI16(unsigned short *procim, int nbVal, IMAGE *image); 
