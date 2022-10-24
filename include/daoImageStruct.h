@@ -297,6 +297,16 @@ typedef struct
     uint16_t NBkw;                  /**< number of keywords (max: 65536)                                              */
     
     // total size is 171 byte = 1368 bit when packed
+
+    uint32_t lastPos;              /**< the 1st positon of the last write                                           */
+    uint32_t lastNb;               /**< the number of last write                                                    */
+    // total size is 179 bytes = 1432 bit when packed
+
+    uint32_t packetNb;
+    uint32_t packetTotal;
+    // total size is 187 bytes = 1496 bit when packed
+    uint64_t lastNbArray[512];
+    // total size is 1211 bytes = 9688 bit when packed
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;
 #else
