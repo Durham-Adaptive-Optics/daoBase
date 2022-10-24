@@ -277,7 +277,7 @@ int_fast8_t daoShm2Img(const char *name, char *prefix, IMAGE *image)
 /**
  * Init 1D array in shared memory
  */
-int_fast8_t daoInit1D(const char *name, char *prefix, int nbVal, IMAGE **image)
+int_fast8_t daoInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image)
 {
     daoTrace("\n");
     int naxis = 2;
@@ -311,18 +311,34 @@ int_fast8_t daoInit1D(const char *name, char *prefix, int nbVal, IMAGE **image)
 /*
  * The image is send to the shared memory.
  */
-int_fast8_t daoImage2Shm(float *procim, int nbVal, IMAGE *image) 
+int_fast8_t daoImage2Shm(void *procim, uint32_t nbVal, IMAGE *image) 
 {
     daoTrace("\n");
     int semval = 0;
     int ss;
-    int pp;
     image[IMAGE_INDEX].md[0].write = 1;
 
-    for(pp = 0; pp < nbVal; pp++)
-    {
-            image[IMAGE_INDEX].array.F[pp] = procim[pp];
-    }
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT8)
+        memcpy(image[IMAGE_INDEX].array.UI8, (unsigned char *)procim, nbVal*sizeof(unsigned char)); 
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT8)
+        memcpy(image[IMAGE_INDEX].array.SI8, (char *)procim, nbVal*sizeof(char));       
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT16)
+        memcpy(image[IMAGE_INDEX].array.UI16, (unsigned short *)procim, nbVal*sizeof(unsigned short));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT16)
+        memcpy(image[IMAGE_INDEX].array.SI16, (short *)procim, nbVal*sizeof(short));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT32)
+        memcpy(image[IMAGE_INDEX].array.UI32, (unsigned int *)procim, nbVal*sizeof(unsigned int));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT32)
+        memcpy(image[IMAGE_INDEX].array.SI32, (int *)procim, nbVal*sizeof(int));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT64)
+        memcpy(image[IMAGE_INDEX].array.UI64, (unsigned long *)procim, nbVal*sizeof(unsigned long));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT64)
+        memcpy(image[IMAGE_INDEX].array.SI64, (long *)procim, nbVal*sizeof(long));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_FLOAT)
+        memcpy(image[IMAGE_INDEX].array.F, (float *)procim, nbVal*sizeof(float));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_DOUBLE)
+        memcpy(image[IMAGE_INDEX].array.D, (double *)procim, nbVal*sizeof(double));
+
     for(ss = 0; ss < image[IMAGE_INDEX].md[0].sem; ss++)
     {
         sem_getvalue(image[IMAGE_INDEX].semptr[ss], &semval);
@@ -351,17 +367,39 @@ int_fast8_t daoImage2Shm(float *procim, int nbVal, IMAGE *image)
  * The image is send to the shared memory.
  * No release of semaphore since it is a part write
  */
-int_fast8_t daoImagePart2Shm(float *procim, int nbVal, IMAGE *image, int position) 
+int_fast8_t daoImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_t position,
+                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber) 
 {
     daoTrace("\n");
-    int pp;
+    //int pp;
     image[IMAGE_INDEX].md[0].write = 1;
 
-    for(pp = 0; pp < nbVal; pp++)
-    {
-            image[IMAGE_INDEX].array.F[position + pp] = procim[pp];
-    }
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT8)
+        memcpy(&image[IMAGE_INDEX].array.UI8[position], (unsigned char *)procim, nbVal*sizeof(unsigned char)); 
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT8)
+        memcpy(&image[IMAGE_INDEX].array.SI8[position], (char *)procim, nbVal*sizeof(char));       
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT16)
+        memcpy(&image[IMAGE_INDEX].array.UI16[position], (unsigned short *)procim, nbVal*sizeof(unsigned short));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT16)
+        memcpy(&image[IMAGE_INDEX].array.SI16[position], (short *)procim, nbVal*sizeof(short));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT32)
+        memcpy(&image[IMAGE_INDEX].array.UI32[position], (unsigned int *)procim, nbVal*sizeof(unsigned int));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT32)
+        memcpy(&image[IMAGE_INDEX].array.SI32[position], (int *)procim, nbVal*sizeof(int));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT64)
+        memcpy(&image[IMAGE_INDEX].array.UI64[position], (unsigned long *)procim, nbVal*sizeof(unsigned long));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT64)
+        memcpy(&image[IMAGE_INDEX].array.SI64[position], (long *)procim, nbVal*sizeof(long));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_FLOAT)
+        memcpy(&image[IMAGE_INDEX].array.F[position], (float *)procim, nbVal*sizeof(float));
+    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_DOUBLE)
+        memcpy(&image[IMAGE_INDEX].array.D[position], (double *)procim, nbVal*sizeof(double));
 
+    image[IMAGE_INDEX].md[0].lastPos = position;
+    image[IMAGE_INDEX].md[0].lastNb = nbVal;
+    image[IMAGE_INDEX].md[0].packetNb = packetId;
+    image[IMAGE_INDEX].md[0].packetTotal = packetTotal;
+    image[IMAGE_INDEX].md[0].lastNbArray[packetId-1] = frameNumber;
     image[IMAGE_INDEX].md[0].write = 0;
 
     return DAO_SUCCESS;
@@ -397,167 +435,6 @@ int_fast8_t daoImagePart2ShmFinalize(IMAGE *image)
     image[IMAGE_INDEX].md[0].cnt0++;
     return DAO_SUCCESS;
 }
-
-/*
- * The image is send to the shared memory.
- */
-int_fast8_t daoImage2ShmUI16(unsigned short *procim, int nbVal, IMAGE *image) 
-{
-    daoTrace("\n");
-    int semval = 0;
-    int ss;
-    int pp;
-    image[IMAGE_INDEX].md[0].write = 1;
-
-    for(pp = 0; pp < nbVal; pp++)
-    {
-            image[IMAGE_INDEX].array.UI16[pp] = procim[pp];
-    }
-    for(ss = 0; ss < image[IMAGE_INDEX].md[0].sem; ss++)
-    {
-        sem_getvalue(image[IMAGE_INDEX].semptr[ss], &semval);
-        if(semval < SEMAPHORE_MAXVAL )
-            sem_post(image[IMAGE_INDEX].semptr[ss]);
-    }
-
-    if(image[IMAGE_INDEX].semlog != NULL)
-    {
-        sem_getvalue(image[IMAGE_INDEX].semlog, &semval);
-        if(semval < SEMAPHORE_MAXVAL)
-        {
-            sem_post(image[IMAGE_INDEX].semlog);
-        }
-    }
-
-    image[IMAGE_INDEX].md[0].write = 0;
-    image[IMAGE_INDEX].md[0].cnt0++;
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
-
-    return DAO_SUCCESS;
-}
-
-/*
- * The image is send to the shared memory.
- */
-int_fast8_t daoImage2ShmSI16(short *procim, int nbVal, IMAGE *image) 
-{
-    daoTrace("\n");
-    int semval = 0;
-    int ss;
-    int pp;
-    image[IMAGE_INDEX].md[0].write = 1;
-
-    for(pp = 0; pp < nbVal; pp++)
-    {
-            image[IMAGE_INDEX].array.SI16[pp] = procim[pp];
-    }
-    for(ss = 0; ss < image[IMAGE_INDEX].md[0].sem; ss++)
-    {
-        sem_getvalue(image[IMAGE_INDEX].semptr[ss], &semval);
-        if(semval < SEMAPHORE_MAXVAL )
-            sem_post(image[IMAGE_INDEX].semptr[ss]);
-    }
-
-    if(image[IMAGE_INDEX].semlog != NULL)
-    {
-        sem_getvalue(image[IMAGE_INDEX].semlog, &semval);
-        if(semval < SEMAPHORE_MAXVAL)
-        {
-            sem_post(image[IMAGE_INDEX].semlog);
-        }
-    }
-
-    image[IMAGE_INDEX].md[0].write = 0;
-    image[IMAGE_INDEX].md[0].cnt0++;
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
-
-    return DAO_SUCCESS;
-}
-
-/*
- * The image is send to the shared memory.
- */
-int_fast8_t daoImage2ShmUI32(unsigned int *procim, int nbVal, IMAGE *image) 
-{
-    daoTrace("\n");
-    int semval = 0;
-    int ss;
-    int pp;
-    image[IMAGE_INDEX].md[0].write = 1;
-
-    for(pp = 0; pp < nbVal; pp++)
-    {
-            image[IMAGE_INDEX].array.UI32[pp] = procim[pp];
-    }
-    for(ss = 0; ss < image[IMAGE_INDEX].md[0].sem; ss++)
-    {
-        sem_getvalue(image[IMAGE_INDEX].semptr[ss], &semval);
-        if(semval < SEMAPHORE_MAXVAL )
-            sem_post(image[IMAGE_INDEX].semptr[ss]);
-    }
-
-    if(image[IMAGE_INDEX].semlog != NULL)
-    {
-        sem_getvalue(image[IMAGE_INDEX].semlog, &semval);
-        if(semval < SEMAPHORE_MAXVAL)
-        {
-            sem_post(image[IMAGE_INDEX].semlog);
-        }
-    }
-
-    image[IMAGE_INDEX].md[0].write = 0;
-    image[IMAGE_INDEX].md[0].cnt0++;
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
-
-    return DAO_SUCCESS;
-}
-
-/*
- * The image is send to the shared memory.
- */
-int_fast8_t daoImage2ShmSI32(int *procim, int nbVal, IMAGE *image) 
-{
-    daoTrace("\n");
-    int semval = 0;
-    int ss;
-    int pp;
-    image[IMAGE_INDEX].md[0].write = 1;
-
-    for(pp = 0; pp < nbVal; pp++)
-    {
-            image[IMAGE_INDEX].array.SI32[pp] = procim[pp];
-    }
-    for(ss = 0; ss < image[IMAGE_INDEX].md[0].sem; ss++)
-    {
-        sem_getvalue(image[IMAGE_INDEX].semptr[ss], &semval);
-        if(semval < SEMAPHORE_MAXVAL )
-            sem_post(image[IMAGE_INDEX].semptr[ss]);
-    }
-
-    if(image[IMAGE_INDEX].semlog != NULL)
-    {
-        sem_getvalue(image[IMAGE_INDEX].semlog, &semval);
-        if(semval < SEMAPHORE_MAXVAL)
-        {
-            sem_post(image[IMAGE_INDEX].semlog);
-        }
-    }
-
-    image[IMAGE_INDEX].md[0].write = 0;
-    image[IMAGE_INDEX].md[0].cnt0++;
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
-
-    return DAO_SUCCESS;
-}
-
 
 int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 {
