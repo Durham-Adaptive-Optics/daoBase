@@ -526,7 +526,7 @@ int_fast8_t daoImageCreate(IMAGE *image, const char *name, long naxis, uint32_t 
     if(shared==1)
     {
         // create semlog
-
+        daoInfo("Creation %s_semlog\n", name);
         sprintf(sname, "%s_semlog", name);
         remove(sname);
         image->semlog = NULL;
@@ -582,7 +582,7 @@ int_fast8_t daoImageCreate(IMAGE *image, const char *name, long naxis, uint32_t 
         SM_fd = open(SM_fname, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
 
         if (SM_fd == -1) {
-            perror("Error opening file for writing");
+            daoError("Error opening file (%s) for writing\n", SM_fname);
             exit(0);
         }
 
