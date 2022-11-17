@@ -26,6 +26,9 @@ import astropy.io.fits as pf
 import time
 #import pdb
 import posix_ipc
+from threading import Thread
+from threading import Event
+import zmq
 
 # ------------------------------------------------------
 #          list of available data types
@@ -84,7 +87,7 @@ Table taken from Python 2 documentation, section 7.3.2.2.
 '''
 
 class shm:
-    def __init__(self, fname=None, data=None, verbose=False, packed=False, nbkw=0):
+    def __init__(self, fname=None, data=None, verbose=False, packed=False, nbkw=0, pubPort=5555, subPort=5555):
         ''' --------------------------------------------------------------
         Constructor for a SHM (shared memory) object.
 
@@ -177,6 +180,21 @@ class shm:
             self.get_data()            # read the main data
             self.create_keyword_list() # create empty list of keywords
             self.read_keywords()       # populate the keywords with data
+        # Publisher
+        self.pubPort = pubPort
+        self.pubContext = zmq.Context()
+        
+        self.pubEvent = Event()
+        self.pubThread = Thread(target = self.publish)
+        self.pubEnable = False
+        #self.pubThread.start()
+        # Subscriber
+        self.subPort = subPort
+        self.subContext = zmq.Context()
+        self.subEvent = Event()
+        self.subThread = Thread(target = self.subscribe)
+        self.subEnable = False
+        #self.subThread.start()
             
     def create(self, fname, data, nbkw=0):
         ''' --------------------------------------------------------------
@@ -582,5 +600,31 @@ class shm:
         self.expt = self.kwds[ii0]['value']
         return self.expt
 
+    def publish(self):
+        self.pubSocket = self.pubContext.socket(zmq.PUB)
+        self.pubSocket.bind("tcp://*:%d"%(self.pubPort))
+        self.pubThreadCounter = 0
+        while True:
+            if self.pubEnable:
+                topic = 'frameData'
+                self.pubSocket.send_string(topic, zmq.SNDMORE)
+                self.pubSocket.send_pyobj(self.get_data())
+            time.sleep(0.1)
+            if self.pubEvent.is_set():
+                break
+    
+    def subscribe(self):
+        self.subSocket = self.subContext.socket(zmq.SUB)
+        self.subSocket.connect("tcp://localhost:%d"%(self.subPort))
+        self.subSocket.setsockopt(zmq.SUBSCRIBE, b'frameData')
+        self.subSocket.setsockopt(zmq.CONFLATE, 1)
+        topic = 'frameData'
+        while True:
+            if self.subEnable:
+                topic = self.subSocket.recv_string()
+                frameData = self.subSocket.recv_pyobj()
+                self.set_data(frameData)
+            if self.subEvent.is_set():
+                break
 # =================================================================
 # =================================================================
