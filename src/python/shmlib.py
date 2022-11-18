@@ -110,6 +110,8 @@ class shm:
             self.kwfmt0 = "16s s7x"    # aligned keyword structure
 
         self.c0_offset = 152        # fast-offset for counter #0 (updated later)
+        self.c1_offset = 160
+        self.c2_offset = 168
         self.kwsz      = 96 + struct.calcsize(self.kwfmt0) # keyword SHM size
 
         # --------------------------------------------------------------------
@@ -489,6 +491,15 @@ class shm:
         c0   = self.c0_offset                           # counter offset
         cntr = struct.unpack('Q', self.buf[c0:c0+8])[0] # read from SHM
         self.mtdata['cnt0'] = cntr                      # update object mtdata
+        return(cntr)
+
+    def get_frame_id(self,):
+        ''' --------------------------------------------------------------
+        Read the image counter from SHM
+        -------------------------------------------------------------- '''
+        c2   = self.c2_offset                           # counter offset
+        cntr = struct.unpack('Q', self.buf[c2:c2+8])[0] # read from SHM
+        self.mtdata['cnt2'] = cntr                      # update object mtdata
         return(cntr)
 
     def increment_counter(self,):

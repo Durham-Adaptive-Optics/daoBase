@@ -1,4 +1,3 @@
-from sqlite3 import connect
 import sys, signal
 import daoLogging_pb2
 import zmq

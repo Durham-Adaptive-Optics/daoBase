@@ -61,11 +61,20 @@ def build(bld):
 		)
 
 	bld.program(
-		target = 'log_test',
+		target = 'receive_stream',
 		source = [ 'src/cpp/main.cpp' ],
 		includes = ['include/', bld.env.PREFIX+'/include',],
 		cxxflags=['-g', '-std=c++2a'],
-		ldflags=[ '-L'+ bld.env.PREFIX+'/lib64', '-pthread','-ldaoProto'],
+		ldflags=[ '-L'+ bld.env.PREFIX+'/lib64', '-pthread','-ldaoProto', '-ldaoNuma', '-lnuma'],
+		use=['PROTOBUF', 'ZMQ']
+		)
+
+	bld.program(
+		target = 'send_stream',
+		source = [ 'src/cpp/send_stream.cpp' ],
+		includes = ['include/', bld.env.PREFIX+'/include',],
+		cxxflags=['-g', '-std=c++2a'],
+		ldflags=[ '-L'+ bld.env.PREFIX+'/lib64', '-pthread','-ldaoProto', '-ldaoNuma', '-lnuma'],
 		use=['PROTOBUF', 'ZMQ']
 		)
 

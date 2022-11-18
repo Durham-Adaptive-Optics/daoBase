@@ -47,9 +47,8 @@ namespace Dao
             , m_timeout_small_us(10000)
             , m_timeout_large_us(10000000)
             , m_timeout_ratio(m_timeout_large_us / m_timeout_small_us)
-            , m_last_read_position(0)
-            , m_last_read_packet(0)
-            , m_last_read_frame(0)
+            , m_exit_requested(false)
+            , m_n_packets(0)
             {
                 m_log.Trace("ShmIfce()");
 
@@ -67,27 +66,18 @@ namespace Dao
                 m_log.Trace("~ShmIfce()");
                 if(m_file_is_open)
                 {
-                    closeShm();
+                    CloseShm();
                 }
             }
 
-            void init()
+            void OpenShm(std::string name, IMAGE * shm_p, int node = -1)
             {
+                m_log.Trace("OpenShm(%s, - )", name.c_str());
                 if(m_file_is_open)
                 {
-                    closeShm();
-                }
-
-            }
-
-            void openShm(std::string name, IMAGE * shm_p, int node = -1)
-            {
-                m_log.Trace("openShm(%s, - )", name.c_str());
-                if(m_file_is_open)
-                {
-                    closeShm();
+                    CloseShm();
                     m_log.Error("Error: File %s already open. Closing shm and retrying", name.c_str());
-                    openShm(name, shm_p);
+                    OpenShm(name, shm_p);
                 }
                 
                 m_shm = shm_p;
@@ -98,7 +88,7 @@ namespace Dao
                 {
                     m_shm->used = 0;
                     m_log.Error("Cannot import shared memory file %s", m_shm_filename.c_str());
-                    closeShm();
+                    CloseShm();
                     return;
                 }
                 else
@@ -127,7 +117,7 @@ namespace Dao
 
                     if (m_map == MAP_FAILED) 
                     {
-                        closeShm();
+                        CloseShm();
                         m_log.Error("Error: mmapping the file");
                         return;
                     }
@@ -144,13 +134,13 @@ namespace Dao
                     if(m_shm->md[0].size[0]<1)
                     {
                         m_log.Error("IMAGE \"%s\" AXIS SIZE < 1... ABORTING", m_shm_filename.c_str());
-                        closeShm();
+                        CloseShm();
                         return;
                     }
                     if(m_shm->md[0].size[1]<1)
                     {
                         m_log.Error("IMAGE \"%s\" AXIS SIZE < 1... ABORTING", m_shm_filename.c_str());
-                        closeShm();
+                        CloseShm();
                         return;
                     }
 
@@ -220,13 +210,9 @@ namespace Dao
                 }
 
                 m_ptr = reinterpret_cast<T*>(m_shm->array.F);
-
-
-
-
             }
 
-            void closeShm()
+            void CloseShm()
             {
                 if(m_file_is_open)
                 {
@@ -241,7 +227,7 @@ namespace Dao
                     // set file is closed set all variables to default.
                     m_file_is_open = false;
                     m_ptr = NULL;
-                    reset();
+                    Reset();
                 }
                 else
                 {
@@ -249,7 +235,69 @@ namespace Dao
                 }
             }
 
-            void getFrame()
+
+            // Full frame Writes and reads
+            // These are full frame writes
+            void FullFrameWriteData(T * data,int32_t frameId = -1)
+            {
+                int semval = 0;
+                m_shm[0].md[0].write = 1;
+                m_shm[0].md[0].cnt2 = frameId != -1 ? frameId : m_shm[0].md[0].cnt2;
+
+                T * dst = GetPtr();
+
+                // copy data in.
+                memcpy(dst, data, m_shm_nElements*sizeof(T));
+
+                for(int i = 0; i < m_shm[0].md[0].sem; i++)
+                {
+                    sem_getvalue(m_shm[0].semptr[i], &semval);
+                    if(semval < SEMAPHORE_MAXVAL )
+                        sem_post(m_shm[0].semptr[i]);
+                }
+
+                if(m_shm[0].semlog != NULL)
+                {
+                    sem_getvalue(m_shm[0].semlog, &semval);
+                    if(semval < SEMAPHORE_MAXVAL)
+                    {
+                        sem_post(m_shm[0].semlog);
+                    }
+                }
+                m_shm[0].md[0].write = 0;
+                m_shm[0].md[0].cnt0++;
+            }
+
+            void FullFrameWriteData(int32_t frameId = -1)
+            {
+                int semval = 0;
+                m_shm[0].md[0].write = 1;
+                m_shm[0].md[0].cnt2 = frameId != -1 ? frameId : m_shm[0].md[0].cnt2;
+
+                for(int i = 0; i < m_shm[0].md[0].sem; i++)
+                {
+                    sem_getvalue(m_shm[0].semptr[i], &semval);
+                    if(semval < SEMAPHORE_MAXVAL )
+                        sem_post(m_shm[0].semptr[i]);
+                }
+
+                if(m_shm[0].semlog != NULL)
+                {
+                    sem_getvalue(m_shm[0].semlog, &semval);
+                    if(semval < SEMAPHORE_MAXVAL)
+                    {
+                        sem_post(m_shm[0].semlog);
+                    }
+                }
+
+                m_shm[0].md[0].write = 0;
+                m_shm[0].md[0].cnt0++;
+
+                clock_gettime(CLOCK_REALTIME, &m_time);
+                m_shm[0].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * m_time.tv_sec + m_time.tv_nsec);
+            }
+
+            void FullFrameReadData()
             {
                 if(m_file_is_open)
                 {
@@ -261,41 +309,23 @@ namespace Dao
                 }
             }
 
-            int getFrame(volatile bool* system_running)
+            int  FullFrameReadData(size_t timeout)
             {
                 if(m_file_is_open)
                 {
-                    size_t i = 0;
-                    while(true)
+                    if (clock_gettime(CLOCK_REALTIME, &m_time) == -1) 
                     {
-                        if (clock_gettime(CLOCK_REALTIME, &m_time) == -1) 
-                        {
-                            m_log.Error("clock_gettime");
-                            exit(EXIT_FAILURE);
-                        }
-                        m_time.tv_nsec +=(int) m_timeout_small_us*1000;
-                        if (m_time.tv_nsec>=1000000000)
-                        {
-                            m_time.tv_sec += m_time.tv_nsec / 1000000000;
-                            m_time.tv_nsec %= 1000000000;
-                        }
-                        int rVal = sem_timedwait(m_shm[0].semptr[1], &m_time);
-                        if(rVal == 0)
-                        {
-                            return 0;
-                        }
-                        if(!system_running)
-                        {
-                            m_log.Info("exit requested");
-                            return -1;
-                        }
-                        if (i >= m_timeout_ratio)
-                        {
-                            // printf("i: %zu, m_timeout_ratio: %zu\n", i, m_timeout_ratio);
-                            return -10;
-                        }
-                        i = i + 1;
+                        m_log.Error("clock_gettime");
+                        exit(EXIT_FAILURE);
                     }
+                    m_time.tv_nsec +=(int) timeout*1000;
+                    if (m_time.tv_nsec>=1000000000)
+                    {
+                        m_time.tv_sec += m_time.tv_nsec / 1000000000;
+                        m_time.tv_nsec %= 1000000000;
+                    }
+                    int rVal = sem_timedwait(m_shm[0].semptr[1], &m_time);
+                    return rVal;
                 }
                 else
                 {
@@ -304,26 +334,122 @@ namespace Dao
                 return -1;
             }
 
-            T * getPtr()
+            int  StreamReadFrameConnect()
+            {
+            /*
+                wait for a semaphore
+                then set some conditions
+            */
+                int r = -1;
+                while (r != 0)
+                {
+                    r = FullFrameReadData(1000);
+                    if(m_exit_requested)
+                        return -1;
+                }
+
+                // check number of packets
+                // must be greater than 1.
+                m_n_packets = m_shm[0].md[0].packetTotal;
+                if(m_n_packets < 2)
+                    std::cout << "Not configured for PAcketising: " << m_n_packets << std::endl;
+                return 0;
+            }
+
+            void StreamReadFrameBegin()
+            {
+            /*
+                configure anything for the frame reception.
+                get target frame coutner
+                m_target_frame = frame + 1 
+                packets received = 0
+                m_last pos written 
+            */
+                m_target_frame = GetFrameCounter()+1;
+                m_packet_to_read = 0;
+            }
+
+            int  StreamReadFramePacket()
+            {
+                while(m_shm[0].md[0].lastNbArray[m_packet_to_read] < m_target_frame)
+                {
+                    if(m_exit_requested)
+                    {
+                        return -1;
+                    }
+                }
+                // if(m_target_frame - m_shm[0].md[0].lastNbArray[m_packet_to_read] > 1)
+                //     std::cout << "Maybe something went wrong..." << std::endl;
+                int packet_recieved = m_packet_to_read;
+                m_packet_to_read++;
+
+                return packet_recieved;   
+            }
+
+            void StreamReadFrameFinalise()
             {
                 if(m_file_is_open)
                 {
-                    return m_ptr; //reinterpret_cast<T*>(m_shm->array.F);
+                    sem_wait(m_shm[0].semptr[1]);
                 }
-
-                m_log.Error("Error: No file open cannot close %s", m_shm_filename.c_str());
-                return NULL;
+                else
+                {
+                    m_log.Error("Error: No file open cannot wait for data");
+                }
             }
 
-            // These are full frame writes
-            void writeData(T * data)
+            void StreamWriteFrameConfigure(size_t nPackets)
+            {
+                // onlything to do here is make sure the dhm knows max size
+                m_n_packets = nPackets;
+                m_shm[0].md[0].packetTotal = m_n_packets;
+            }
+
+            void StreamWriteFrameStart()
+            {
+                // Don't think anything needs to be done here.
+            }
+
+            void StreamWriteFramePacket(T * data, size_t position, size_t nValues, size_t packetNumber)
+            {
+                // some checks 
+                if(packetNumber >= m_n_packets)
+                {
+                    m_log.Error("packet number outside of exceptable range: %zu of %zu", packetNumber, m_n_packets);
+                }
+                m_shm[0].md[0].write = 1;
+                memcpy(m_ptr + position, data + position, nValues*sizeof(T));
+
+                m_shm[0].md[0].lastPos = position;
+                m_shm[0].md[0].lastNb = nValues;
+                m_shm[0].md[0].packetNb = packetNumber;
+                m_shm[0].md[0].packetTotal = m_n_packets;
+                m_shm[0].md[0].lastNbArray[packetNumber] = m_shm[0].md[0].cnt0+1;
+                m_shm[0].md[0].write = 0;
+            }
+
+            void StreamWriteFramePacket(size_t position, size_t nValues, size_t packetNumber)
+            {
+                // some checks 
+                if(packetNumber >= m_n_packets)
+                {
+                    m_log.Error("packet number outside of exceptable range: %zu of %zu", packetNumber, m_n_packets);
+                }
+                m_shm[0].md[0].write = 1;
+
+                m_shm[0].md[0].lastPos = position;
+                m_shm[0].md[0].lastNb = nValues;
+                m_shm[0].md[0].packetNb = packetNumber;
+                m_shm[0].md[0].packetTotal = m_n_packets;
+                m_shm[0].md[0].lastNbArray[packetNumber] = m_shm[0].md[0].cnt0+1;
+                m_shm[0].md[0].write = 0;
+            }
+
+            void StreamWriteFrameFinalise(int32_t frameId)
             {
                 int semval = 0;
                 m_shm[0].md[0].write = 1;
-                T* dst = getPtr();
-
-                // copy data in.
-                memcpy(dst,data, m_shm_nElements*sizeof(T));
+                m_shm[0].md[0].cnt2 = frameId;
 
                 for(int i = 0; i < m_shm[0].md[0].sem; i++)
                 {
@@ -341,58 +467,7 @@ namespace Dao
                     }
                 }
 
-                m_shm[0].md[0].write = 0;
-                m_shm[0].md[0].cnt0++;
-            }
-
-            void writeData()
-            {
-                int semval = 0;
-                m_shm[0].md[0].write = 1;
-
-                for(int i = 0; i < m_shm[0].md[0].sem; i++)
-                {
-                    sem_getvalue(m_shm[0].semptr[i], &semval);
-                    if(semval < SEMAPHORE_MAXVAL )
-                        sem_post(m_shm[0].semptr[i]);
-                }
-
-                if(m_shm[0].semlog != NULL)
-                {
-                    sem_getvalue(m_shm[0].semlog, &semval);
-                    if(semval < SEMAPHORE_MAXVAL)
-                    {
-                        sem_post(m_shm[0].semlog);
-                    }
-                }
-
-                m_shm[0].md[0].write = 0;
-                m_shm[0].md[0].cnt0++;
-            }
-
-            void writeData(int32_t counter)
-            {
-                int semval = 0;
-                m_shm[0].md[0].write = 1;
-                m_shm[0].md[0].cnt2 = counter;
-
-                for(int i = 0; i < m_shm[0].md[0].sem; i++)
-                {
-                    sem_getvalue(m_shm[0].semptr[i], &semval);
-                    if(semval < SEMAPHORE_MAXVAL )
-                        sem_post(m_shm[0].semptr[i]);
-                }
-
-                if(m_shm[0].semlog != NULL)
-                {
-                    sem_getvalue(m_shm[0].semlog, &semval);
-                    if(semval < SEMAPHORE_MAXVAL)
-                    {
-                        sem_post(m_shm[0].semlog);
-                    }
-                }
-
-                m_shm[0].md[0].write = 0;
+                m_shm[0].md[0].write = 0;                                                                                                                 
                 m_shm[0].md[0].cnt0++;
 
                 struct timespec t;
@@ -400,62 +475,7 @@ namespace Dao
                 m_shm[0].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
             }
 
-            void initialConnectToStream()
-            {
-                if(m_file_is_open)
-                {
-                    sem_wait(m_shm[0].semptr[1]);
-                    // get information
-                    m_last_read_frame = m_shm[0].md[0].cnt0;
-                    m_last_read_position = 0;
-                    m_last_read_packet = 0;
-                }
-                else
-                {
-                    m_log.Error("Error: No file open cannot wait for data");
-                }   
-            }
-
-            // write Packets
-            void writeStartPacketData()
-            {
-
-            }
-
-            void writePacketData()
-            {
-
-            }
-
-            void writeFinalisePacketData()
-            {
-
-            }
-
-            inline int32_t getCounter()
-            {
-                return m_shm[0].md[0].cnt2;
-            }
-        
-            inline size_t size(){return m_shm_nElements;}
-
-            /*
-            // wait on the packet
-            T * waitOnPacket(size_t &packetReceived, size_t &length)
-            {
-                // spin on expected position
-                while(m_last_read_frame >= () )
-                {
-                    // return pointer to region of m_shm.
-                    size_t start = m_shm[0].md[0].__;
-                    packetReceived = m_shm[0].md[0].cnt0;
-                    length = m_shm[0].md[0].__;
-                    return m_ptr[start];
-                }
-            }
-            */
-
-            void releaseAllSemaphores()
+            void ReleaseAllSemaphores()
             {
                 int semval = 0;
                 for(int i = 0; i < m_shm[0].md[0].sem; i++)
@@ -475,9 +495,9 @@ namespace Dao
                 }
             }
 
-            void clean_sems()
+            void CleanAllSemaphores()
             {
-                m_log.Trace("clean_sems()");
+                m_log.Trace("clean_sems(%s)", m_shm_filename.c_str());
                 m_log.Debug("Cleaning semaphores to begin processing");
                 int retval = 0;
                 for(int i = 0; i < m_shm[0].md[0].sem; i++)
@@ -491,14 +511,30 @@ namespace Dao
                     retval = 0;
                 }
             }
+            
+            inline T * GetPtr()
+                {
+                    if(m_file_is_open)
+                    {
+                        return m_ptr; //reinterpret_cast<T*>(m_shm->array.F);
+                    }
+
+                    m_log.Error("Error: No file open cannot close %s", m_shm_filename.c_str());
+                    return NULL;
+                }
+
+            inline size_t Size(){return m_shm_nElements;}
+            inline size_t GetFrameCounter(){return m_shm[0].md[0].cnt0;}
+            inline int32_t GetFrameID(){return m_shm[0].md[0].cnt2;}
+            inline void RequestExit(){m_exit_requested = true;}
 
         protected:
 
-            void reset()
+            void Reset()
             {
                 if(m_file_is_open)
                 {
-                    closeShm();
+                    CloseShm();
                 }
 
                 m_map = 0;
@@ -512,6 +548,11 @@ namespace Dao
                 m_timeout_small_us = 10000;
                 m_timeout_large_us = 10000000;
                 m_timeout_ratio = m_timeout_large_us / m_timeout_small_us;
+                m_exit_requested = false;
+
+                // packing details
+                m_n_packets = 0;
+
 
                 if (clock_gettime(CLOCK_REALTIME, &m_time) == -1)
                 {
@@ -541,11 +582,13 @@ namespace Dao
             size_t m_timeout_small_us;
             size_t m_timeout_large_us;
             size_t m_timeout_ratio;
+            bool m_exit_requested;
 
             // for packeting
-            size_t m_last_read_position;
-            size_t m_last_read_packet;
-            size_t m_last_read_frame;
+
+            size_t m_n_packets;
+            size_t m_target_frame;
+            size_t m_packet_to_read;
     };
 }
 #endif
