@@ -87,7 +87,7 @@ Table taken from Python 2 documentation, section 7.3.2.2.
 '''
 
 class shm:
-    def __init__(self, fname=None, data=None, verbose=False, packed=False, nbkw=0, pubPort=5555, subPort=5555):
+    def __init__(self, fname=None, data=None, verbose=False, packed=False, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost'):
         ''' --------------------------------------------------------------
         Constructor for a SHM (shared memory) object.
 
@@ -190,6 +190,7 @@ class shm:
         #self.pubThread.start()
         # Subscriber
         self.subPort = subPort
+        self.subHost = subHost
         self.subContext = zmq.Context()
         self.subEvent = Event()
         self.subThread = Thread(target = self.subscribe)
@@ -615,7 +616,7 @@ class shm:
     
     def subscribe(self):
         self.subSocket = self.subContext.socket(zmq.SUB)
-        self.subSocket.connect("tcp://localhost:%d"%(self.subPort))
+        self.subSocket.connect("tcp://%s:%d"%(self.subHost, self.subPort))
         self.subSocket.setsockopt(zmq.SUBSCRIBE, b'frameData')
         self.subSocket.setsockopt(zmq.CONFLATE, 1)
         topic = 'frameData'
