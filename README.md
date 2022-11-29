@@ -1,12 +1,9 @@
 # daoBase
-basic tools for dao: shm, logging, error,...
+basic tools for dao
 
 # Prerequiries
 waf needs to be installed and in the path: see https://waf.io/book/.  
-Another dependency is the posix_ipc python module. Usually the installation is as simple as 
-```
-pip3 install posix_ipc
-pip3 install astropy
+
 ```
 
 # Environment
