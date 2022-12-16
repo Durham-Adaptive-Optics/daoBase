@@ -10,3 +10,12 @@ bld.shlib(
 	vnum   = '0.0.1')
 
 
+bld.shlib(
+	source 		= 'cpp/daoNuma.cpp',
+	includes 	= '../include',
+	ldflags		= "-lnuma",
+	cxxflags	= '-std=c++2a',
+	target 		= 'daoNuma',
+	name   		= 'daoNuma',
+	vnum   		= '0.0.1')
+

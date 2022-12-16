@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 # encoding: utf-8
-# Sylvain Cetre
+# Sylvain Cetre and David Barr
 import os,glob
 # the following two variables are used by the target "waf dist"
 VERSION='0.0.1'
@@ -23,23 +23,50 @@ def options(opt):
 def configure(conf):
 	conf.load('compiler_c compiler_cxx gnu_dirs waf_unit_test')
 	conf.write_config_header('config.h')
-#	print('→ prefix is ' + conf.options.prefix)
-#
-#	rLibs = [['libzmq', 'ZMQ'],
-#			 ['protobuf','PROTOBUF']
-#			]
-#	for i in rLibs:
-#		conf.check_cfg( package=i[0],
-#		args='--cflags --libs',
-#		uselib_store=i[1]
-#		)
+
+	# set required libs 
+	conf.check_cfg( package='libzmq',
+					args='--cflags --libs',
+					uselib_store='ZMQ'
+					)
+
+	conf.check_cfg( package='protobuf',
+					args='--cflags --libs',
+					uselib_store='PROTOBUF'
+					)
 
 def build(bld):
 	bld.env.DEFINES=['WAF=1']
 	bld.recurse('src')
-	bld.install_files(bld.env.PREFIX+'/include', 'include/daoBase.h', relative_trick=False)
-	bld.install_files(bld.env.PREFIX+'/include', 'include/daoLog.hpp', relative_trick=False)
-	bld.install_files(bld.env.PREFIX+'/include', 'include/daoThreadSafeQueue.hpp', relative_trick=False)
+
+	# include
+	files = glob.glob('include/*.h')
+	for file in files:
+		bld.install_files(bld.env.PREFIX+'/include', file, relative_trick=False)
+	files = glob.glob('include/*.hpp')
+	for file in files:
+		bld.install_files(bld.env.PREFIX+'/include', file, relative_trick=False)
+	# src
+	files = glob.glob('src/python/*.py')
+	for file in files:
+		bld.install_files(bld.env.PREFIX+'/python', file, relative_trick=False)
+	# apps
+	files = glob.glob('apps/*.py')
+	for file in files:
+		bld.install_files(bld.env.PREFIX+'/bin', file, chmod=0o0755, relative_trick=False)
+	# gui
+	files = glob.glob('gui/*.ui')
+	for file in files:
+		bld.install_files(bld.env.PREFIX+'/data', file, relative_trick=False)
+	files = glob.glob('gui/*.py')
+	for file in files:
+		bld.install_files(bld.env.PREFIX+'/bin', file, chmod=0o0755, relative_trick=False)
+	# script
+	files = glob.glob('scripts/*')
+	for file in files:
+		bld.install_files(bld.env.PREFIX+'/bin', file, chmod=0o0755, relative_trick=False)
 	
-#	from waflib.Tools import waf_unit_test
-#	bld.add_post_fun(waf_unit_test.summary)
+	# uncommment to run tests
+	# bld.recurse('test')
+	# from waflib.Tools import waf_unit_test
+	# bld.add_post_fun(waf_unit_test.summary)

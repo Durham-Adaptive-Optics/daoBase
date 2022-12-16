@@ -1,0 +1,34 @@
+#! /usr/bin/env python
+
+# TESTING BUILDS   
+bld.program(
+	features='test',
+	target = 'test_numa',
+	source = [ 'test_numa.cpp' ],
+	includes = ['../include/', bld.env.PREFIX+'/include'],
+	lib = [ 'gtest'],
+	cxxflags=['-g',  '-std=c++2a'],
+	ldflags=['-lnuma'],
+	use=['daoNuma']
+	)
+
+bld.program(
+	features='test',
+	target = 'test_queue',
+	source = [ 'test_queue.cpp' ],
+	includes = ['../include/', bld.env.PREFIX+'/include',],
+	lib = [ 'gtest'],
+	cxxflags=['-g', '-std=c++2a'],
+	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64'],
+	)
+
+bld.program(
+	features='test',
+	target = 'test_log',
+	source = [ 'test_log.cpp' ],
+	includes = ['../include/', bld.env.PREFIX+'/include',],
+	lib = [ 'gtest'],
+	cxxflags=['-g', '-std=c++2a'],
+	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64', '-pthread','-ldaoProto'],
+	use=['PROTOBUF', 'ZMQ']
+	)
