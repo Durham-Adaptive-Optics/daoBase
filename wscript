@@ -38,6 +38,8 @@ def build(bld):
 	bld.env.DEFINES=['WAF=1']
 	bld.recurse('src')
 	bld.install_files(bld.env.PREFIX+'/include', 'include/daoBase.h', relative_trick=False)
+	bld.install_files(bld.env.PREFIX+'/include', 'include/daoLog.hpp', relative_trick=False)
+	bld.install_files(bld.env.PREFIX+'/include', 'include/daoThreadSafeQueue.hpp', relative_trick=False)
 	
 #	from waflib.Tools import waf_unit_test
 #	bld.add_post_fun(waf_unit_test.summary)
