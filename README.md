@@ -25,3 +25,12 @@ waf configure --prefix=$DAOROOT
 waf
 waf install
 ```
+
+
+# UNIT tests.
+
+The build include unit tests under tests. These can be built and run by uncommenting out the following lines of code in the wscript:
+
+	bld.recurse('test')
+	from waflib.Tools import
+	waf_unit_testbld.add_post_fun(waf_unit_test.summary)
