@@ -82,7 +82,7 @@ namespace Dao
                 std::string message;
 
                 Dao::Log::LEVEL level;
-                std::optional<Dao::Log::EVENTS> event;
+                // std::optional<Dao::Log::EVENTS> event;
         };
 
         class NetworkLog
@@ -387,30 +387,30 @@ namespace Dao
                     }
                     while(m_alive)
                     {
-                        auto logItem = m_queue.pop();
-                        if (logItem)
+                        if (m_queue.size() > 0)
                         {
+                            auto logItem = m_queue.pop();
+
                             // this is network first as this is the perfromance option used mainly in operation to reduce number of 
                             // comparisions. 
                             // Then File
                             // Lastly Screen as if we are logging to screen we probably don't care for performance
                             if(m_dst == DESTINATION::NETWORK)
                             {
-                                dump_network(logItem.value());
+                                dump_network(logItem);
                             }
                             else if (m_dst == DESTINATION::FILE)
                             {
-                                dump_file(logItem.value());
+                                dump_file(logItem);
                             }
                             else if (m_dst == DESTINATION::SCREEN)
                             {
-                                dump_screen(logItem.value());
+                                dump_screen(logItem);
                             }
                             else
                             {
                                 // assume output none
                             }
-
                         }
                         else
                         {
@@ -420,24 +420,24 @@ namespace Dao
                     }
                     // try to empty queue (10 attempts then close)
 
-                    
                     int attempt = 0;
                     while(true)
                     {   
-                        auto logItem = m_queue.pop();
-                        if(logItem)
+                        if(m_queue.size() > 0)
                         {
+                            auto logItem = m_queue.pop();
+
                             if(m_dst == DESTINATION::NETWORK)
                             {
-                                dump_network(logItem.value());
+                                dump_network(logItem);
                             }
                             else if (m_dst == DESTINATION::FILE)
                             {
-                                dump_file(logItem.value());
+                                dump_file(logItem);
                             }
                             else if (m_dst == DESTINATION::SCREEN)
                             {
-                                dump_screen(logItem.value());
+                                dump_screen(logItem);
                             }
                             attempt++;
                             if(attempt >= 10)

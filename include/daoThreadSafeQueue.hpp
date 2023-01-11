@@ -48,13 +48,9 @@ namespace Dao
                 return m_queue.size();
             }
             
-            std::optional<T> pop()
+            T pop()
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
-                if (m_queue.empty())
-                {
-                    return {};
-                }
                 T retVal = m_queue.front();
                 m_queue.pop();
                 return retVal;
@@ -66,12 +62,12 @@ namespace Dao
                 std::lock_guard<std::mutex> lock(m_mutex);
                 m_queue.push(item);
             }
-                    
-        private:
+
             inline bool empty() const
             {
                 return m_queue.empty();
             }
+        private:
 
             std::queue<T> m_queue; //,Allocator> m_queue;
             mutable std::mutex m_mutex;

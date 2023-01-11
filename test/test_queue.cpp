@@ -17,10 +17,16 @@ TEST(test_queue, set_up)
         a.push(i*t);
     while(true)
     {
-        auto g = a.pop();
-        if(!g)
+        if (a.size() > 0)
+        {
+            auto g = a.pop();
+            printf("G: %f\n", g); 
+        }
+        else
+        {
             break;
-        printf("G: %f\n", g.value()); 
+        }  
+
     }
 
 }
