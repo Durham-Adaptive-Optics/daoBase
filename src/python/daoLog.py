@@ -26,7 +26,7 @@ class daoLog:
         tmp = f"[{self.hostname}] {ts} [{self.name}] [{level}] - {string}"
         if(self.dst == "SCREEN"):
             print(tmp)
-        elif(self.dst == "SCREEN"):
+        elif(self.dst == "FILE"):
             self.write(tmp)
         elif(self.dst == "NETWORK"):
             self.writeToNetwork(tmp)
