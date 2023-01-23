@@ -1,13 +1,16 @@
 import socket
 from datetime import datetime
 
+# this is the network logger. Maybe we can encapsulate this better. 
+import zmq
+import daoLogging_pb2
+
 
 class daoLog:
     def __init__(self, name, dst="SCREEN", level="TRACE", ip=None, port=None, filename=None):
         self.name = name
         self.hostname = socket.gethostname()
         self.dst = dst
-        self.level = self.LevelStringToValue(level)
         if(dst == "SCREEN"):
             pass
         if(dst == "FILE"):
@@ -17,7 +20,18 @@ class daoLog:
         if(dst == "NETWORK"):
             self.ip = ip
             self.port = port
-            self.log(f"Network log not supported yet {self.ip}:{self.port}")
+            connect_string = f'tcp://{ip}:{port}'
+            print(f"Connecting to : {connect_string}")
+            self.network_context = zmq.Context()
+            self.network_socket = self.network_context.socket(zmq.PUB)
+            self.network_socket.connect(connect_string)
+            # create a empty log_message that is configured at will
+            self.network_log_message = daoLogging_pb2.Logs()
+            self.network_log_mess = self.network_log_message.logs.add()
+            self.network_log_mess.component_name = self.name
+            self.network_log_mess.machine = self.hostname
+        self.level = self.LevelStringToValue(level)
+
 
         # configure depending dst
     def log(self, string, level):
@@ -29,7 +43,7 @@ class daoLog:
         elif(self.dst == "FILE"):
             self.write(tmp)
         elif(self.dst == "NETWORK"):
-            self.writeToNetwork(tmp)
+            self.writeToNetwork(string, level, ts)
 
 
     def Trace(self, string):
@@ -91,8 +105,12 @@ class daoLog:
         else:
             return "UNKNOWN LEVEL"
 
-    def writeToNetwork(tmp):
-        pass
+    def writeToNetwork(self, string, level, ts):
+        self.network_log_mess.level = level
+        self.network_log_mess.log_message = string
+        self.network_log_mess.time_stamp = ts
+        sendString = self.network_log_message.SerializeToString()
+        self.network_socket.send(sendString)
 
 if __name__=="__main__":
     logger = daoLog("test")
