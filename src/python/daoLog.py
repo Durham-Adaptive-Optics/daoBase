@@ -32,7 +32,6 @@ class daoLog(logging.Logger):
         if(self.port is None or self.ip is None or self.machine is None):
             pass
         else:
-            print("d")
             zmqHandle = daoLogZmqHandler(ip=self.ip, port=self.port, machine=self.machine)
             self.addHandler(zmqHandle)
             
