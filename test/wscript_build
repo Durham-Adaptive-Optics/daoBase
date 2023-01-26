@@ -11,21 +11,21 @@ bld.program(
 	use=['daoNuma']
 	)
 
-bld.program(
-	features='test',
-	target = 'test_queue',
-	source = [ 'test_queue.cpp' ],
-	includes = ['../include/', bld.env.PREFIX+'/include',],
-	lib = [ 'gtest'],
-	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64'],
-	)
-
-bld.program(
-	features='test',
-	target = 'test_log',
-	source = [ 'test_log.cpp' ],
-	includes = ['../include/', bld.env.PREFIX+'/include',],
-	lib = [ 'gtest'],
-	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64', '-pthread','-ldaoProto'],
-	use=['PROTOBUF', 'ZMQ']
-	)
+#bld.program(
+#	features='test',
+#	target = 'test_queue',
+#	source = [ 'test_queue.cpp' ],
+#	includes = ['../include/', bld.env.PREFIX+'/include',],
+#	lib = [ 'gtest'],
+#	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64'],
+#	)
+#
+#bld.program(
+#	features='test',
+#	target = 'test_log',
+#	source = [ 'test_log.cpp' ],
+#	includes = ['../include/', bld.env.PREFIX+'/include',],
+#	lib = [ 'gtest'],
+#	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64', '-pthread','-ldaoProto'],
+#	use=['PROTOBUF', 'ZMQ']
+#	)

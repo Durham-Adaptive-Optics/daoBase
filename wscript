@@ -10,16 +10,16 @@ APPNAME='daoBase'
 # CC=mingw-gcc AR=mingw-ar waf configure build
 
 top = '.'
-top = '.'
 build = 'build'
 include = 'include'
 
 from waflib import Configure, Logs, Utils, Context
 #Configure.autoconfig = True # True/False/'clobber'
+from waflib.Tools import waf_unit_test
 
 def options(opt):
 	opt.load('compiler_c compiler_cxx gnu_dirs waf_unit_test')
-
+	
 def configure(conf):
 	conf.load('compiler_c compiler_cxx gnu_dirs waf_unit_test')
 	conf.write_config_header('config.h')
@@ -67,6 +67,7 @@ def build(bld):
 		bld.install_files(bld.env.PREFIX+'/bin', file, chmod=0o0755, relative_trick=False)
 	
 	# uncommment to run tests
-	# bld.recurse('test')
-	# from waflib.Tools import waf_unit_test
-	# bld.add_post_fun(waf_unit_test.summary)
+#	bld(features='test', source='test/daoBaseTestEvent.py', target='daoBaseTestEvent', 
+#        exec_command='python -m pytest ${SRC}')
+#	bld.recurse('test')
+#	bld.add_post_fun(waf_unit_test.summary)
