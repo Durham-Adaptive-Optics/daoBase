@@ -50,28 +50,23 @@ namespace Dao
         // Some useful enums for checking level
         enum class LEVEL : std::uint8_t {
 //         enum LEVEL {
-            TRACE       = 0, //(1U << 0),  /* 0b0000000000000001 */
-            DEBUG       = 1, //(1U << 1),  /* 0b0000000000000010 */
-            INFO        = 2, //(1U << 2),  /* 0b0000000000000100 */
-            WARNING     = 3, //(1U << 3),  /* 0b0000000000001000 */
-            ERROR       = 4, //(1U << 4),  /* 0b0000000000010000 */
-            FATAL       = 5 // (1U << 5),  /* 0b0000000000100000 */
-        };
-
-        enum class EVENTS : uint8_t {
-            NONE            = 0,
-            UPDATE          = 1,
-            STATE_CHANGE    = 2
+            NOSET       = 0,
+            TRACE       = 5, //(1U << 0),  /* 0b0000000000000001 */
+            DEBUG       = 10, //(1U << 1),  /* 0b0000000000000010 */
+            INFO        = 20, //(1U << 2),  /* 0b0000000000000100 */
+            WARNING     = 30, //(1U << 3),  /* 0b0000000000001000 */
+            ERROR       = 40, //(1U << 4),  /* 0b0000000000010000 */
+            CRITICAL    = 50 // (1U << 5),  /* 0b0000000000100000 */
         };
 
         // Map for level to string
         const std::map<LEVEL, std::string> LEVEL_TEXT = {
-            {LEVEL::TRACE,          "[Trace] "},
-            {LEVEL::DEBUG,          "[Debug] "},
-            {LEVEL::INFO,           "[Info ] "},
-            {LEVEL::WARNING,        "[WARNING]"},
-            {LEVEL::ERROR,          "[Error] "},
-            {LEVEL::FATAL,          "[Fatal] "}
+            {LEVEL::TRACE,          "[TRACE]   "},
+            {LEVEL::DEBUG,          "[DEBUG]   "},
+            {LEVEL::INFO,           "[INFO ]   "},
+            {LEVEL::WARNING,        "[WARNING] "},
+            {LEVEL::ERROR,          "[ERROR]   "},
+            {LEVEL::CRITICAL,       "[CRITICAL]"}
         };
 
         class LOG_MESSAGE
@@ -82,7 +77,6 @@ namespace Dao
                 std::string message;
 
                 Dao::Log::LEVEL level;
-                // std::optional<Dao::Log::EVENTS> event;
         };
 
         class NetworkLog
@@ -190,18 +184,17 @@ namespace Dao
                 std::string construct_string(LOG_MESSAGE& message)
                 {
                     std::string messageString;
-                    Dao::Logs proto_message;
-                    Dao::LogMessage * mess = proto_message.add_logs();   
+                    Dao::LogMessage log_message;
 
                     // now copy from message to protoMessage.
-                    mess->set_component_name(message.comp_name);
-                    mess->set_level(m_level_text.at(message.level));
-                    mess->set_log_message(message.message);
-                    mess->set_time_stamp(message.timestamp);
-                    mess->set_machine(m_hostname);
+                    log_message.set_component_name(message.comp_name);
+                    log_message.set_level(m_level_text.at(message.level));
+                    log_message.set_log_message(message.message);
+                    log_message.set_time_stamp(message.timestamp);
+                    log_message.set_machine(m_hostname);
 
                     // get string 
-                    proto_message.SerializeToString(&messageString);
+                    log_message.SerializeToString(&messageString);
                     return messageString;
                 }
 
@@ -211,7 +204,7 @@ namespace Dao
                     {LEVEL::INFO,           Dao::LogMessage::INFO},
                     {LEVEL::WARNING,        Dao::LogMessage::WARNING},
                     {LEVEL::ERROR,          Dao::LogMessage::ERROR},
-                    {LEVEL::FATAL,          Dao::LogMessage::FATAL}
+                    {LEVEL::CRITICAL,       Dao::LogMessage::CRITICAL}
                 };
 
                 // network stuff
@@ -356,13 +349,13 @@ namespace Dao
                     }
                 }
 
-                inline void Fatal(const char * fmt, ... )
+                inline void Critical(const char * fmt, ... )
                 {
-                    if(Dao::Log::LEVEL::FATAL >= m_level)
+                    if(Dao::Log::LEVEL::CRITICAL >= m_level)
                     {
                         va_list args;
                         va_start(args, fmt);
-                        log(Dao::Log::LEVEL::FATAL, fmt, args);
+                        log(Dao::Log::LEVEL::CRITICAL, fmt, args);
                         va_end(args);
                     }
                 }
