@@ -91,7 +91,7 @@ class daoLogZmqHandler(logging.Handler):
         self.socketString = f"tcp://{self.ip}:{self.port}"
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.PUB)
-        self.socket.bind(self.socketString)
+        self.socket.connect(self.socketString)
 
     def emit(self, record):
         """
