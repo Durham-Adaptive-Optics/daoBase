@@ -9,3 +9,5 @@ waf3-*-*/
 .lock-waf_*_build
 
 build/
+
+src/python/__pycache__
