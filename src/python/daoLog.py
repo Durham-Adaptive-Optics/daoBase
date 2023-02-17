@@ -17,7 +17,7 @@ class daoLog:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
 
-        formatter = logging.Formatter('[%(asctime)s] [%(machine)s] - %(name)s [%(levelname)s] : %(message)s')
+        formatter = logging.Formatter('[%(asctime)s] [%(machine)s] - %(name)s:%(lineno)d [%(levelname)s] : %(message)s')
         formatter.converter = time.gmtime
         # formatter.formatTime = lambda record, datefmt=None: time.strftime("%Y-%m-%dT%H:%M:%S.000Z", datefmt)
 
