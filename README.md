@@ -4,7 +4,6 @@ basic tools for dao
 # Prerequiries
 waf needs to be installed and in the path: see https://waf.io/book/.  
 
-```
 
 # Environment
 ```
