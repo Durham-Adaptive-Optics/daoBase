@@ -35,40 +35,11 @@ def configure(conf):
 					uselib_store='PROTOBUF'
 					)
 
-from waflib.Task import Task
-class proto_cpp(Task):
-    def run(self):
-        return self.exec_command(f'protoc -I{self.inputs[0]} --cpp_out={self.outputs[0]} {self.inputs[1]}')
-
-class proto_py(Task):
-    def run(self):
-        return self.exec_command(f'protoc -I{self.inputs[0]} --python_out={self.outputs[0]} {self.inputs[1]}')
-
-def build_proto_list(bld, list, proto_path='../proto/', build_path=''):
-    for i in list:
-        cpp = proto_cpp(env=bld.env)
-        cpp.set_inputs([bld.path.find_or_declare(proto_path),bld.path.find_or_declare(proto_path + i)])
-        cpp.set_outputs(bld.path.find_or_declare(build_path))
-        bld.add_to_group(cpp) 
-
-        py = proto_py(env=bld.env)
-        py.set_inputs([bld.path.find_or_declare(proto_path),bld.path.find_or_declare(proto_path + i)])
-        py.set_outputs(bld.path.find_or_declare(build_path))
-        bld.add_to_group(py)
-    bld.execute_build()
-    return bld
 
 def build(bld):
-	bld = build_proto_list(bld,['daoCommand.proto', 'daoLogging.proto', 'daoEvent.proto'])
-	bld.shlib(
-        target='daoBase',
-        source= ["build/daoCommand.pb.cc", "build/daoLogging.pb.cc", "build/daoEvent.pb.cc"],
-        cppflags=['-std=c++11'],
-        use=['PROTOBUF']
-    )
-
 	bld.env.DEFINES=['WAF=1']
-	bld.recurse('src')
+	bld.recurse('proto src')
+
 	# install header files
 	header_files = glob.glob('build/*.h')
 	for file in header_files:
