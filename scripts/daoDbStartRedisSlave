@@ -1,0 +1,15 @@
+#!/bin/bash
+
+echo "Starting Redis Slave processes..."
+datestr="$( date -u )"
+echo "$datestr" 
+
+
+
+tmuxname="daoRedisSlave"
+tmux send-keys -t $tmuxname C-c 2> /dev/null
+sleep 0.1
+echo "Executing redis-server --bind $1 --slaveof $2 $3 in tmux session $tmuxname"
+tmux new -d -s $tmuxname
+tmux send-keys -t $tmuxname "redis-server --bind $1 --slaveof $2 $3" C-M
+echo "Done starting Redis Slave process."

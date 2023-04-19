@@ -1,0 +1,13 @@
+#!/bin/bash
+
+echo "Starting Redis Master processes..."
+datestr="$( date -u )"
+echo "$datestr" 
+
+tmuxname="daoRedisMaster"
+tmux send-keys -t $tmuxname C-c 2> /dev/null
+sleep 0.1
+echo "Executing redis-server --bind $1 in tmux session $tmuxname"
+tmux new -d -s $tmuxname
+tmux send-keys -t $tmuxname "redis-server --bind $1" C-M
+echo "Done starting $1 Redis Master process."

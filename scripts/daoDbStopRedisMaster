@@ -1,0 +1,4 @@
+#!/bin/bash
+
+tmux send-keys -t daoRedisMaster C-c 2> /dev/null
+tmux kill-session -t daoRedisMaster> /dev/null
