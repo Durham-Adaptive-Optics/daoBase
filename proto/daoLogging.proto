@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package Dao;
+
+message LogMessage {
+  string component_name = 1;
+  string time_stamp = 2;
+  string machine = 3;
+  string log_message = 4;
+
+    enum log_level {
+      NOSET = 0;
+      TRACE = 5;
+      DEBUG = 10;
+      INFO  = 20;
+      WARNING = 30;
+      ERROR = 40;
+      CRITICAL = 50;
+  }
+
+  log_level level = 5;
+}

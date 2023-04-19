@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package Dao;
+
+message Event {
+    string name = 1;
+    string data = 2;
+
+    enum eventType {
+      NONE = 0;
+      NORMAL = 1;
+      CRITICAL = 2;
+    }
+
+    eventType event_type = 3;
+}

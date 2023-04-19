@@ -1,0 +1,33 @@
+
+syntax = "proto3";
+
+package Dao;
+
+message CommandMessage {
+  string component = 1;
+
+  enum COMMAND {
+    EXEC   = 0;       // State transitions
+    SETUP  = 1;       // Unsure may remove
+    UPDATE = 2;       // Call to update objects
+    PING   = 3;       // if alive return pid of process
+    STATE  = 4;       // query current state
+    SET_LOG_LEVEL=5;  // change the log level of the process
+    DUMP    =6;       // dump current state
+    QUERY   =7;       // Query a single object in memory
+    OTHER   =8;       // User defined commands
+  }
+
+  COMMAND function = 2;
+  string payload = 3; // payload is generic and can contian everything so complexity in zmq thread for disentangle the payload based on command
+}
+
+message ReplyMessage {
+  enum RETURN {
+    SUCCESS = 0;
+    FAILURE = 1;
+  }
+
+  RETURN status = 1;
+  string payload = 2;
+}
