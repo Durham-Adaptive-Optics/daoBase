@@ -2,7 +2,19 @@
 basic tools for dao
 
 # Prerequiries
+## Waf
 waf needs to be installed and in the path: see https://waf.io/book/.  
+
+## Python
+a python install is needed
+
+```
+pip3 install posix_ipc
+pip3 install zmq
+pip3 install protobuf
+pip3 install astropy
+```
+
 
 
 # Environment
