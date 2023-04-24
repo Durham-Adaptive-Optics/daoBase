@@ -5,7 +5,7 @@ basic tools for dao
 ## Linux package
 Package for Redhat based distribution... to be adapted for other Linux distrib
 ```
-yum install openssl-devel protobuf-devel gsl-devel numactl-devel glibc-devel ncurses-devel
+yum install openssl-devel protobuf-devel gsl-devel numactl-devel glibc-devel ncurses-devel redis
 ```
 ## Waf
 waf needs to be installed and in the path: see https://waf.io/book/.  

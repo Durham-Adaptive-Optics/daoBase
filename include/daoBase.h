@@ -21,6 +21,7 @@
 #define DAO_DEBUG 2
 #define DAO_TRACE 3
 
+char * daoBaseGetTimeStamp();
 #define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
 
 int daoLogLevel = 1;
@@ -37,7 +38,6 @@ int daoLogLevel = 1;
             do { if (daoLogLevel>=DAO_TRACE) fprintf(stdout, "%s [trace] %s:%s:%d " fmt, daoBaseGetTimeStamp(), __FILENAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while (0)
 
 
-char * daoBaseGetTimeStamp();
 unsigned daoBaseIp2Int(const char * ip); 
 
 #endif
