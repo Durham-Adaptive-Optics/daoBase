@@ -50,7 +50,7 @@ static int clock_gettime(int clk_id, struct mach_timespec *t)
 #endif
 
 #include "daoBase.h"
-
+static int current_log_level = DEFAULT_LOG_LEVEL;
 /**
  * Return a time stamp string with microsecond precision
  */
@@ -105,4 +105,130 @@ unsigned daoBaseIp2Int (const char * ip)
         v += n;
     }
     return v;
+}
+
+
+/*
+ * Log a message with the specified log level and format string.
+ * If the log level is higher than the current log level, the message
+ * is not logged.
+ */
+void daoLog(int log_level, const char *format, ...) 
+{
+    if (log_level > current_log_level) 
+    {
+        return;
+    }
+
+    // Get the current time and format it as a string
+    /*time_t current_time;
+    char* c_time_string;
+    current_time = time(NULL);
+    c_time_string = ctime(&current_time);
+    c_time_string[strlen(c_time_string)-1] = '\0';*/
+
+    // Map the log level to a string representation
+    char* log_level_string;
+    switch (log_level) {
+        case LOG_LEVEL_ERROR:
+            log_level_string = "ERROR";
+            break;
+        case LOG_LEVEL_WARNING:
+            log_level_string = "WARNING";
+            break;
+        case LOG_LEVEL_INFO:
+            log_level_string = "INFO";
+            break;
+        case LOG_LEVEL_DEBUG:
+            log_level_string = "DEBUG";
+            break;
+        case LOG_LEVEL_TRACE:
+            log_level_string = "TRACE";
+            break;
+        default:
+            log_level_string = "UNKNOWN";
+            break;
+    }
+
+    // Print the log message to the console
+    va_list args;
+    va_start(args, format);
+    printf("[%s] [%s] ", daoBaseGetTimeStamp(), log_level_string);
+    vprintf(format, args);
+    va_end(args);
+}
+
+/*
+ * Log an error message with the specified format string.
+ */
+void daoLogError(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_ERROR, format, args);
+    va_end(args);
+}
+
+/*
+ * Log a print message with the specified format string.
+ */
+void daoLogPrint(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_INFO, format, args);
+    va_end(args);
+}
+
+/*
+ * Log a warning message with the specified format string.
+ */
+void daoLogWarning(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_WARNING, format, args);
+    va_end(args);
+}
+
+/*
+ * Log an info message with the specified format string.
+ */
+void daoLogInfo(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_INFO, format, args);
+    va_end(args);
+}
+
+/*
+ * Log a debug message with the specified format string.
+ */
+void daoLogDebug(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_DEBUG, format, args);
+    va_end(args);
+}
+
+/*
+ * Log a trace message with the specified format string.
+ */
+void daoLogTrace(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_TRACE, format, args);
+    va_end(args);
+}
+
+
+/*
+ * Set the current log level.
+ */
+void daoSetLogLevel(int log_level) 
+{
+    current_log_level = log_level;
 }

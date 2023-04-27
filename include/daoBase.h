@@ -9,10 +9,32 @@
  *
  * 
  */
-
 #ifndef _DAOBASE_H
 #define _DAOBASE_H
 
+#include <stdio.h>
+#include <stdarg.h>
+#include <time.h>
+
+// New Log System
+#define LOG_LEVEL_ERROR 0
+#define LOG_LEVEL_WARNING 1
+#define LOG_LEVEL_INFO 2
+#define LOG_LEVEL_DEBUG 3
+#define LOG_LEVEL_TRACE 4
+
+#define DEFAULT_LOG_LEVEL LOG_LEVEL_INFO
+
+void daoLog(int log_level, const char *format, ...);
+void daoLogError(const char *format, ...);
+void daoLogPrint(const char *format, ...);
+void daoLogWarning(const char *format, ...);
+void daoLogInfo(const char *format, ...);
+void daoLogDebug(const char *format, ...);
+void daoLogTrace(const char *format, ...);
+void daoSetLogLevel(int log_level);
+
+// original Log System
 #define DAO_SUCCESS 0
 #define DAO_ERROR   1
 

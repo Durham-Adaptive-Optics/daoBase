@@ -34,7 +34,7 @@ extern "C"
 
 #define SHAREDMEMDIR        "/tmp"        /**< location of file mapped semaphores */
 
-#define SEMAPHORE_MAXVAL    10 	          /**< maximum value for each of the semaphore, mitigates warm-up time when processes catch up with data that has accumulated */
+#define SEMAPHORE_MAXVAL    1 	          /**< maximum value for each of the semaphore, mitigates warm-up time when processes catch up with data that has accumulated */
 #define IMAGE_NB_SEMAPHORE  10            /**< Number of semaphores per image */
 
 // Data types are defined as machine-independent types for portability

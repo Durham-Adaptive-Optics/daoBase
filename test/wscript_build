@@ -29,3 +29,14 @@ bld.program(
 	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64', '-pthread','-ldaoProto'],
 	use=['PROTOBUF', 'ZMQ']
 	)
+
+daoLogTest = bld.program(
+	source = 'daoLogTest.c',
+	target = 'daoLogTest',
+	includes = '../include '+os.getenv('DAOROOT')+'/include/',
+	linkflags = [ '-L'+os.getenv('DAOROOT')+'/lib/','-L'+os.getenv('DAOROOT')+'/lib64/'],
+	ldflags = ['-ldaoBase', '-lpthread', '-lrt', '-lm', '-lncurses'],
+	use= 'daoBase',
+	cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe', '-fdiagnostics-color=auto'],
+	)
+		

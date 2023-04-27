@@ -25,6 +25,9 @@ from threading import Event
 import zmq
 import datetime
 
+SEMAPHORE_MAXVAL = 1
+IMAGE_NB_SEMAPHORE = 10
+
 # ------------------------------------------------------
 #          list of available data types
 # ------------------------------------------------------
@@ -155,7 +158,7 @@ class shm:
         # Creating semaphore, x9
         singleName=self.fname.split('/')[-1].split('.')[0]
         self.semaphores = []
-        for k in range(10):
+        for k in range(IMAGE_NB_SEMAPHORE):
             semName = '/'+singleName+'_sem'+'0'+str(k)
             #print('creating semaphore '+semName)
             self.semaphores.append(posix_ipc.Semaphore(semName, flags=posix_ipc.O_CREAT))
@@ -225,7 +228,7 @@ class shm:
         self.mtdata['atype']  = self.select_atype()
         self.mtdata['shared'] = 1
         self.mtdata['nbkw']   = nbkw
-        self.mtdata['sem']    = 10
+        self.mtdata['sem']    = IMAGE_NB_SEMAPHORE
         
         if data.ndim == 2:
             self.mtdata['size'] = self.mtdata['size'] + (0,)
@@ -658,8 +661,8 @@ class shm:
             self.set_frame_id(frameId)
         if ts:
             self.set_timestamp()
-        for k in range(10):
-            if self.semaphores[k].value < 10:
+        for k in range(IMAGE_NB_SEMAPHORE):
+            if self.semaphores[k].value < SEMAPHORE_MAXVAL:
                 self.semaphores[k].release()
 
         return
