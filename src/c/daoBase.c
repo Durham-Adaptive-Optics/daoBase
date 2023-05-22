@@ -228,7 +228,15 @@ void daoLogTrace(const char *format, ...)
 /*
  * Set the current log level.
  */
-void daoSetLogLevel(int log_level) 
+void daoLogSetLevel(int log_level) 
 {
     current_log_level = log_level;
+}
+
+/*
+ * Set the current log level.
+ */
+void daoSetLogLevel(int logLevel) 
+{
+    daoLogLevel = logLevel;
 }

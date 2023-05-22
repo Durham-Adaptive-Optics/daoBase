@@ -24,7 +24,8 @@ bld.program(
 	features='test',
 	target = 'test_log',
 	source = [ 'test_log.cpp' ],
-	includes = ['../include/', bld.env.PREFIX+'/include',],
+	includes = ['../include/', '../build/', bld.env.PREFIX+'/include',],
+	linkflags = [ '-L../build/proto'],
 	lib = [ 'gtest'],
 	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64', '-pthread','-ldaoProto'],
 	use=['PROTOBUF', 'ZMQ']

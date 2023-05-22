@@ -423,6 +423,7 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 
 int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 {
+    daoTrace("\n");
     char sname[200];
     long s, s1;
 //    int r;
@@ -481,31 +482,31 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 
 
 
-
-int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size, uint8_t atype, int shared, int NBkw)
+/*
+ * Create SHM
+ */
+int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, 
+                              uint32_t *size, uint8_t atype, int shared, int NBkw)
 {
+    daoTrace("\n");
     long i;//,ii;
-//    time_t lt;
     long nelement;
     struct timespec timenow;
     char sname[200];
-
     size_t sharedsize = 0; // shared memory size in bytes
     int SM_fd; // shared memory file descriptor
     char SM_fname[200];
     int result;
     IMAGE_METADATA *map=NULL;
     char *mapv; // pointed cast in bytes
-
     int kw;
 //    char comment[80];
 //    char kname[16];
-    
-
-
     nelement = 1;
     for(i=0; i<naxis; i++)
+    {
         nelement*=size[i];
+    }
 
     // compute total size to be allocated
     if(shared==1)
@@ -517,48 +518,63 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
         image->semlog = NULL;
 
         if ((image->semlog = sem_open(sname, O_CREAT, 0644, 1)) == SEM_FAILED)
-            perror("semaphore creation / initilization");
+        {
+            perror("semaphore creation / initilization");}
         else
+        {
             sem_init(image->semlog, 1, 0);
-
+        }
 
         sharedsize = sizeof(IMAGE_METADATA);
 
         if(atype == _DATATYPE_UINT8)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_UINT8;
+        }
         if(atype == _DATATYPE_INT8)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_INT8;
-
+        }
         if(atype == _DATATYPE_UINT16)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_UINT16;
+        }
         if(atype == _DATATYPE_INT16)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_INT16;
-
+        }
         if(atype == _DATATYPE_INT32)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_INT32;
+        }
         if(atype == _DATATYPE_UINT32)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_UINT32;
-
-
+        }
         if(atype == _DATATYPE_INT64)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_INT64;
-
+        }
         if(atype == _DATATYPE_UINT64)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_UINT64;
-
-
+        }
         if(atype == _DATATYPE_FLOAT)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_FLOAT;
-
+        }
         if(atype == _DATATYPE_DOUBLE)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_DOUBLE;
-
+        }
         if(atype == _DATATYPE_COMPLEX_FLOAT)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_COMPLEX_FLOAT;
-
+        }
         if(atype == _DATATYPE_COMPLEX_DOUBLE)
+        {
             sharedsize += nelement*SIZEOF_DATATYPE_COMPLEX_DOUBLE;
-
+        }
 
         sharedsize += NBkw*sizeof(IMAGE_KEYWORD);
 
@@ -566,7 +582,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
         sprintf(SM_fname, "%s/%s.im.shm", SHAREDMEMDIR, name);
         SM_fd = open(SM_fname, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
 
-        if (SM_fd == -1) {
+        if (SM_fd == -1) 
+        {
             daoError("Error opening file (%s) for writing\n", SM_fname);
             exit(0);
         }
@@ -578,21 +595,24 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
         image->memsize = sharedsize;
 
         result = lseek(SM_fd, sharedsize-1, SEEK_SET);
-        if (result == -1) {
+        if (result == -1) 
+        {
             close(SM_fd);
             daoError("Error calling lseek() to 'stretch' the file\n");
             exit(0);
         }
 
         result = write(SM_fd, "", 1);
-        if (result != 1) {
+        if (result != 1) 
+        {
             close(SM_fd);
             perror("Error writing last byte of the file");
             exit(0);
         }
 
         map = (IMAGE_METADATA*) mmap(0, sharedsize, PROT_READ | PROT_WRITE, MAP_SHARED, SM_fd, 0);
-        if (map == MAP_FAILED) {
+        if (map == MAP_FAILED) 
+        {
             close(SM_fd);
             perror("Error mmapping the file");
             exit(0);
@@ -607,9 +627,13 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
         image->md = (IMAGE_METADATA*) malloc(sizeof(IMAGE_METADATA));
         image->md[0].shared = 0;
         if(NBkw>0)
+        {
             image->kw = (IMAGE_KEYWORD*) malloc(sizeof(IMAGE_KEYWORD)*NBkw);
+        }
         else
+        {
             image->kw = NULL;
+        }
     }
 
     image->md[0].atype = atype;
@@ -617,7 +641,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
     strcpy(image->name, name); // local name
     strcpy(image->md[0].name, name);
     for(i=0; i<naxis; i++)
+    {
         image->md[0].size[i] = size[i];
+    }
     image->md[0].NBkw = NBkw;
 
 
@@ -633,7 +659,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
 		}
         else
+        {
             image->array.UI8 = (uint8_t*) calloc ((size_t) nelement, sizeof(uint8_t));
+        }
 
 
         if(image->array.UI8 == NULL)
@@ -697,7 +725,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
+        {
             image->array.UI16 = (uint16_t*) calloc ((size_t) nelement, sizeof(uint16_t));
+        }
 
         if(image->array.UI16 == NULL)
         {
@@ -727,7 +757,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
+        {
             image->array.SI16 = (int16_t*) calloc ((size_t) nelement, sizeof(int16_t));
+        }
 
         if(image->array.SI16 == NULL)
         {
@@ -737,7 +769,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             fprintf(stderr,"Image size = ");
             fprintf(stderr,"%ld", (long) size[0]);
             for(i=1; i<naxis; i++)
+            {
                 fprintf(stderr,"x%ld", (long) size[i]);
+            }
             fprintf(stderr,"\n");
             fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement, 1.0/1024/1024*nelement*sizeof(int16_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
@@ -758,7 +792,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
+        {
             image->array.UI32 = (uint32_t*) calloc ((size_t) nelement, sizeof(uint32_t));
+        }
 
         if(image->array.UI32 == NULL)
         {
@@ -768,7 +804,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             fprintf(stderr,"Image size = ");
             fprintf(stderr,"%ld", (long) size[0]);
             for(i=1; i<naxis; i++)
+            {
                 fprintf(stderr,"x%ld", (long) size[i]);
+            }
             fprintf(stderr,"\n");
             fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(uint32_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
@@ -790,7 +828,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
+        {
             image->array.SI32 = (int32_t*) calloc ((size_t) nelement, sizeof(int32_t));
+        }
 
         if(image->array.SI32 == NULL)
         {
@@ -800,7 +840,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             fprintf(stderr,"Image size = ");
             fprintf(stderr,"%ld", (long) size[0]);
             for(i=1; i<naxis; i++)
+            {
                 fprintf(stderr,"x%ld", (long) size[i]);
+            }
             fprintf(stderr,"\n");
             fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(int32_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
@@ -822,7 +864,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
+        {
             image->array.UI64 = (uint64_t*) calloc ((size_t) nelement, sizeof(uint64_t));
+        }
 
         if(image->array.SI64 == NULL)
         {
@@ -832,7 +876,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             fprintf(stderr,"Image size = ");
             fprintf(stderr,"%ld", (long) size[0]);
             for(i=1; i<naxis; i++)
+            {
                 fprintf(stderr,"x%ld", (long) size[i]);
+            }
             fprintf(stderr,"\n");
             fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(uint64_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
@@ -852,7 +898,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
+        {
             image->array.SI64 = (int64_t*) calloc ((size_t) nelement, sizeof(int64_t));
+        }
 
         if(image->array.SI64 == NULL)
         {
@@ -862,7 +910,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             fprintf(stderr,"Image size = ");
             fprintf(stderr,"%ld", (long) size[0]);
             for(i=1; i<naxis; i++)
+            {
                 fprintf(stderr,"x%ld", (long) size[i]);
+            }
             fprintf(stderr,"\n");
             fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(int64_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
@@ -871,7 +921,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
     }
 
 
-    if(atype == _DATATYPE_FLOAT)	{
+    if(atype == _DATATYPE_FLOAT)	
+    {
         if(shared==1)
         {
             mapv = (char*) map;
@@ -882,7 +933,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
+        {
             image->array.F = (float*) calloc ((size_t) nelement, sizeof(float));
+        }
 
         if(image->array.F == NULL)
         {
@@ -892,7 +945,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             fprintf(stderr,"Image size = ");
             fprintf(stderr,"%ld", (long) size[0]);
             for(i=1; i<naxis; i++)
+            {
                 fprintf(stderr,"x%ld", (long) size[i]);
+            }
             fprintf(stderr,"\n");
             fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(float));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
@@ -912,7 +967,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
+        {
             image->array.D = (double*) calloc ((size_t) nelement, sizeof(double));
+        }
   
         if(image->array.D == NULL)
         {
@@ -922,7 +979,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             fprintf(stderr,"Image size = ");
             fprintf(stderr,"%ld", (long) size[0]);
             for(i=1; i<naxis; i++)
+            {
                 fprintf(stderr,"x%ld", (long) size[i]);
+            }
             fprintf(stderr,"\n");
             fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(double));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
@@ -942,7 +1001,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
+        {
             image->array.CF = (complex_float*) calloc ((size_t) nelement, sizeof(complex_float));
+        }
 
         if(image->array.CF == NULL)
         {
@@ -952,7 +1013,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             fprintf(stderr,"Image size = ");
             fprintf(stderr,"%ld", (long) size[0]);
             for(i=1; i<naxis; i++)
+            {
                 fprintf(stderr,"x%ld", (long) size[i]);
+            }
             fprintf(stderr,"\n");
             fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(complex_float));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
@@ -972,7 +1035,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
+        {
             image->array.CD = (complex_double*) calloc ((size_t) nelement,sizeof(complex_double));
+        }
 
         if(image->array.CD == NULL)
         {
@@ -982,16 +1047,15 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
             fprintf(stderr,"Image size = ");
             fprintf(stderr,"%ld", (long) size[0]);
             for(i=1; i<naxis; i++)
+            {
                 fprintf(stderr,"x%ld", (long) size[i]);
+            }
             fprintf(stderr,"\n");
             fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(complex_double));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
     }
-
-
-
 
     clock_gettime(CLOCK_REALTIME, &timenow);
     image->md[0].last_access = 1.0*timenow.tv_sec + 0.000000001*timenow.tv_nsec;
@@ -1002,15 +1066,21 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
     image->md[0].nelement = nelement;
 
     if(shared==1)
+    {
+        daoInfo("Creating Semaphores\n");
         daoImageCreateSem(image, 10); // by default, create 10 semaphores
+        daoInfo("Semaphores created\n");
+    }
     else
+    {
 		image->md[0].sem = 0; // no semaphores
-     
-
+    }
 
     // initialize keywords
     for(kw=0; kw<image->md[0].NBkw; kw++)
+    {
         image->kw[kw].type = 'N';
+    }
 
 
     return(0);
