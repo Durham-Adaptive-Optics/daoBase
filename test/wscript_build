@@ -40,4 +40,33 @@ daoLogTest = bld.program(
 	use= 'daoBase',
 	cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe', '-fdiagnostics-color=auto'],
 	)
-		
+ 
+bld.program(
+    features='test',
+    target = 'test_comp.cpp',
+    source = [ 'test_component.cpp' ],
+    includes = ['../include/', bld.env.PREFIX+'/include'],
+    lib = [ 'gtest', 'daoNuma', 'daoProto'],
+    ldflags=['-pthread', '-L'+ bld.env.PREFIX+'/lib64'],
+    use=['ZMQ', 'PROTOBUF']
+    )
+
+bld.program(
+    features='test',
+    target = 'test_threads',
+    source = [ 'test_threads.cpp' ],
+    includes = ['../include/', bld.env.PREFIX+'/include'],
+    lib = [ 'gtest', ' '],
+    ldflags=['-lnuma', '-lpthread', '-L' + bld.env.PREFIX+'/lib64', '-ldaoProto'],
+    use=['daoNuma', 'ZMQ', 'PROTOBUF']
+    )
+
+bld.program(
+    features='test',
+    target = 'test_thread_block',
+    source = [ 'test_thread_block.cpp' ],
+    includes = ['../include/', bld.env.PREFIX+'/include'],
+    lib = [ 'gtest', 'daoNuma'],
+    ldflags=['-lnuma', '-lpthread', '-L' + bld.env.PREFIX+'/lib64', '-ldaoProto'],
+    use=['daoNuma', 'ZMQ', 'PROTOBUF']
+    )
