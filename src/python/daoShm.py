@@ -83,7 +83,6 @@ Table taken from Python 2 documentation, section 7.3.2.2.
 | P      | void *             | integer        |          |
 |--------+--------------------+----------------+----------| 
 '''
-
 class shm:
     def __init__(self, fname=None, data=None, verbose=False, packed=False, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost'):
         ''' --------------------------------------------------------------
@@ -327,9 +326,9 @@ class shm:
         if verbose:
             self.print_meta_data()
 
-    def get_meta_data(self, verbose=True):
+    def get_meta_data(self):
         ''' --------------------------------------------------------------
-        Read the metadata fraction of the SHM file.
+        Get the metadata fraction of the SHM file.
         Populate the shm object mtdata dictionary.
 
         Parameters:
@@ -352,9 +351,6 @@ class shm:
         self.mtdata['imname'] = self.mtdata['imname'].decode().strip('\x00')
         self.im_offset = offset # offset for the image content
 
-        if verbose:
-            self.print_meta_data()
-        
         return(self.mtdata)
 
     def create_keyword_list(self):
@@ -678,14 +674,6 @@ class shm:
 #        pf.writeto(fitsname, self.get_data(), clobber=True)
         return(0)
 
-    def get_expt(self,):
-        ''' --------------------------------------------------------------
-        SCExAO specific: returns the exposure time (from keyword)
-        -------------------------------------------------------------- '''
-        ii0 = 3 # index of exposure time in keywords
-        self.read_keyword(ii0)
-        self.expt = self.kwds[ii0]['value']
-        return self.expt
 
     def publish(self):
         self.pubSocket = self.pubContext.socket(zmq.PUB)
@@ -745,3 +733,167 @@ class shm:
 #            # raising exceptions for unsupported types
 #
 #            return json.JSONEncoder.default(self, object)
+
+
+import ctypes
+
+# Define the EVENT_UI8_UI8_UI16_UI8 structure
+class EVENT_UI8_UI8_UI16_UI8(ctypes.Structure):
+    _fields_ = [
+        ('xpix', ctypes.c_uint8),
+        ('ypix', ctypes.c_uint8),
+        ('dtus', ctypes.c_uint16),
+        ('lambda_index', ctypes.c_uint8)
+    ]
+
+import ctypes
+
+# Define the struct timespec structure
+class timespec(ctypes.Structure):
+    _fields_ = [
+        ('tv_sec', ctypes.c_long),
+        ('tv_nsec', ctypes.c_long)
+    ]
+class IMAGE_KEYWORD(ctypes.Structure):
+    _fields_ = [
+        ("name", ctypes.c_char * 16),
+        ("type", ctypes.c_char),
+        ("value", ctypes.c_double),  # Use the largest data type to accommodate all possible values
+        ("comment", ctypes.c_char * 80)
+    ]
+
+# Define the IMAGE_METADATA structure
+class IMAGE_METADATA(ctypes.Structure):
+    class ATIME(ctypes.Union):
+        _fields_ = [
+            ("ts", timespec),
+            ("tsfixed", ctypes.c_ulonglong)
+        ]
+
+    _fields_ = [
+        ("name", ctypes.c_char * 80),
+        ("naxis", ctypes.c_uint8),
+        ("size", ctypes.c_uint32 * 3),
+        ("nelement", ctypes.c_uint64),
+        ("atype", ctypes.c_uint8),
+        ("creation_time", ctypes.c_double),
+        ("last_access", ctypes.c_double),
+        ("atime", ATIME),
+        ("shared", ctypes.c_uint8),
+        ("status", ctypes.c_uint8),
+        ("logflag", ctypes.c_uint8),
+        ("sem", ctypes.c_uint16),
+        ("cnt0", ctypes.c_uint64),
+        ("cnt1", ctypes.c_uint64),
+        ("cnt2", ctypes.c_uint64),
+        ("write", ctypes.c_uint8),
+        ("NBkw", ctypes.c_uint16),
+        ("lastPos", ctypes.c_uint32),
+        ("lastNb", ctypes.c_uint32),
+        ("packetNb", ctypes.c_uint32),
+        ("packetTotal", ctypes.c_uint32),
+        ("lastNbArray", ctypes.c_uint64 * 512)
+    ]
+
+# Define the IMAGE structure
+class IMAGE(ctypes.Structure):
+    _fields_ = [
+        ('name', ctypes.c_char * 80),
+        ('used', ctypes.c_uint8),
+        ('shmfd', ctypes.c_int32),
+        ('memsize', ctypes.c_uint64),
+        ('semlog', ctypes.POINTER(ctypes.c_void_p)),
+        ('md', ctypes.POINTER(IMAGE_METADATA)),
+        ('_pad', ctypes.c_uint64),  # Pad to align to 8-byte boundary
+        ('array', ctypes.c_void_p),
+        ('semptr', ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))),
+        ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
+        ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
+        ('semWritePID', ctypes.POINTER(ctypes.c_int32))
+    ]
+
+class shmItf:
+    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost'):
+        # Load the shared library
+        self.lib = ctypes.CDLL('libdao.so')
+        # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
+        self.daoShmInit1D = self.lib.daoShmInit1D
+        self.daoShmInit1D.argtypes = [
+            ctypes.c_char_p,
+            ctypes.POINTER(ctypes.c_char),
+            ctypes.c_uint32,
+            ctypes.POINTER(ctypes.POINTER(IMAGE))
+        ]
+        self.daoShmInit1D.restype = ctypes.c_int8
+
+        # int8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image);
+        self.daoShmShm2Img = self.lib.daoShmShm2Img
+        self.daoShmShm2Img.argtypes = [
+            ctypes.c_char_p,
+            ctypes.POINTER(ctypes.c_char),
+            ctypes.POINTER(IMAGE)
+        ]
+        self.daoShmShm2Img.restype = ctypes.c_int8
+
+        # int8_t daoShmImage2Shm(void *procim, uint32_t nbVal, IMAGE *image);
+        self.daoShmImage2Shm = self.lib.daoShmImage2Shm
+        self.daoShmImage2Shm.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.POINTER(IMAGE)
+        ]
+        self.daoShmImage2Shm.restype = ctypes.c_int8
+
+        # int8_t daoShmImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_t position,
+        #                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber);
+        self.daoShmImagePart2Shm = self.lib.daoShmImagePart2Shm
+        self.daoShmImagePart2Shm.argtypes = [
+            ctypes.POINTER(ctypes.c_char),
+            ctypes.c_uint32,
+            ctypes.POINTER(IMAGE),
+            ctypes.c_uint32,
+            ctypes.c_uint16,
+            ctypes.c_uint16,
+            ctypes.c_uint64
+        ]
+        self.daoShmImagePart2Shm.restype = ctypes.c_int8
+
+        # int8_t daoShmImagePart2ShmFinalize(IMAGE *image);
+        self.daoShmImagePart2ShmFinalize = self.lib.daoShmImagePart2ShmFinalize
+        self.daoShmImagePart2ShmFinalize.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmImagePart2ShmFinalize.restype = ctypes.c_int8
+
+        # int8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
+        #                              uint8_t atype, int shared, int NBkw);
+        self.daoShmImageCreate = self.lib.daoShmImageCreate
+        self.daoShmImageCreate.argtypes = [
+            ctypes.POINTER(IMAGE),
+            ctypes.c_char_p,
+            ctypes.c_long,
+            ctypes.POINTER(ctypes.c_uint32),
+            ctypes.c_uint8,
+            ctypes.c_int,
+            ctypes.c_int
+        ]
+        self.daoShmImageCreate.restype = ctypes.c_int8
+
+        # int8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal);
+        self.daoShmCombineShm2Shm = self.lib.daoShmCombineShm2Shm
+        self.daoShmCombineShm2Shm.argtypes = [
+            ctypes.POINTER(ctypes.POINTER(IMAGE)),
+            ctypes.POINTER(IMAGE),
+            ctypes.c_int,
+            ctypes.c_int
+        ]
+        self.daoShmCombineShm2Shm.restype = ctypes.c_int8
+
+        # uint64_t daoShmGetCounter(IMAGE *image);
+        self.daoShmGetCounter = self.lib.daoShmGetCounter
+        self.daoShmGetCounter.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmGetCounter.restype = ctypes.c_uint64
+
+        self.image=IMAGE()
+        if fname != None:
+            print(fname)
+    
+        

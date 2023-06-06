@@ -49,7 +49,198 @@ static int clock_gettime(int clk_id, struct mach_timespec *t)
 #include <time.h>
 #endif
 
-#include "daoShm.h"
+#include "dao.h"
+static int current_log_level = DEFAULT_LOG_LEVEL;
+/**
+ * Return a time stamp string with microsecond precision
+ */
+char * daoBaseGetTimeStamp()
+{
+    struct timespec curTime;
+    clock_gettime(CLOCK_REALTIME, &curTime);
+    int micro = (int)((double)curTime.tv_nsec/1000);
+    char buffer [80];
+    strftime(buffer, 80, "%Y-%m-%d_%H:%M:%S", localtime(&curTime.tv_sec));
+    static char currentTime[128] = "";
+    sprintf(currentTime, "%s:%d", buffer, micro);
+    return currentTime;
+}
+
+unsigned daoBaseIp2Int (const char * ip)
+{
+    /* The return value. */
+    unsigned v = 0;
+    /* The count of the number of bytes processed. */
+    int i;
+    /* A pointer to the next digit to process. */
+    const char * start;
+
+    start = ip;
+    for (i = 0; i < 4; i++) {
+        /* The digit being processed. */
+        char c;
+        /* The value of this byte. */
+        int n = 0;
+        while (1) {
+            c = * start;
+            start++;
+            if (c >= '0' && c <= '9') {
+                n *= 10;
+                n += c - '0';
+            }
+            /* We insist on stopping at "." if we are still parsing
+               the first, second, or third numbers. If we have reached
+               the end of the numbers, we will allow any character. */
+            else if ((i < 3 && c == '.') || i == 3) {
+                break;
+            }
+            else {
+                return DAO_ERROR;
+            }
+        }
+        if (n >= 256) {
+            return DAO_ERROR;
+        }
+        v *= 256;
+        v += n;
+    }
+    return v;
+}
+
+
+/*
+ * Log a message with the specified log level and format string.
+ * If the log level is higher than the current log level, the message
+ * is not logged.
+ */
+void daoLog(int log_level, const char *format, ...) 
+{
+    if (log_level > current_log_level) 
+    {
+        return;
+    }
+
+    // Get the current time and format it as a string
+    /*time_t current_time;
+    char* c_time_string;
+    current_time = time(NULL);
+    c_time_string = ctime(&current_time);
+    c_time_string[strlen(c_time_string)-1] = '\0';*/
+
+    // Map the log level to a string representation
+    char* log_level_string;
+    switch (log_level) {
+        case LOG_LEVEL_ERROR:
+            log_level_string = "ERROR";
+            break;
+        case LOG_LEVEL_WARNING:
+            log_level_string = "WARNING";
+            break;
+        case LOG_LEVEL_INFO:
+            log_level_string = "INFO";
+            break;
+        case LOG_LEVEL_DEBUG:
+            log_level_string = "DEBUG";
+            break;
+        case LOG_LEVEL_TRACE:
+            log_level_string = "TRACE";
+            break;
+        default:
+            log_level_string = "UNKNOWN";
+            break;
+    }
+
+    // Print the log message to the console
+    va_list args;
+    va_start(args, format);
+    printf("[%s] [%s] ", daoBaseGetTimeStamp(), log_level_string);
+    vprintf(format, args);
+    va_end(args);
+}
+
+/*
+ * Log an error message with the specified format string.
+ */
+void daoLogError(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_ERROR, format, args);
+    va_end(args);
+}
+
+/*
+ * Log a print message with the specified format string.
+ */
+void daoLogPrint(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_INFO, format, args);
+    va_end(args);
+}
+
+/*
+ * Log a warning message with the specified format string.
+ */
+void daoLogWarning(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_WARNING, format, args);
+    va_end(args);
+}
+
+/*
+ * Log an info message with the specified format string.
+ */
+void daoLogInfo(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_INFO, format, args);
+    va_end(args);
+}
+
+/*
+ * Log a debug message with the specified format string.
+ */
+void daoLogDebug(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_DEBUG, format, args);
+    va_end(args);
+}
+
+/*
+ * Log a trace message with the specified format string.
+ */
+void daoLogTrace(const char *format, ...) 
+{
+    va_list args;
+    va_start(args, format);
+    daoLog(LOG_LEVEL_TRACE, format, args);
+    va_end(args);
+}
+
+
+/*
+ * Set the current log level.
+ */
+void daoLogSetLevel(int log_level) 
+{
+    current_log_level = log_level;
+}
+
+/*
+ * Set the current log level.
+ */
+void daoSetLogLevel(int logLevel) 
+{
+    daoLogLevel = logLevel;
+}
+
 // SHM
 int IMAGE_INDEX = 0;
 int NBIMAGES = 10;
@@ -57,27 +248,29 @@ int NBIMAGES = 10;
 /**
  * Extract image from a shared memory
  */
-int_fast8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image)
+//int_fast8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image)
+int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 {
     daoTrace("\n");
-    int SM_fd;
+    int shmFd;
     struct stat file_stat;
-    char SM_fname[200];
+    char shmName[256];
     IMAGE_METADATA *map;
     char *mapv;
     uint8_t atype;
     int kw;
-    char sname[200];
+    char shmSemName[256];
     sem_t *stest;
     int sOK;
     long snb;
     long s;
 
     int rval = DAO_ERROR;
-    sprintf(SM_fname, "%s/%s%s.im.shm", SHAREDMEMDIR, prefix, name);
+    sprintf(shmName, "%s", name);
+    //sprintf(shmName, "%s/%s%s.im.shm", SHAREDMEMDIR, prefix, name);
 
-    SM_fd = open(SM_fname, O_RDWR);
-    if(SM_fd==-1)
+    shmFd = open(shmName, O_RDWR);
+    if(shmFd==-1)
     {
         image->used = 0;
         daoError("Cannot import shared memory file %s \n", name);
@@ -87,19 +280,19 @@ int_fast8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image)
     {
         rval = DAO_SUCCESS; // we assume by default success
 
-        fstat(SM_fd, &file_stat);
-        daoDebug("File %s size: %zd\n", SM_fname, file_stat.st_size);
-        map = (IMAGE_METADATA*) mmap(0, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, SM_fd, 0);
+        fstat(shmFd, &file_stat);
+        daoDebug("File %s size: %zd\n", shmName, file_stat.st_size);
+        map = (IMAGE_METADATA*) mmap(0, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
         if (map == MAP_FAILED) 
         {
-            close(SM_fd);
+            close(shmFd);
             perror("Error mmapping the file");
             rval = DAO_ERROR;
             exit(0);
         }
 
         image->memsize = file_stat.st_size;
-        image->shmfd = SM_fd;
+        image->shmfd = shmFd;
         image->md = map;
         //        image->md[0].sem = 0;
         atype = image->md[0].atype;
@@ -221,14 +414,47 @@ int_fast8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image)
 
         mapv += sizeof(IMAGE_KEYWORD)*image->md[0].NBkw;
         strcpy(image->name, name);
+        // to get rid off warning
+        char nameCopy[sizeof(name)];
+        strcpy(nameCopy, name);
+        char *token = strtok(nameCopy, "/");
+
+        char *semFName = NULL;
+        char *localName = NULL;
+
+        while (token != NULL)
+        {
+            semFName = token;
+            token = strtok(NULL, "/");
+        }
+
+        if (semFName != NULL)
+        {
+            daoInfo("shm name = %s\n", semFName);
+            localName = strtok(semFName, ".");
+            if (localName != NULL)
+            {
+                daoInfo("local name: %s\n", localName);
+            }
+            else
+            {
+                daoError("invalid name format, should be <name.im.shm>\n");
+                return DAO_ERROR;
+            }
+        }
+        else
+        {
+            daoError("invalid location, should be /tmp/<optional>/<name.im.shm>\n");
+            return DAO_ERROR;
+        }
         // looking for semaphores
         snb = 0;
         sOK = 1;
         while(sOK==1)
         {
-            sprintf(sname, "%s_sem%02ld", image->md[0].name, snb);
-            daoDebug("semaphore %s\n", sname);
-            if((stest = sem_open(sname, 0, 0644, 0))== SEM_FAILED)
+            sprintf(shmSemName, "%s_sem%02ld", localName, snb);
+            daoDebug("semaphore %s\n", shmSemName);
+            if((stest = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED)
             {
                 sOK = 0;
             }
@@ -243,17 +469,17 @@ int_fast8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image)
         image->semptr = (sem_t**) malloc(sizeof(sem_t*) * image->md[0].sem);
         for(s=0; s<snb; s++)
         {
-            sprintf(sname, "%s_sem%02ld", image->md[0].name, s);
-            if ((image->semptr[s] = sem_open(sname, 0, 0644, 0))== SEM_FAILED) 
+            sprintf(shmSemName, "%s_sem%02ld", localName, s);
+            if ((image->semptr[s] = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) 
             {
-                daoError("could not open semaphore %s\n", sname);
+                daoError("could not open semaphore %s\n", shmSemName);
             }
         }
 
-        sprintf(sname, "%s_semlog", image->md[0].name);
-        if ((image->semlog = sem_open(sname, 0, 0644, 0))== SEM_FAILED) 
+        sprintf(shmSemName, "%s_semlog", localName);
+        if ((image->semlog = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) 
         {
-            daoWarning("could not open semaphore %s\n", sname);
+            daoWarning("could not open semaphore %s\n", shmSemName);
         }
     }
     return(rval);
@@ -262,12 +488,12 @@ int_fast8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image)
 /**
  * Init 1D array in shared memory
  */
-int_fast8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image)
+int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
 {
     daoTrace("\n");
     int naxis = 2;
     char fullName[64];
-    sprintf(fullName, "%s%s", prefix, name);
+    sprintf(fullName, "%s", name);
 
     daoDebug("daoInit1D(%s, %i)\n", fullName, nbVal);
     uint32_t imsize[2];
@@ -424,12 +650,46 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 {
     daoTrace("\n");
-    char sname[200];
+    char shmSemName[256];
     long s, s1;
 //    int r;
-//    char command[200];
-    char fname[200];
+//    char command[256];
+    char fname[256];
 //    int semfile[100];
+
+    // to get rid off warning
+    char nameCopy[sizeof(image->md[0].name)];
+    strcpy(nameCopy, image->md[0].name);
+    char *token = strtok(nameCopy, "/");
+
+    char *semFName = NULL;
+    char *localName = NULL; 
+
+    while (token != NULL) 
+    {
+        semFName = token;
+        token = strtok(NULL, "/");
+    }
+    if (semFName != NULL)
+    {
+        daoInfo("shm name = %s\n", semFName);   
+        localName = strtok(semFName, ".");
+        if (localName != NULL) 
+        {
+            daoInfo("local name: %s\n", localName);
+        }
+        else
+        {
+            daoError("invalid name format, should be <name.im.shm>\n");
+            return DAO_ERROR;
+        }
+
+    }
+    else
+    {
+        daoError("invalid location, should be /tmp/<optional>/<name.im.shm>\n");
+        return DAO_ERROR;
+    }
 
 	
 	// Remove pre-existing semaphores if any
@@ -443,7 +703,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 		// ... and remove associated files
         for(s1=NBsem; s1<100; s1++)
         {
-            sprintf(fname, "/dev/shm/sem.%s_sem%02ld", image->md[0].name, s1);
+            sprintf(fname, "/dev/shm/sem.%s_sem%02ld", localName, s1);
             daoDebug("removing %s\n", fname);
             remove(fname);
         }
@@ -465,13 +725,15 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 
         for(s=0; s<NBsem; s++)
         {
-            sprintf(sname, "%s_sem%02ld", image->md[0].name, s);
-            if ((image->semptr[s] = sem_open(sname, 0, 0644, 0))== SEM_FAILED) {
-                if ((image->semptr[s] = sem_open(sname, O_CREAT, 0644, 1)) == SEM_FAILED) {
-                    perror("semaphore initilization");
+            sprintf(shmSemName, "%s_sem%02ld", localName, s);
+            if ((image->semptr[s] = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) {
+                if ((image->semptr[s] = sem_open(shmSemName, O_CREAT, 0644, 1)) == SEM_FAILED) {
+                    perror("semaphore initilization\n");
                 }
                 else
+                {
                     sem_init(image->semptr[s], 1, 0);
+                }
             }
         }
     }
@@ -492,10 +754,10 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     long i;//,ii;
     long nelement;
     struct timespec timenow;
-    char sname[200];
+    char shmSemName[256];
     size_t sharedsize = 0; // shared memory size in bytes
-    int SM_fd; // shared memory file descriptor
-    char SM_fname[200];
+    int shmFd; // shared memory file descriptor
+    char shmName[256];
     int result;
     IMAGE_METADATA *map=NULL;
     char *mapv; // pointed cast in bytes
@@ -508,16 +770,51 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         nelement*=size[i];
     }
 
+    
     // compute total size to be allocated
     if(shared==1)
     {
+        // to get rid off warning
+        char nameCopy[sizeof(name)];
+        strcpy(nameCopy, name);
+        char *token = strtok(nameCopy, "/");
+
+        char *semFName = NULL;
+        char *localName = NULL;
+
+        while (token != NULL)
+        {
+            semFName = token;
+            token = strtok(NULL, "/");
+        }
+
+        if (semFName != NULL)
+        {
+            daoInfo("shm name = %s\n", semFName);
+            localName = strtok(semFName, ".");
+            if (localName != NULL)
+            {
+                daoInfo("local name: %s\n", localName);
+            }
+            else
+            {
+                daoError("invalid name format, should be <name.im.shm>\n");
+                return DAO_ERROR;
+            }
+        }
+        else
+        {
+            daoError("invalid location, should be /tmp/<optional>/<name.im.shm>\n");
+            return DAO_ERROR;
+        }
+
         // create semlog
-        daoInfo("Creation %s_semlog\n", name);
-        sprintf(sname, "%s_semlog", name);
-        remove(sname);
+        daoInfo("Creation %s_semlog\n", semFName);
+        sprintf(shmSemName, "%s_semlog", semFName);
+        remove(shmSemName);
         image->semlog = NULL;
 
-        if ((image->semlog = sem_open(sname, O_CREAT, 0644, 1)) == SEM_FAILED)
+        if ((image->semlog = sem_open(shmSemName, O_CREAT, 0644, 1)) == SEM_FAILED)
         {
             perror("semaphore creation / initilization");}
         else
@@ -579,41 +876,42 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         sharedsize += NBkw*sizeof(IMAGE_KEYWORD);
 
 
-        sprintf(SM_fname, "%s/%s.im.shm", SHAREDMEMDIR, name);
-        SM_fd = open(SM_fname, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
+        //sprintf(shmName, "%s/%s.im.shm", SHAREDMEMDIR, name);
+        sprintf(shmName, "%s", name);
+        shmFd = open(shmName, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
 
-        if (SM_fd == -1) 
+        if (shmFd == -1) 
         {
-            daoError("Error opening file (%s) for writing\n", SM_fname);
+            daoError("Error opening file (%s) for writing\n", shmName);
             exit(0);
         }
 
 
 
 
-        image->shmfd = SM_fd;
+        image->shmfd = shmFd;
         image->memsize = sharedsize;
 
-        result = lseek(SM_fd, sharedsize-1, SEEK_SET);
+        result = lseek(shmFd, sharedsize-1, SEEK_SET);
         if (result == -1) 
         {
-            close(SM_fd);
+            close(shmFd);
             daoError("Error calling lseek() to 'stretch' the file\n");
             exit(0);
         }
 
-        result = write(SM_fd, "", 1);
+        result = write(shmFd, "", 1);
         if (result != 1) 
         {
-            close(SM_fd);
+            close(shmFd);
             perror("Error writing last byte of the file");
             exit(0);
         }
 
-        map = (IMAGE_METADATA*) mmap(0, sharedsize, PROT_READ | PROT_WRITE, MAP_SHARED, SM_fd, 0);
+        map = (IMAGE_METADATA*) mmap(0, sharedsize, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
         if (map == MAP_FAILED) 
         {
-            close(SM_fd);
+            close(shmFd);
             perror("Error mmapping the file");
             exit(0);
         }
@@ -638,6 +936,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 
     image->md[0].atype = atype;
     image->md[0].naxis = naxis;
+
     strcpy(image->name, name); // local name
     strcpy(image->md[0].name, name);
     for(i=0; i<naxis; i++)
@@ -1234,6 +1533,20 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
 }
 
 /**
+ * @brief Wait for new data in SHM
+ * 
+ * @param image 
+ * @return uint_fast64_t 
+ */
+int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
+{
+    daoTrace("\n");
+    // Wait for new image
+    sem_wait(image[IMAGE_INDEX].semptr[semNb]);
+    return DAO_SUCCESS;
+}
+
+/**
  * @brief Retreive the SHM counter
  * 
  * @param image 
@@ -1244,3 +1557,56 @@ uint_fast64_t daoShmGetCounter(IMAGE *image)
     daoTrace("\n");
     return image[IMAGE_INDEX].md[0].cnt0;
 }
+
+/**
+ * @brief Read current SHM content
+ * 
+ * @param image 
+ * @return uint_fast64_t 
+ */
+//void * daoShmGetData(IMAGE *image)
+//{
+//    daoTrace("\n");
+//    // check type and use proper array
+//    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT8)
+//    {
+//                image[0].array.UI8[pp] += imageCube[k][0].array.UI8[pp];
+//    }
+//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT8)
+//    {
+//                image[0].array.SI8[pp] += imageCube[k][0].array.SI8[pp];
+//    }
+//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT16)
+//    {
+//                image[0].array.UI16[pp] += imageCube[k][0].array.UI16[pp];
+//    }
+//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT16)
+//    {
+//                image[0].array.SI16[pp] += imageCube[k][0].array.SI16[pp];
+//    }
+//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT32)
+//    {
+//                image[0].array.UI32[pp] += imageCube[k][0].array.UI32[pp];
+//    }
+//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT32)
+//    {
+//                image[0].array.SI32[pp] += imageCube[k][0].array.SI32[pp];
+//    }
+//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT64)
+//    {
+//                image[0].array.UI64[pp] += imageCube[k][0].array.UI64[pp];
+//    }
+//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT64)
+//    {
+//                image[0].array.SI64[pp] += imageCube[k][0].array.SI64[pp];
+//    }
+//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_FLOAT)
+//    {
+//                image[0].array.F[pp] += imageCube[k][0].array.F[pp];
+//    }
+//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_DOUBLE)
+//    {
+//                image[0].array.D[pp] += imageCube[k][0].array.D[pp];
+//    }
+//    return DAO_SUCCESS;
+//}
