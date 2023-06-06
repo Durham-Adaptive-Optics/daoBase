@@ -10,8 +10,8 @@
  * 
  */
 
-#ifndef _DAOSHM_H
-#define _DAOSHM_H
+#ifndef _DAO_H
+#define _DAO_H
 
 #include <stdint.h>
 #include <stdio.h>
