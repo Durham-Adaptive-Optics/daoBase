@@ -22,10 +22,11 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <filesystem>
 #include <iomanip>
 #include <type_traits>
 #include <time.h>
+
+#include <atomic>
 
 namespace Dao
 {
@@ -54,7 +55,7 @@ namespace Dao
                 m_log.Trace("ShmIfce()");
 
                 // initalise the clock for m_timeout etc
-                if (clock_gettime(CLOCK_REALTIME, &m_time) == -1)
+                if (clock_gettime(CLOCK_MONOTONIC, &m_time) == -1)
                 {
                     m_log.Error("clock_gettime");
                     exit(EXIT_FAILURE);
@@ -305,7 +306,7 @@ namespace Dao
                 m_shm[0].md[0].write = 0;
                 m_shm[0].md[0].cnt0++;
 
-                clock_gettime(CLOCK_REALTIME, &m_time);
+                clock_gettime(CLOCK_MONOTONIC, &m_time);
                 m_shm[0].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * m_time.tv_sec + m_time.tv_nsec);
             }
 
@@ -325,7 +326,7 @@ namespace Dao
             {
                 if(m_file_is_open)
                 {
-                    if (clock_gettime(CLOCK_REALTIME, &m_time) == -1) 
+                    if (clock_gettime(CLOCK_MONOTONIC, &m_time) == -1) 
                     {
                         m_log.Error("clock_gettime");
                         exit(EXIT_FAILURE);
@@ -383,25 +384,27 @@ namespace Dao
 
             int  StreamReadFramePacket()
             {
-                // m_log.Debug("target_frame: %zu packet: %zu", m_target_frame,m_packet_to_read);
-                size_t volatile A = m_shm[0].md[0].lastNbArray[m_packet_to_read];
-                size_t volatile target = m_target_frame - 1;
-                while(A  == target)
+                std::atomic<size_t> A = m_shm[0].md[0].lastNbArray[m_packet_to_read];
+                size_t target = m_target_frame - 1;
+
+                while(true)
                 {
-                    if(m_exit_requested)
-                    {
-                        return -1;
-                    }
-                    A = m_shm[0].md[0].lastNbArray[m_packet_to_read];
-                    usleep(1);
+                        A = m_shm[0].md[0].lastNbArray[m_packet_to_read];
+                        if (A != target)
+                        {
+                            break;
+                        }
+                        
+                        if (m_exit_requested)
+                        {
+                            return -1;
+                        }
                 }
-                
-                // m_log.Debug("packet change");
+
                 if (m_shm[0].md[0].lastNbArray[m_packet_to_read] == m_target_frame)
                 {
                     int packet_recieved = m_packet_to_read;
                     m_packet_to_read++;
-
                     return packet_recieved;   
                 }
                 else{
@@ -499,7 +502,7 @@ namespace Dao
                 m_shm[0].md[0].cnt0++;
 
                 struct timespec t;
-                clock_gettime(CLOCK_REALTIME, &t);
+                clock_gettime(CLOCK_MONOTONIC, &t);
                 m_shm[0].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
             }
 
@@ -556,6 +559,8 @@ namespace Dao
             inline int32_t GetFrameID(){return m_shm[0].md[0].cnt2;}
             inline void RequestExit(){m_exit_requested = true;}
 
+            inline  int64_t GetTimestamp(){return m_shm[0].md[0].atime.tsfixed.secondlong;}
+
         protected:
 
             void Reset()
@@ -582,7 +587,7 @@ namespace Dao
                 m_n_packets = 0;
 
 
-                if (clock_gettime(CLOCK_REALTIME, &m_time) == -1)
+                if (clock_gettime(CLOCK_MONOTONIC, &m_time) == -1)
                 {
                     perror("clock_gettime");
                     exit(EXIT_FAILURE);
