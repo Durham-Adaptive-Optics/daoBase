@@ -598,7 +598,7 @@ class shm:
         tv_nsec = struct.unpack('q', self.buf[start+8:start+16])[0] # read from SHM
         self.mtdata['tvsec']  = tv_sec
         self.mtdata['tvnsec'] = tv_nsec
-
+        
         # now I have tv_sec and tv_nsec we convert to a datetime
         return datetime.datetime.fromtimestamp(tv_sec) + datetime.timedelta(microseconds=tv_nsec/1000)
 
