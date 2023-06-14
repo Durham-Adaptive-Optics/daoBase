@@ -1,30 +1,12 @@
 #! /usr/bin/env python
 
 bld.shlib(
-	source = 'c/daoBase.c',
-	includes = '../include',
-	#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
-	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe'],
-	target = 'daoBase',
-	name   = 'daoBase',
-	vnum   = '0.0.1')
-
-bld.shlib(
 	source 		= 'cpp/daoNuma.cpp',
 	includes 	= '../include',
 	ldflags		= "-lnuma",
 	target 		= 'daoNuma',
 	name   		= 'daoNuma',
 	vnum   		= '0.0.1')
-
-bld.shlib(
-	source = 'c/daoShm.c',
-	includes = '../include',
-	#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
-	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto'],
-	target = 'daoShm',
-	name   = 'daoShm',
-	vnum   = '0.0.1')
 
 bld.shlib(
 	source = 'c/dao.c',
