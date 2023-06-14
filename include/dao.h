@@ -1,13 +1,12 @@
 /**
- * @file    daoBase.c
+ * @file    dao.h
  * @brief   Durham AO RTC SHM library
  * 
- * Durham AO RTC Shared memory library description file. 
+ * Durham AO RTC Shared memory library description file. Inspired by ImageStreamIO
  *  
  * @author  S. Cetre
  * @date    23/06/2022
  *
- * 
  */
 
 #ifndef _DAO_H
@@ -20,12 +19,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <semaphore.h>
-
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
 
+// BOTH old and new log system are available and maintained
 // New Log System
 #define LOG_LEVEL_ERROR 0
 #define LOG_LEVEL_WARNING 1
@@ -76,9 +74,6 @@ int daoLogLevel = 1;
 #define daoTrace(fmt, ...) \
             do { if (daoLogLevel>=DAO_TRACE) fprintf(stdout, ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET "[trace] %s:%s:%d " fmt, daoBaseGetTimeStamp(), __FILENAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while (0)
 
-void daoSetLogLevel(int logLevel);
-
-unsigned daoBaseIp2Int(const char * ip); 
 
 #ifdef __cplusplus
 extern "C"
@@ -132,9 +127,6 @@ extern "C"
 #define _DATATYPE_COMPLEX_DOUBLE                      12  /**< complex double */
 #define SIZEOF_DATATYPE_COMPLEX_DOUBLE	              16
 
-#define _DATATYPE_EVENT_UI8_UI8_UI16_UI8              20
-#define SIZEOF_DATATYPE_EVENT_UI8_UI8_UI16_UI8         5
-
 #define Dtype                                          9   /**< default data type for floating point */
 #define CDtype                                        11   /**< default data type for complex */
 
@@ -183,56 +175,6 @@ typedef struct
     double re;
     double im;
 } complex_double;
-
-/** @brief Photon detection events
- * 
- * Log individual photon events on a 2D camera \n
- * Timing resolution = 1 us \n 
- * Optimized for small size \n
- * 
- * Max detector size 256 x 256 pix \n 
- * Max "exposure" time is 2^16 us = 65.535 ms (15.28 Hz) \n 
- * Wavelength resolution set by keywords in frame: \n 
- *   LAMBDA_MIN, LAMBDA_MAX \n 
- * lambda = LAMBDA_MIN + (LAMBDA_MAX-LAMBDA_MIN)/256*lambda_index \n
- * 
- * USAGE:
- * An array of EVENT_UI8_UI8_UI16_UI8 is stored in the IMAGE structure \n 
- * The array can be 1D (list of events), or 3D (N x 1 x M) for a circular buffer where the z-index (slice) is incremented between each "exposure" \n
- * md[0].cnt2 contains the number of events in the last slice written \n
- * Detection events do not have to be ordered \n
- * 
- * Write sequence in circular buffer :
- * - [1] create IMAGE structure type EVENT_UI8_UI8_UI16_UI8. Size n x 1 x m, where n = max # of event per "exposure", m = number of slices in circular buffer. Note that md[0].size[0]=m, md[0].size[1]=1, md[0].size[2]=m
- * - [2] set md[0].write=1 (start image write)
- * - [3] set k=md[0].cnt1=0 (slice index)
- * - [4] set md[0].cnt2=0 (# of events), ii=0 (event index in current slice) 
- * - [5] store time in local variable (exposure start)
- * - [6] Write each event in array.EVENT_UI8_UI8_UI16_UI8[k*md[0].size[0]+ii]. After each event, increment ii (event index)
- * - [7] When "exposure" completed, set md[0].atime to exposure time start (see step [5]), md[0].cnt1=k (last slice written),  md[0].cnt2=ii (number of events), set md[0].write=0 (write completed), increment md[0].cnt0, and post all semaphores
- * - [8] Increment k (if k=md[0].size[2], set k=0), return to step [4]
- * 
- * @warning Array size will define the maximum number of events packed in IMAGE. User is responsible for pushing out IMAGE and starting a new IMAGE or slice when max number of events is reached.
- * 
- */
-typedef struct
-{
-	uint8_t xpix;
-
-	uint8_t ypix;
-	
-	/** @brief Detection time since beginning of "exposure" [us] 
-	 *
-	 * Beginning of exposure is written to md[0].atime
-	 *  */
-	uint16_t dtus;               
-	
-	uint8_t lambda_index;  
-#ifdef DATA_PACKED
-} __attribute__ ((__packed__)) EVENT_UI8_UI8_UI16_UI8;
-#else
-} EVENT_UI8_UI8_UI16_UI8;
-#endif
 
 /** @brief Image metadata
  * 
@@ -374,7 +316,6 @@ typedef struct          		/**< structure used to store data arrays              
 {
     char name[80]; 				/**< local name (can be different from name in shared memory) */
     // mem offset = 80
-    
      
     /** @brief Image usage flag
      * 
@@ -436,8 +377,6 @@ typedef struct          		/**< structure used to store data arrays              
         complex_double *CD;
 
         void * V; // add so the cpp interface and reinterpret cast using templaces to required type.
-
-		EVENT_UI8_UI8_UI16_UI8 *event1121;
     } array;                 	/**< pointer to data array */
 	// mem offset 120
 
@@ -467,10 +406,16 @@ typedef struct          		/**< structure used to store data arrays              
 } //extern "C"
 #endif
 
+
+// Function declaration
+void daoSetLogLevel(int logLevel);
+unsigned daoBaseIp2Int(const char * ip); 
+
+
 int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image);
 int_fast8_t daoShmShm2Img(const char *name, IMAGE *image);
-int_fast8_t daoShmImage2Shm(void *procim, uint32_t nbVal, IMAGE *image); 
-int_fast8_t daoShmImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_t position,
+int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image); 
+int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t position,
                              uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber); 
 int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image); 
 int_fast8_t daoShmImageCreateSem(IMAGE *image, long NBsem);
@@ -478,5 +423,5 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
                            uint8_t atype, int shared, int NBkw);
 int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal); 
 int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
-uint64_t daoShmGetCounter(IMAGE *image);
+uint64_t    daoShmGetCounter(IMAGE *image);
 #endif

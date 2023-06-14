@@ -51,8 +51,11 @@ static int clock_gettime(int clk_id, struct mach_timespec *t)
 
 #include "dao.h"
 static int current_log_level = DEFAULT_LOG_LEVEL;
+
 /**
- * Return a time stamp string with microsecond precision
+ * @brief Return a time stamp string with microsecond precision 
+ * 
+ * @return char* 
  */
 char * daoBaseGetTimeStamp()
 {
@@ -66,6 +69,12 @@ char * daoBaseGetTimeStamp()
     return currentTime;
 }
 
+/**
+ * @brief 
+ * 
+ * @param ip 
+ * @return unsigned 
+ */
 unsigned daoBaseIp2Int (const char * ip)
 {
     /* The return value. */
@@ -242,7 +251,6 @@ void daoSetLogLevel(int logLevel)
 }
 
 // SHM
-int IMAGE_INDEX = 0;
 int NBIMAGES = 10;
 
 /**
@@ -522,55 +530,55 @@ int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
 /*
  * The image is send to the shared memory.
  */
-int_fast8_t daoShmImage2Shm(void *procim, uint32_t nbVal, IMAGE *image) 
+int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image) 
 {
     daoTrace("\n");
     int semval = 0;
     int ss;
-    image[IMAGE_INDEX].md[0].write = 1;
+    image->md[0].write = 1;
 
-    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT8)
-        memcpy(image[IMAGE_INDEX].array.UI8, (unsigned char *)procim, nbVal*sizeof(unsigned char)); 
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT8)
-        memcpy(image[IMAGE_INDEX].array.SI8, (char *)procim, nbVal*sizeof(char));       
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT16)
-        memcpy(image[IMAGE_INDEX].array.UI16, (unsigned short *)procim, nbVal*sizeof(unsigned short));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT16)
-        memcpy(image[IMAGE_INDEX].array.SI16, (short *)procim, nbVal*sizeof(short));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT32)
-        memcpy(image[IMAGE_INDEX].array.UI32, (unsigned int *)procim, nbVal*sizeof(unsigned int));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT32)
-        memcpy(image[IMAGE_INDEX].array.SI32, (int *)procim, nbVal*sizeof(int));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT64)
-        memcpy(image[IMAGE_INDEX].array.UI64, (unsigned long *)procim, nbVal*sizeof(unsigned long));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT64)
-        memcpy(image[IMAGE_INDEX].array.SI64, (long *)procim, nbVal*sizeof(long));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_FLOAT)
-        memcpy(image[IMAGE_INDEX].array.F, (float *)procim, nbVal*sizeof(float));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_DOUBLE)
-        memcpy(image[IMAGE_INDEX].array.D, (double *)procim, nbVal*sizeof(double));
+    if (image->md[0].atype == _DATATYPE_UINT8)
+        memcpy(image->array.UI8, (unsigned char *)im, nbVal*sizeof(unsigned char)); 
+    else if (image->md[0].atype == _DATATYPE_INT8)
+        memcpy(image->array.SI8, (char *)im, nbVal*sizeof(char));       
+    else if (image->md[0].atype == _DATATYPE_UINT16)
+        memcpy(image->array.UI16, (unsigned short *)im, nbVal*sizeof(unsigned short));
+    else if (image->md[0].atype == _DATATYPE_INT16)
+        memcpy(image->array.SI16, (short *)im, nbVal*sizeof(short));
+    else if (image->md[0].atype == _DATATYPE_INT32)
+        memcpy(image->array.UI32, (unsigned int *)im, nbVal*sizeof(unsigned int));
+    else if (image->md[0].atype == _DATATYPE_UINT32)
+        memcpy(image->array.SI32, (int *)im, nbVal*sizeof(int));
+    else if (image->md[0].atype == _DATATYPE_UINT64)
+        memcpy(image->array.UI64, (unsigned long *)im, nbVal*sizeof(unsigned long));
+    else if (image->md[0].atype == _DATATYPE_INT64)
+        memcpy(image->array.SI64, (long *)im, nbVal*sizeof(long));
+    else if (image->md[0].atype == _DATATYPE_FLOAT)
+        memcpy(image->array.F, (float *)im, nbVal*sizeof(float));
+    else if (image->md[0].atype == _DATATYPE_DOUBLE)
+        memcpy(image->array.D, (double *)im, nbVal*sizeof(double));
 
-    for(ss = 0; ss < image[IMAGE_INDEX].md[0].sem; ss++)
+    for(ss = 0; ss < image->md[0].sem; ss++)
     {
-        sem_getvalue(image[IMAGE_INDEX].semptr[ss], &semval);
+        sem_getvalue(image->semptr[ss], &semval);
         if(semval < SEMAPHORE_MAXVAL )
-            sem_post(image[IMAGE_INDEX].semptr[ss]);
+            sem_post(image->semptr[ss]);
     }
 
-    if(image[IMAGE_INDEX].semlog != NULL)
+    if(image->semlog != NULL)
     {
-        sem_getvalue(image[IMAGE_INDEX].semlog, &semval);
+        sem_getvalue(image->semlog, &semval);
         if(semval < SEMAPHORE_MAXVAL)
         {
-            sem_post(image[IMAGE_INDEX].semlog);
+            sem_post(image->semlog);
         }
     }
 
-    image[IMAGE_INDEX].md[0].write = 0;
-    image[IMAGE_INDEX].md[0].cnt0++;
+    image->md[0].write = 0;
+    image->md[0].cnt0++;
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }
@@ -578,40 +586,40 @@ int_fast8_t daoShmImage2Shm(void *procim, uint32_t nbVal, IMAGE *image)
  * The image is send to the shared memory.
  * No release of semaphore since it is a part write
  */
-int_fast8_t daoShmImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_t position,
+int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t position,
                              uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber) 
 {
     daoTrace("\n");
     //int pp;
-    image[IMAGE_INDEX].md[0].write = 1;
+    image->md[0].write = 1;
 
-    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT8)
-        memcpy(&image[IMAGE_INDEX].array.UI8[position], (unsigned char *)procim, nbVal*sizeof(unsigned char)); 
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT8)
-        memcpy(&image[IMAGE_INDEX].array.SI8[position], (char *)procim, nbVal*sizeof(char));       
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT16)
-        memcpy(&image[IMAGE_INDEX].array.UI16[position], (unsigned short *)procim, nbVal*sizeof(unsigned short));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT16)
-        memcpy(&image[IMAGE_INDEX].array.SI16[position], (short *)procim, nbVal*sizeof(short));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT32)
-        memcpy(&image[IMAGE_INDEX].array.UI32[position], (unsigned int *)procim, nbVal*sizeof(unsigned int));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT32)
-        memcpy(&image[IMAGE_INDEX].array.SI32[position], (int *)procim, nbVal*sizeof(int));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT64)
-        memcpy(&image[IMAGE_INDEX].array.UI64[position], (unsigned long *)procim, nbVal*sizeof(unsigned long));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT64)
-        memcpy(&image[IMAGE_INDEX].array.SI64[position], (long *)procim, nbVal*sizeof(long));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_FLOAT)
-        memcpy(&image[IMAGE_INDEX].array.F[position], (float *)procim, nbVal*sizeof(float));
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_DOUBLE)
-        memcpy(&image[IMAGE_INDEX].array.D[position], (double *)procim, nbVal*sizeof(double));
+    if (image->md[0].atype == _DATATYPE_UINT8)
+        memcpy(&image->array.UI8[position], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
+    else if (image->md[0].atype == _DATATYPE_INT8)
+        memcpy(&image->array.SI8[position], (char *)im, nbVal*sizeof(char));       
+    else if (image->md[0].atype == _DATATYPE_UINT16)
+        memcpy(&image->array.UI16[position], (unsigned short *)im, nbVal*sizeof(unsigned short));
+    else if (image->md[0].atype == _DATATYPE_INT16)
+        memcpy(&image->array.SI16[position], (short *)im, nbVal*sizeof(short));
+    else if (image->md[0].atype == _DATATYPE_INT32)
+        memcpy(&image->array.UI32[position], (unsigned int *)im, nbVal*sizeof(unsigned int));
+    else if (image->md[0].atype == _DATATYPE_UINT32)
+        memcpy(&image->array.SI32[position], (int *)im, nbVal*sizeof(int));
+    else if (image->md[0].atype == _DATATYPE_UINT64)
+        memcpy(&image->array.UI64[position], (unsigned long *)im, nbVal*sizeof(unsigned long));
+    else if (image->md[0].atype == _DATATYPE_INT64)
+        memcpy(&image->array.SI64[position], (long *)im, nbVal*sizeof(long));
+    else if (image->md[0].atype == _DATATYPE_FLOAT)
+        memcpy(&image->array.F[position], (float *)im, nbVal*sizeof(float));
+    else if (image->md[0].atype == _DATATYPE_DOUBLE)
+        memcpy(&image->array.D[position], (double *)im, nbVal*sizeof(double));
 
-    image[IMAGE_INDEX].md[0].lastPos = position;
-    image[IMAGE_INDEX].md[0].lastNb = nbVal;
-    image[IMAGE_INDEX].md[0].packetNb = packetId;
-    image[IMAGE_INDEX].md[0].packetTotal = packetTotal;
-    image[IMAGE_INDEX].md[0].lastNbArray[packetId] = frameNumber;
-    image[IMAGE_INDEX].md[0].write = 0;
+    image->md[0].lastPos = position;
+    image->md[0].lastNb = nbVal;
+    image->md[0].packetNb = packetId;
+    image->md[0].packetTotal = packetTotal;
+    image->md[0].lastNbArray[packetId] = frameNumber;
+    image->md[0].write = 0;
 
     return DAO_SUCCESS;
 }
@@ -625,25 +633,25 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
     daoTrace("\n");
     int semval = 0;
     int ss;
-    for(ss = 0; ss < image[IMAGE_INDEX].md[0].sem; ss++)
+    for(ss = 0; ss < image->md[0].sem; ss++)
     {
-        sem_getvalue(image[IMAGE_INDEX].semptr[ss], &semval);
+        sem_getvalue(image->semptr[ss], &semval);
         if(semval < SEMAPHORE_MAXVAL )
-            sem_post(image[IMAGE_INDEX].semptr[ss]);
+            sem_post(image->semptr[ss]);
     }
 
-    if(image[IMAGE_INDEX].semlog != NULL)
+    if(image->semlog != NULL)
     {
-        sem_getvalue(image[IMAGE_INDEX].semlog, &semval);
+        sem_getvalue(image->semlog, &semval);
         if(semval < SEMAPHORE_MAXVAL)
         {
-            sem_post(image[IMAGE_INDEX].semlog);
+            sem_post(image->semlog);
         }
     }
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
-    image[IMAGE_INDEX].md[0].cnt0++;
+    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+    image->md[0].cnt0++;
     return DAO_SUCCESS;
 }
 
@@ -1392,10 +1400,10 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
     int ss;
     int pp;
     int k;
-    image[IMAGE_INDEX].md[0].write = 1;
+    image->md[0].write = 1;
     
     // check type and use proper array
-    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT8)
+    if (image->md[0].atype == _DATATYPE_UINT8)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1406,7 +1414,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT8)
+    else if (image->md[0].atype == _DATATYPE_INT8)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1417,7 +1425,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT16)
+    else if (image->md[0].atype == _DATATYPE_UINT16)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1428,7 +1436,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT16)
+    else if (image->md[0].atype == _DATATYPE_INT16)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1439,7 +1447,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT32)
+    else if (image->md[0].atype == _DATATYPE_UINT32)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1450,7 +1458,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT32)
+    else if (image->md[0].atype == _DATATYPE_INT32)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1461,7 +1469,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT64)
+    else if (image->md[0].atype == _DATATYPE_UINT64)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1472,7 +1480,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT64)
+    else if (image->md[0].atype == _DATATYPE_INT64)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1483,7 +1491,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_FLOAT)
+    else if (image->md[0].atype == _DATATYPE_FLOAT)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1494,7 +1502,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_DOUBLE)
+    else if (image->md[0].atype == _DATATYPE_DOUBLE)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1507,27 +1515,27 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
     }
 
 
-    for(ss = 0; ss < image[IMAGE_INDEX].md[0].sem; ss++)
+    for(ss = 0; ss < image->md[0].sem; ss++)
     {
-        sem_getvalue(image[IMAGE_INDEX].semptr[ss], &semval);
+        sem_getvalue(image->semptr[ss], &semval);
         if(semval < SEMAPHORE_MAXVAL )
-            sem_post(image[IMAGE_INDEX].semptr[ss]);
+            sem_post(image->semptr[ss]);
     }
 
-    if(image[IMAGE_INDEX].semlog != NULL)
+    if(image->semlog != NULL)
     {
-        sem_getvalue(image[IMAGE_INDEX].semlog, &semval);
+        sem_getvalue(image->semlog, &semval);
         if(semval < SEMAPHORE_MAXVAL)
         {
-            sem_post(image[IMAGE_INDEX].semlog);
+            sem_post(image->semlog);
         }
     }
 
-    image[IMAGE_INDEX].md[0].write = 0;
-    image[IMAGE_INDEX].md[0].cnt0++;
+    image->md[0].write = 0;
+    image->md[0].cnt0++;
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-    image[IMAGE_INDEX].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }
@@ -1542,7 +1550,7 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 {
     daoTrace("\n");
     // Wait for new image
-    sem_wait(image[IMAGE_INDEX].semptr[semNb]);
+    sem_wait(image->semptr[semNb]);
     return DAO_SUCCESS;
 }
 
@@ -1555,7 +1563,7 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 uint_fast64_t daoShmGetCounter(IMAGE *image)
 {
     daoTrace("\n");
-    return image[IMAGE_INDEX].md[0].cnt0;
+    return image->md[0].cnt0;
 }
 
 /**
@@ -1568,43 +1576,43 @@ uint_fast64_t daoShmGetCounter(IMAGE *image)
 //{
 //    daoTrace("\n");
 //    // check type and use proper array
-//    if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT8)
+//    if (image->md[0].atype == _DATATYPE_UINT8)
 //    {
 //                image[0].array.UI8[pp] += imageCube[k][0].array.UI8[pp];
 //    }
-//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT8)
+//    else if (image->md[0].atype == _DATATYPE_INT8)
 //    {
 //                image[0].array.SI8[pp] += imageCube[k][0].array.SI8[pp];
 //    }
-//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT16)
+//    else if (image->md[0].atype == _DATATYPE_UINT16)
 //    {
 //                image[0].array.UI16[pp] += imageCube[k][0].array.UI16[pp];
 //    }
-//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT16)
+//    else if (image->md[0].atype == _DATATYPE_INT16)
 //    {
 //                image[0].array.SI16[pp] += imageCube[k][0].array.SI16[pp];
 //    }
-//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT32)
+//    else if (image->md[0].atype == _DATATYPE_UINT32)
 //    {
 //                image[0].array.UI32[pp] += imageCube[k][0].array.UI32[pp];
 //    }
-//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT32)
+//    else if (image->md[0].atype == _DATATYPE_INT32)
 //    {
 //                image[0].array.SI32[pp] += imageCube[k][0].array.SI32[pp];
 //    }
-//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_UINT64)
+//    else if (image->md[0].atype == _DATATYPE_UINT64)
 //    {
 //                image[0].array.UI64[pp] += imageCube[k][0].array.UI64[pp];
 //    }
-//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_INT64)
+//    else if (image->md[0].atype == _DATATYPE_INT64)
 //    {
 //                image[0].array.SI64[pp] += imageCube[k][0].array.SI64[pp];
 //    }
-//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_FLOAT)
+//    else if (image->md[0].atype == _DATATYPE_FLOAT)
 //    {
 //                image[0].array.F[pp] += imageCube[k][0].array.F[pp];
 //    }
-//    else if (image[IMAGE_INDEX].md[0].atype == _DATATYPE_DOUBLE)
+//    else if (image->md[0].atype == _DATATYPE_DOUBLE)
 //    {
 //                image[0].array.D[pp] += imageCube[k][0].array.D[pp];
 //    }
