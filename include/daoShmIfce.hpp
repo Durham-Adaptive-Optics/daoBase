@@ -22,6 +22,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <filesystem>
 #include <iomanip>
 #include <type_traits>
 #include <time.h>
@@ -171,10 +172,21 @@ namespace Dao
                     int sem_number = 0;
                     bool sem_OK = false;
                     sem_t *stest;
+
+                    size_t lastSlash = m_shm_filename.find_last_of("/\\");
+                    std::string local_name = m_shm_filename.substr(lastSlash + 1);
+
+                    // Remove the ".im.shm" 
+                    size_t extensionPos = local_name.find(".im.shm");
+                    if (extensionPos != std::string::npos) {
+                        local_name = local_name.substr(0, extensionPos);
+                    }
+                    m_log.Debug("%s", local_name.c_str());
+
                     while(!sem_OK)
                     {
                         std::ostringstream sem_name;
-                        sem_name << m_shm->md[0].name << "_sem" << std::setw(2) << std::setfill('0') << sem_number;
+                        sem_name << local_name << "_sem" << std::setw(2) << std::setfill('0') << sem_number;
                         m_log.Debug("semaphore %s", sem_name.str().c_str());
                         
                         if((stest = sem_open(sem_name.str().c_str(), 0, 0644, 0)) == SEM_FAILED)
@@ -194,7 +206,7 @@ namespace Dao
                     for(int i = 0; i < sem_number; i++)
                     {
                         std::ostringstream sem_name;
-                        sem_name << m_shm->md[0].name << "_sem" << std::setw(2) << std::setfill('0') << i;
+                        sem_name << local_name << "_sem" << std::setw(2) << std::setfill('0') << i;
                         if ((m_shm->semptr[i] = sem_open(sem_name.str().c_str(), 0, 0644, 0))== SEM_FAILED) 
                         {
                             m_log.Debug("could not open semaphore %s", sem_name.str().c_str());
@@ -203,7 +215,7 @@ namespace Dao
                     
                     std::ostringstream sem_logname;
                     // sprintf(sname, "%s_semlog", image->md[0].name);
-                    sem_logname << m_shm->md[0].name << "_semlog";
+                    sem_logname << local_name << "_semlog";
                     if ((m_shm->semlog = sem_open(sem_logname.str().c_str(), 0, 0644, 0))== SEM_FAILED) 
                     {
                         m_log.Debug("could not open semaphore %s", sem_logname.str().c_str());

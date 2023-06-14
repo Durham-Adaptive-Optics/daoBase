@@ -14,10 +14,7 @@ waf needs to be installed and in the path: see https://waf.io/book/.
 a python install is needed
 
 ```
-pip3 install posix_ipc
-pip3 install zmq
-pip3 install protobuf
-pip3 install astropy
+pip install posix_ipc zmq protobuf atropy python-statemachine statemachine  redis
 ```
 
 # Environment

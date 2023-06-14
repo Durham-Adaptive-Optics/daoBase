@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import zmq
 from threading import Thread, Event
-from
 
 class daoProxy:
     def __init__(self, xsubPort=5558, xpubPort=5559, capPort=5560, logfile='/tmp/daoLogs.txt'):
@@ -38,7 +37,6 @@ class daoProxy:
         zmq.proxy(self.xsub_socket, self.xpub_socket)
 
     def capture(self):
-        running = True:
         while running:
             message = self.capSub_socket.recv()
 
