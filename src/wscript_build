@@ -4,6 +4,7 @@ bld.shlib(
 	source 		= 'cpp/daoNuma.cpp',
 	includes 	= '../include',
 	ldflags		= "-lnuma",
+	cxxflags 	= ['-Ofast', '-Wall', '-Wextra',  '-march=core-avx2', '-mavx2'],
 	target 		= 'daoNuma',
 	name   		= 'daoNuma',
 	vnum   		= '0.0.1')

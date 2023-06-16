@@ -133,7 +133,7 @@ namespace Dao
                         if(errno != EAGAIN)
                         {
                             // an error has occured do somethign
-                            m_log.Error("%s recieved errno %d", m_thread_name, errno);
+                            m_log.Error("%s recieved errno %d", m_thread_name.c_str(), errno);
                         }
                     } 
                     else if(nBytes > 0)
