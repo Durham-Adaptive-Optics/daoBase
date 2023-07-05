@@ -3,12 +3,16 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to DAO's documentation!
+Welcome to Duraham Adaptive Optics's documentation!
 ===============================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+
+   installation_guide
+   quick_start_guide
+   shared_memory
 
 
 
