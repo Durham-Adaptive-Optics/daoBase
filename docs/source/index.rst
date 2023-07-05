@@ -13,6 +13,7 @@ Welcome to Duraham Adaptive Optics's documentation!
    installation_guide
    quick_start_guide
    shared_memory
+   troubleshooting
 
 
 

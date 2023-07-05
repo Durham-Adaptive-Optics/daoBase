@@ -14,7 +14,7 @@ waf needs to be installed and in the path: see https://waf.io/book/.
 a python install is needed
 
 ```
-pip install posix_ipc zmq protobuf astropy python-statemachine statemachine  redis
+pip install posix_ipc zmq protobuf astropy python-statemachine statemachine redis sphinx
 ```
 
 # Environment
@@ -35,6 +35,17 @@ mkdir $HOME/DAOROOT
 waf configure --prefix=$DAOROOT
 waf
 waf install
+```
+
+# Documentation
+Documents are built using doxygen and sphinx. To build the documents use the following command
+```
+waf build_docs
+```
+
+To clean the document build.
+```
+waf clean_docs
 ```
 
 
