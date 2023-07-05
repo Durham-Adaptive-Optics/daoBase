@@ -14,6 +14,7 @@ Welcome to Duraham Adaptive Optics's documentation!
    quick_start_guide
    shared_memory
    troubleshooting
+   api_reference
 
 
 

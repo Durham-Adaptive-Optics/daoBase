@@ -58,3 +58,7 @@ html_static_path = ['_static']
 # Add Logo to the documents
 html_logo = '_static/DaoLogo.png'
 
+
+# extensions = ['sphinx.ext.autodoc', 'breathe']
+# breathe_projects = { "DAO": "../build/doxygen/xml/" }
+# breathe_default_project = "DAO"

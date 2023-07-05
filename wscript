@@ -20,6 +20,7 @@ import subprocess
 from waflib.Tools import waf_unit_test
 
 def build_docs(conf):
+	os.system("doxygen docs/Doxyfile")
 	os.system(f"make -C {docs} html")
 
 def clean_docs(conf):
@@ -42,10 +43,6 @@ def configure(conf):
 					args='--cflags --libs',
 					uselib_store='PROTOBUF'
 					)
-	if conf.options.build_docs:
-		conf.env.BUILD_DOCS = True
-
-
 
 def build(bld):
 	bld.env.DEFINES=['WAF=1']
