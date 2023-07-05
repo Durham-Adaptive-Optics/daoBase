@@ -382,6 +382,18 @@ class shm:
 
         return self.mtdata
 
+    def get_counter(self,):
+        ''' --------------------------------------------------------------
+        Read the image counter from SHM
+        -------------------------------------------------------------- '''
+        return self.get_meta_data()['cnt0']
+
+    def get_frame_id(self,):
+        ''' --------------------------------------------------------------
+        Read the image counter from SHM
+        -------------------------------------------------------------- '''
+        return self.get_meta_data()['cnt2']
+
     def get_timestamp(self, ):
         md=self.get_meta_data()
         tv_sec = self.mtdata['atime']['ts']['tv_sec']

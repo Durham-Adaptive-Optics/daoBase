@@ -88,6 +88,7 @@ extern "C"
 
 #define SEMAPHORE_MAXVAL    1 	          /**< maximum value for each of the semaphore, mitigates warm-up time when processes catch up with data that has accumulated */
 #define IMAGE_NB_SEMAPHORE  10            /**< Number of semaphores per image */
+#define CIRCULAR_BUFFER_SIZE 1000         /**< Number of data in the cuircular buffer */
 
 // Data types are defined as machine-independent types for portability
 
