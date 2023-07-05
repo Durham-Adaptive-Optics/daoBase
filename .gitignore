@@ -7,6 +7,8 @@ waf-*-*/
 waf3-*-*/
 # Lockfile
 .lock-waf_*_build
+# Sphinx
+docs/build
 
 build/
 

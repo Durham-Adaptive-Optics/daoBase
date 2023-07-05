@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Welcome to Duraham Adaptive Optics's documentation!
-===============================
+===================================================
 
 .. toctree::
    :maxdepth: 2
