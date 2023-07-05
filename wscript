@@ -12,10 +12,18 @@ APPNAME='daoBase'
 top = '.'
 build = 'build'
 include = 'include'
+docs = 'docs'
 
-from waflib import Configure, Logs, Utils, Context
+from waflib import Configure, Logs, Utils, Context, Task
+import subprocess
 #Configure.autoconfig = True # True/False/'clobber'
 from waflib.Tools import waf_unit_test
+
+def build_docs(conf):
+	os.system(f"make -C {docs} html")
+
+def clean_docs(conf):
+	os.system(f"make -C {docs} clean")
 
 def options(opt):
 	opt.load('cxx compiler_c compiler_cxx gnu_dirs waf_unit_test')
@@ -34,6 +42,9 @@ def configure(conf):
 					args='--cflags --libs',
 					uselib_store='PROTOBUF'
 					)
+	if conf.options.build_docs:
+		conf.env.BUILD_DOCS = True
+
 
 
 def build(bld):
