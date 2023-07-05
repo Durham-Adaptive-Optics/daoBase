@@ -42,6 +42,19 @@ namespace Dao
                         m_buffer[1][i] = fillvalue;
                     }
                 }
+                else
+                {
+                    m_buffer[0] = (T *) malloc( sizeof(T) * m_n_element );
+                    m_buffer[1] = (T *) malloc( sizeof(T) * m_n_element );
+
+                    // set active buffer to 0
+                    SetActiveBuffer(0);
+                    for (size_t i = 0; i < m_n_element; i++)
+                    {
+                        m_buffer[0][i] = fillvalue;
+                        m_buffer[1][i] = fillvalue;
+                    }
+                }
             };
 
             ~DoubleBuffer()
@@ -50,6 +63,11 @@ namespace Dao
                 {
                     Numa::Free(m_buffer[0], sizeof(T) * m_n_element);
                     Numa::Free(m_buffer[1], sizeof(T) * m_n_element);
+                }
+                else
+                {
+                    free(m_buffer[0]);
+                    free(m_buffer[1]);
                 }
             };
 
@@ -101,12 +119,12 @@ namespace Dao
             };
 
             // fast check: Dangerous as no checks are carried out
-            T volatile * Active()
+            T * Active()
             {
                 return m_active_buffer;
             };
 
-            T volatile * Active(uint64_t &frame)
+            T * Active(uint64_t &frame)
             {
                 if(m_target_frame_set && frame >= m_target_frame)
                 {
@@ -116,7 +134,7 @@ namespace Dao
             };
 
             // get passive mpa fast no checkms
-            T volatile * Passive()
+            T * Passive()
             {
                 return m_buffer[GetInctiveIndex()];
             }
