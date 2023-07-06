@@ -666,7 +666,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 //    int semfile[100];
 
     // to get rid off warning
-    char nameCopy[sizeof(image->md[0].name)];
+    char nameCopy[256];//sizeof(image->md[0].name)];
     strcpy(nameCopy, image->md[0].name);
     char *token = strtok(nameCopy, "/");
 
