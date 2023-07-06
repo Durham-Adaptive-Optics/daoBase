@@ -423,7 +423,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         mapv += sizeof(IMAGE_KEYWORD)*image->md[0].NBkw;
         strcpy(image->name, name);
         // to get rid off warning
-        char nameCopy[sizeof(name)];
+        char * nameCopy = (char *)malloc(strlen(name)*sizeof(char));
         strcpy(nameCopy, name);
         char *token = strtok(nameCopy, "/");
 
@@ -447,12 +447,14 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
             else
             {
                 daoError("invalid name format, should be <name.im.shm>\n");
+                free(nameCopy);
                 return DAO_ERROR;
             }
         }
         else
         {
             daoError("invalid location, should be /tmp/<optional>/<name.im.shm>\n");
+            free(nameCopy);
             return DAO_ERROR;
         }
         // looking for semaphores
@@ -489,6 +491,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         {
             daoWarning("could not open semaphore %s\n", shmSemName);
         }
+        free(nameCopy);
     }
     return(rval);
 }
@@ -666,7 +669,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 //    int semfile[100];
 
     // to get rid off warning
-    char nameCopy[sizeof(image->md[0].name)];
+    char * nameCopy = (char *)malloc(strlen(image->md[0].name)*sizeof(char));
     strcpy(nameCopy, image->md[0].name);
     char *token = strtok(nameCopy, "/");
 
@@ -689,6 +692,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
         else
         {
             daoError("invalid name format, should be <name.im.shm>\n");
+            free(nameCopy);
             return DAO_ERROR;
         }
 
@@ -696,6 +700,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
     else
     {
         daoError("invalid location, should be /tmp/<optional>/<name.im.shm>\n");
+        free(nameCopy);
         return DAO_ERROR;
     }
 
@@ -745,7 +750,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
             }
         }
     }
-    
+    free(nameCopy);
     return(0);
 }
 
@@ -782,8 +787,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     // compute total size to be allocated
     if(shared==1)
     {
-        // to get rid off warning
-        char nameCopy[sizeof(name)];
+        char * nameCopy = (char *)malloc(strlen(name)*sizeof(char));
         strcpy(nameCopy, name);
         char *token = strtok(nameCopy, "/");
 
@@ -807,12 +811,14 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
             else
             {
                 daoError("invalid name format, should be <name.im.shm>\n");
+                free(nameCopy);
                 return DAO_ERROR;
             }
         }
         else
         {
             daoError("invalid location, should be /tmp/<optional>/<name.im.shm>\n");
+            free(nameCopy);
             return DAO_ERROR;
         }
 
@@ -927,6 +933,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         image->md = (IMAGE_METADATA*) map;
         image->md[0].shared = 1;
         image->md[0].sem = 0;
+        free(nameCopy);
     }
     else
     {
@@ -1388,8 +1395,6 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         image->kw[kw].type = 'N';
     }
-
-
     return(0);
 }
 
