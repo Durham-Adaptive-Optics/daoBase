@@ -13,7 +13,7 @@ bld.shlib(
 	source = 'c/dao.c',
 	includes = '../include',
 	#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
-	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto'],
+	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'],
 	target = 'dao',
 	name   = 'dao',
 	vnum   = '0.0.1')
