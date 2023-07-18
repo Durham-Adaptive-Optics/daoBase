@@ -7,6 +7,12 @@ Package for Redhat based distribution... to be adapted for other Linux distrib
 ```
 yum install openssl-devel protobuf-devel gsl-devel numactl-devel glibc-devel ncurses-devel redis gtest-devel
 ```
+for ubuntu distribution:
+
+```
+sudo apt install -y libtool pkg-config build-essential autoconf automake python3 python-is-python3 libssl-dev libncurses5-dev libncursesw5-dev redis libgtest-dev libgsl-dev libzmq3-dev
+```
+
 ## Waf
 waf needs to be installed and in the path: see https://waf.io/book/.  
 
