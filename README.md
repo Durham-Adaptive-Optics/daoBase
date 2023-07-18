@@ -10,7 +10,7 @@ yum install openssl-devel protobuf-devel gsl-devel numactl-devel glibc-devel ncu
 for ubuntu distribution:
 
 ```
-sudo apt install -y libtool pkg-config build-essential autoconf automake python3 python-is-python3 libssl-dev libncurses5-dev libncursesw5-dev redis libgtest-dev libgsl-dev libzmq3-dev
+sudo apt install -y libtool pkg-config build-essential autoconf automake python3 python-is-python3 libssl-dev libncurses5-dev libncursesw5-dev redis libgtest-dev libgsl-dev libzmq3-dev protobuf-compiler numactl libnuma-dev
 ```
 
 ## Waf
