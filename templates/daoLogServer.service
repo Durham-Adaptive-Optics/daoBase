@@ -1,0 +1,15 @@
+[Unit]
+Description=daoLogServer
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=_python_ _daoroot_/bin/daoLogServer.py
+EnvironmentFile=_envfile_
+# Environment="PYTHONPATH=$PYTHONPATH:/opt/dao/DAOROOT/python"
+# WorkingDirectory=/opt/dao/DAOROOT/python
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

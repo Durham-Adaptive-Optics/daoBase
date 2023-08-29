@@ -24,15 +24,9 @@ import daoLog
 # Load the shared library
 daoLib = ctypes.CDLL('libdao.so')
 
+
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, "TRACE")
-
-logFile = "/tmp/daolog.txt"
-ip = '127.0.0.1'
-port = 5558
-addr=f"tcp://{ip}:{port}"
-logger = daoLog.daoLog(__name__, filename=logFile)
-log = logging.getLogger(__name__)
 
 def struct2Dict(structure):
     result = {}
@@ -285,11 +279,14 @@ class shm:
         ]
         self.daoShmWaitForSemaphore.restype = ctypes.c_int8
 
+        self.log = logging.getLogger(daoLog.PROCESS_NAME)
+
+
         self.image=IMAGE()
         if fname == '':
-            log.error("Need at least a SHM name")
+            self.log.error("Need at least a SHM name")
         elif data is not None:
-            log.info("%s will be created or overwritten" % (fname,))
+            self.log.info("%s will be created or overwritten" % (fname,))
             dataSize = data.shape
             self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), 2,\
                                    (ctypes.c_uint32 * len(dataSize))(*dataSize),\
@@ -299,7 +296,7 @@ class shm:
             # Call the daoShmImage2Shm function to feel the SHM
             result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         else:
-            log.info("loading existing %s " % (fname))
+            self.log.info("loading existing %s " % (fname))
             result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
         # Publisher
         self.pubPort = pubPort

@@ -24,7 +24,7 @@ pip install posix_ipc zmq protobuf astropy python-statemachine statemachine redi
 ```
 
 # Environment
-```
+<!-- ```
 export DAOROOT=$HOME/DAOROOT
 export DAODATA=$HOME/DAODATA
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$DAOROOT/lib:$DAOROOT/lib64
@@ -34,7 +34,7 @@ export PYTHONPATH=$DAOROOT/python
 ```
 !! BE SURE THE DAOROOT exists. In the example
 ```
-mkdir $HOME/DAOROOT
+mkdir $HOME/DAOROOT -->
 ```
 # Build
 ```
@@ -42,6 +42,8 @@ waf configure --prefix=$DAOROOT
 waf
 waf install
 ```
+This will automatically build your enviroment, reload your terminal and your enviroment will automatically be built.
+
 
 # Documentation
 Documents are built using doxygen and sphinx. To build the documents use the following command
@@ -62,3 +64,28 @@ The build include unit tests under tests. These can be built and run by uncommen
 	bld.recurse('test')
 	from waflib.Tools import
 	waf_unit_testbld.add_post_fun(waf_unit_test.summary)
+
+
+# services
+
+This provides a proxy server for the logging. All logs are by default sent to localhost which the proxy server will forward to specific ports.
+The log server will also send the logs to /tmp/dao.logs
+
+To enable this services
+	systemctl --user daemon-reload
+	systemctl --user enable daoLogServer.service
+	systemctl --user start daoLogServer.service
+
+this can be stopped 
+	systemctl --user stop daoLogServer.service
+
+status
+	systemctl --user status daoLogServer.service
+	journalctl --user -u daoLogServer.service  -e
+
+
+Configuration for this file can be modified in '$DAODATA/config/daoLogServer.conf'.
+
+# Logs
+
+All logs should go to home/<user>/.dao/logs/

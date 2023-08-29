@@ -1,8 +1,9 @@
 import socket
 from datetime import datetime
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import threading
-import sys
+import os,sys
 
 # this is the network logger. Maybe we can encapsulate this better. 
 import zmq
@@ -12,56 +13,45 @@ import time
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, "TRACE")
 
+PROCESS_NAME=__name__
+
 class daoLog:
-    def __init__(self, name, filename=None, addr=None, toScreen=True, level=logging.TRACE):
-        self.logger = logging.getLogger(name)
+    def __init__(self, name=__name__, filepath=".dao/logs", addr='127.0.0.1:4115', level=logging.TRACE):
+        self.name = name
+        if name is None:
+            self.logger = logging.getLogger(__name__)
+        else:
+            self.logger = logging.getLogger(self.name)
+            global PROCESS_NAME
+            PROCESS_NAME = self.name
+        
         self.logger.setLevel(level)
 
         formatter = logging.Formatter('[%(asctime)s] [%(machine)s] - %(name)s [%(levelname)s] : %(message)s (%(filename)s:%(lineno)d)')
         formatter.converter = time.gmtime
         # formatter.formatTime = lambda record, datefmt=None: time.strftime("%Y-%m-%dT%H:%M:%S.000Z", datefmt)
 
-        if toScreen:
-            handler = logging.StreamHandler(sys.stdout)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(level)
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+
+        if self.name is not __name__:
+            if filepath == ".dao/logs":
+                filename = os.path.expanduser("~") + "/"  + filepath + "/" + name + '.logs'
+            else:
+                filename = filepath + "/" + name + '.logs'
+            print(filename)
+            formatter = logging.Formatter('[%(asctime)s] [%(machine)s] - %(name)s [%(levelname)s] : %(message)s')
+            handler = TimedRotatingFileHandler(filename, when='midnight', interval=1, backupCount=7)
+            handler.setFormatter(formatter)
+            handler.setLevel(level)
+            self.logger.addHandler(handler)
+
+            handler = daoLogZmqHandler(f"tcp://{addr}")
             handler.setLevel(level)
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
-
-        if filename:
-            handler = logging.FileHandler(filename)
-            handler.setLevel(level)
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-
-        # if addr:
-        #     context = zmq.Context()
-        #     socket = context.socket(zmq.PUB)
-        #     socket.connect(addr)
-
-        #     class ZmqHandler(logging.Handler):
-        #         def __init__(self, addr):
-        #             super().__init__()
-        #             self.addr = addr
-
-        #             # Create the ZeroMQ context and socket
-        #             self.context = zmq.Context()
-        #             self.socket = self.context.socket(zmq.PUB)
-        #             self.socket.connect(self.addr)
-
-        #         def emit(self, record):
-        #             log_msg = daoLogging_pb2.LogMessage()
-        #             log_message.level = record.levelno
-        #             log_message.log_message = record.msg
-        #             log_message.time_stamp = str(record.created)
-        #             log_message.component_name = record.name
-        #             log_message.machine = record.machine
-        #             sendString = log_message.SerializeToString()
-        #             self.socket.send(sendString)
-
-        #     handler = ZmqHandler()
-        #     handler.setLevel(level)
-        #     handler.setFormatter(formatter)
-        #     self.logger.addHandler(handler)
 
         self.logger.addFilter(MachineFilter())
 
@@ -87,61 +77,34 @@ class MachineFilter(logging.Filter):
         record.machine = self.hostname
         return True
 
-# class daoLogZmqHandler(logging.Handler):
-#     def __init__(self, ip, port, machine):
-#         """
-#         Initialize the ZeroMQ handler with the specified parameters.
+class daoLogZmqHandler(logging.Handler):
+    def __init__(self, addr):
+        """
+        Initialize the ZeroMQ handler with the specified parameters.
         
-#         :param ip: The IP address to connect to
-#         :param port: The port to connect to
-#         :param machine: The machine name to use for logging
-#         """
-#         super().__init__()
-#         self.ip = ip
-#         self.port = port
-#         self.machine = machine
+        :param addr: Address to send the logs
+        """
+        super().__init__()      
+        # Create the ZeroMQ context and socket
+        self.socketString = addr
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.PUB)
+        self.socket.connect(self.socketString)
+
+    def emit(self, record):
+        """
+        Send the log message over the ZeroMQ socket.
         
-#         # Create the ZeroMQ context and socket
-#         self.socketString = f"tcp://{self.ip}:{self.port}"
-#         self.context = zmq.Context()
-#         self.socket = self.context.socket(zmq.PUB)
-#         self.socket.connect(self.socketString)
-
-#     def emit(self, record):
-#         """
-#         Send the log message over the ZeroMQ socket.
-        
-#         :param record: The log record to send
-#         """
-#         log_message = daoLogging_pb2.LogMessage()
-#         log_message.level = record.levelno
-#         log_message.log_message = record.msg
-#         log_message.time_stamp = str(record.created)
-#         log_message.component_name = record.name
-#         log_message.machine = record.machine
-#         sendString = log_message.SerializeToString()
-#         self.socket.send(sendString)
-
-
-# class ContextFilter(logging.Filter):
-#     def __init__(self, machine:str):
-#         """
-#         Initialize the context filter with the specified machine name.
-        
-#         :param machine: The machine name to use for logging
-#         """
-#         super().__init__()
-#         self.machine = machine
-
-#     def filter(self, record):
-#         """
-#         Add the machine name to the log record.
-        
-#         :param record: The log record to add the machine name to
-#         """
-#         record.machine = self.machine
-#         return True
-
+        :param record: The log record to send
+        """
+        log_msg = daoLogging_pb2.LogMessage()
+        log_msg.level = record.levelno
+        log_msg.log_message = record.msg
+        log_msg.time_stamp = str(record.created)
+        log_msg.component_name = record.name
+        log_msg.machine = record.machine
+        sendString = log_msg.SerializeToString()
+        self.socket.send(sendString)
 
 class ColoredFormatter(logging.Formatter):
     """
@@ -262,15 +225,10 @@ class ZmqSubLogger(threading.Thread):
                     self.logger.log(logging.FATAL, stringMsg)
 
 if __name__=="__main__":
-    fname = "/tmp/daolog.txt"
-    ip = '127.0.0.1'
-    port = 5558
-    addr=f"tcp://{ip}:{port}"
 
-    
-    logger = daoLog(__name__, filename=fname)
-
-    log = logging.getLogger(__name__)
+    logger = daoLog("test")
+    print(f"PROCCESS_NAME: {PROCESS_NAME}")
+    log = logging.getLogger(PROCESS_NAME)
 
     log.trace("This is a trace message")
     log.debug("This is a debug message")
@@ -279,7 +237,7 @@ if __name__=="__main__":
     log.error("This is a error message ")
     log.critical("This is a critical message")
 
-    # Create an instance of the ZmqSubLogger
-    zmq_sub_logger = ZmqSubLogger()
-    # Start the thread
-    zmq_sub_logger.start()
+    # # Create an instance of the ZmqSubLogger
+    # zmq_sub_logger = ZmqSubLogger()
+    # # Start the thread
+    # zmq_sub_logger.start()
