@@ -285,6 +285,10 @@ class shm:
         ]
         self.daoShmWaitForSemaphore.restype = ctypes.c_int8
 
+        self.daoShmWaitForCounter = daoLib.daoShmWaitForCounter
+        self.daoShmWaitForCounter.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmWaitForCounter.restype = ctypes.c_int8
+
         self.image=IMAGE()
         if fname == '':
             log.error("Need at least a SHM name")
@@ -332,7 +336,7 @@ class shm:
         nbVal = ctypes.c_uint32(data.size)
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         
-    def get_data(self, check=False, reform=True, semNb=0, timeout=0):
+    def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False):
         ''' --------------------------------------------------------------
         Reads and returns the data part of the SHM file
 
@@ -342,7 +346,10 @@ class shm:
         - reform: boolean, if True, reshapes the array in a 2-3D format
         -------------------------------------------------------------- '''
         if check == True:
-            result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
+            if spin == True:
+                result = self.daoShmWaitForCounter(ctypes.byref(self.image))
+            else:
+                result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
 
         arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
                                                       ctypes.POINTER(ctypes.c_uint32)), shape=(3,))

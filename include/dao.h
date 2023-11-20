@@ -424,5 +424,6 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32
                            uint8_t atype, int shared, int NBkw);
 int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal); 
 int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
+int_fast8_t daoShmWaitForCounter(IMAGE *image);
 uint64_t    daoShmGetCounter(IMAGE *image);
 #endif

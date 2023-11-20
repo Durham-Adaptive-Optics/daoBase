@@ -1560,6 +1560,31 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 }
 
 /**
+ * @brief Wait for new data in SHM by spining on SHM ocunter
+ * 
+ * @param image 
+ * @return uint_fast64_t 
+ */
+int_fast8_t daoShmWaitForCounter(IMAGE *image)
+{
+    daoTrace("\n");
+    uint_fast64_t counter = image->md[0].cnt0; 
+    struct timespec req, rem;
+    req.tv_sec = 0;          // Seconds
+    req.tv_nsec = 0; // Nanoseconds
+    while (image->md[0].cnt0 <= counter)
+    {
+        // Spin
+        if (nanosleep(&req, &rem) < 0) 
+        {
+            printf("Nanosleep interrupted\n");
+            return 1;
+        }
+    }
+    return DAO_SUCCESS;
+}
+
+/**
  * @brief Retreive the SHM counter
  * 
  * @param image 
