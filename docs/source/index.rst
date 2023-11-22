@@ -7,13 +7,17 @@ Welcome to Duraham Adaptive Optics's documentation!
 ===================================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
    installation_guide
    quick_start_guide
    shared_memory
    troubleshooting
+   tuning_guide
+   logging
+   state_machine
+   daoroot_daodata
    api_reference
 
 
