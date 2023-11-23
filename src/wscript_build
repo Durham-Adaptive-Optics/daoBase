@@ -17,3 +17,25 @@ bld.shlib(
 	target = 'dao',
 	name   = 'dao',
 	vnum   = '0.0.1')
+
+
+
+bld.shlib(
+	source 		= 'cpp/daoLog2.cpp',
+	includes 	= '../include',
+	ldflags		= "",
+	cxxflags 	= ['-Ofast', '-Wall', '-Wextra'],
+	target 		= 'daoLog',
+	name   		= 'daoLog',
+	use			= 'daoProto',
+	vnum   		= '0.0.1')
+
+bld.shlib(
+	source 		= 'cpp/daoLog2_wrapper.cpp',
+	includes 	= '../include',
+	ldflags		= "",
+	cxxflags 	= ['-Ofast', '-Wall', '-Wextra'],
+	target 		= 'daoLogWrap',
+	name   		= 'daoLogWrap',
+	use			= 'daoLog',
+	vnum   		= '0.0.1')

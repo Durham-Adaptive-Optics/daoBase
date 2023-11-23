@@ -221,32 +221,24 @@ namespace Dao
 
         // Entry point for the logs
 
-        // contains the ability to log to screen, file, or network depending on configuration]
+        // will log to screen, file and network
         // Spawns a thread that monitors a queue, and emptys the queue to destination
         class Logger
         {
             public:
-                // This way multiple destinations can be used at once
-                enum class DESTINATION : uint8_t {
-                    NONE        = 0, // (1 << 0),  /* 0b0000000000000001 */
-                    SCREEN      = 1, // (1 << 1),  /* 0b0000000000000010 */
-                    FILE        = 2, // (1 << 2),  /* 0b0000000000000100 */
-                    NETWORK     = 3, // (1 << 3),  /* 0b0000000000001000 */
-                };
-
-                Logger(std::string name, DESTINATION dst = DESTINATION::NONE, std::string filename_or_ip= "", int port = 0)
+                Logger(std::string name = "", std::string filepath=".dao/logs" std::string ip = "127.0.0.1", int port = 4115)
                 : m_name(name)
                 , m_level(LEVEL::INFO)
-                , m_dst(dst)
                 , m_alive(true)
                 , m_queue()
                 , m_timeout_ms(1)
                 , m_filename_or_ip(filename_or_ip)
                 , m_port(port)
                 {
-                    if(m_dst == DESTINATION::FILE)
-                    {  
-                        // open file
+
+
+                    if(name != "")
+                    { 
                         try
                         {
                             m_file.open(m_filename_or_ip, std::ofstream::out | std::ofstream::app);
@@ -255,22 +247,11 @@ namespace Dao
                         {
                             std::cerr << e.what() << '\n';
                         }
-                    }
-                    else if (m_dst == DESTINATION::NETWORK)
-                    {
-                        // open network connection
-                        // create network
+
                         m_network = new NetworkLog(m_filename_or_ip, port);
                     }
-                    else if(m_dst == DESTINATION::SCREEN)
-                    {
 
-                    }
-                    else
-                    {
-                    
-                    }
-                    m_log_thread = std::thread{&Logger::log_thread, this};
+                    m_log_thread = std::thread{&Logger::log_thread, this}; // TODO: replace this with our own thread...
                 }
 
                 ~Logger()
@@ -291,11 +272,6 @@ namespace Dao
                 // only public interface are the log levels
                 inline void Trace(const char * fmt, ... )
                 {
-                    
-                    // std::cout <<  m_name << " Trace() " << std::endl;
-                    // std::cout << "Requested: "  << " : " << Dao::Log::LEVEL_TEXT.at(Dao::Log::LEVEL::TRACE) << std::endl; 
-                    // std::cout << "m_level " << " : [" << 0 << "] " << Dao::Log::LEVEL_TEXT.at(m_level) << std::endl;
-                    // sleep(1);
                     if(Dao::Log::LEVEL::TRACE >= m_level)
                     {
                         va_list args;
@@ -364,8 +340,6 @@ namespace Dao
                 // set LEVEL
                 void SetLevel(LEVEL level){m_level = level;};
                 LEVEL GetLevel(){return m_level;};
-
-                DESTINATION GetDestination(){return m_dst;};
 
             protected:
 
@@ -477,19 +451,19 @@ namespace Dao
 
                 }
 
-                void dump_file(LOG_MESSAGE& message)
+                inline void dump_file(LOG_MESSAGE& message)
                 {
                     std::string tmpString = construct_string(message);
                     m_file << tmpString << "\n"; // std::
                 }
 
-                void dump_screen(LOG_MESSAGE& message)
+                inline void dump_screen(LOG_MESSAGE& message)
                 {
                     std::string tmpString = construct_string(message);
                     std::cout << tmpString << "\n"; // std::endl causes a flush and can take 1ms we remove this with thne /n
                 }
 
-                void dump_network(LOG_MESSAGE& message)
+                inline void dump_network(LOG_MESSAGE& message)
                 {
                     m_network->SendLog(message);
                 }
@@ -498,7 +472,6 @@ namespace Dao
                 volatile bool m_alive;
                 size_t m_timeout_ms;
                 LEVEL m_level;
-                DESTINATION m_dst;
 
                 std::string m_filename_or_ip;
                 int m_port;

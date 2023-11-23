@@ -98,6 +98,7 @@ def build(bld):
 	bld.env.DEFINES=['WAF=1']
 	bld.recurse('proto')
 	bld.recurse('src')# test')
+	bld.recurse('test')
 
 	# install header files
 	header_files = glob.glob('build/*.h')
