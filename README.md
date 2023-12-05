@@ -15,12 +15,28 @@ sudo apt install -y libtool pkg-config build-essential autoconf automake python3
 
 ## Waf
 waf needs to be installed and in the path: see https://waf.io/book/.  
-
-## Python
-a python install is needed
-
+Our typical install
 ```
-pip install posix_ipc zmq protobuf astropy python-statemachine statemachine redis sphinx
+mkdir ~/bin
+cd ~/bin
+wget https://waf.io/waf-2.0.26
+ln -s waf-2.0.26 waf
+```
+and add $HOME/bin in your path
+## Python
+a python install is needed. We usually used miniconda but any aother install will work.
+here is our typical install command
+```
+mkdir -p ~/miniconda3
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+rm -rf ~/miniconda3/miniconda.sh
+~/miniconda3/bin/conda init bash
+~/miniconda3/bin/conda init zsh
+```
+The following package should be installed
+```
+pip install posix_ipc zmq protobuf= =3.20.0 astropy python-statemachine statemachine redis sphinx
 ```
 
 # Environment
@@ -28,7 +44,7 @@ pip install posix_ipc zmq protobuf astropy python-statemachine statemachine redi
 export DAOROOT=$HOME/DAOROOT
 export DAODATA=$HOME/DAODATA
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$DAOROOT/lib:$DAOROOT/lib64
-export PATH=$PATH:$HOME/DAOROOT/bin
+export PATH=$PATH:$HOME/bin:$HOME/DAOROOT/bin
 export PYTHONPATH=$DAOROOT/python
 
 ```
