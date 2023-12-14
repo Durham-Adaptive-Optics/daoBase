@@ -44,6 +44,13 @@ def configure(conf):
 					uselib_store='PROTOBUF'
 					)
 
+	# Check for CUDA Compiler (NVCC)
+	if conf.find_program('nvcc', var='NVCC') == True:
+		conf.define('HAVE_CUDA', 1)
+
+
+
+	
 def build(bld):
 	bld.env.DEFINES=['WAF=1']
 	bld.recurse('proto')

@@ -131,6 +131,9 @@ extern "C"
 #define Dtype                                          9   /**< default data type for floating point */
 #define CDtype                                        11   /**< default data type for complex */
 
+#define CPU_MEM                                        0 /**< CPU type memory */
+#define GPU_MEM                                        1 /**< GPU type memory */
+
 /** @brief  Keyword
  * The IMAGE_KEYWORD structure includes :
  * 	- name
@@ -148,7 +151,7 @@ typedef struct
         char    valstr[16];
     } value;
 
-    char comment[80];
+    char comment[81];
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_KEYWORD;
 #else
@@ -299,6 +302,8 @@ typedef struct
     // total size is 187 bytes = 1496 bit when packed
     uint64_t lastNbArray[512];
     // total size is 1211 bytes = 9688 bit when packed
+    // memory type, either CPU or GPU
+    int8_t memType;
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;
 #else
@@ -421,7 +426,7 @@ int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t
 int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image); 
 int_fast8_t daoShmImageCreateSem(IMAGE *image, long NBsem);
 int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
-                           uint8_t atype, int shared, int NBkw);
+                           uint8_t atype, int shared, int NBkw, int8_t memType);
 int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal); 
 int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
 int_fast8_t daoShmWaitForCounter(IMAGE *image);

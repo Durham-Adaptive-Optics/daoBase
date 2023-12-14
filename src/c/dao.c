@@ -525,7 +525,7 @@ int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
     memset(*image, 0, sizeof(IMAGE)*NBIMAGES);
     daoDebug("ECHO %i, %i\n", imsize[0], NBIMAGES);
 
-    daoShmImageCreate(*image, fullName, naxis, imsize, _DATATYPE_FLOAT, 1, 0);
+    daoShmImageCreate(*image, fullName, naxis, imsize, _DATATYPE_FLOAT, 1, 0, 0);
 
     return DAO_SUCCESS;
 }
@@ -760,8 +760,8 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 /*
  * Create SHM
  */
-int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, 
-                              uint32_t *size, uint8_t atype, int shared, int NBkw)
+int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
+                              uint8_t atype, int shared, int NBkw, int8_t memType)
 {
     daoTrace("\n");
     long i;//,ii;
@@ -960,25 +960,36 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     }
     image->md[0].NBkw = NBkw;
 
+    image->md[0].memType = memType;
 
     if(atype == _DATATYPE_UINT8)
     {
-        if(shared==1)
+        if (shared == 1)
         {
-			mapv = (char*) map;
+#ifdef HAVE_CUDA
+            if (memType == GPU_MEM)
+            {
+                daoLog("Creating unified memory\n");
+                // Allocate memory on the GPU
+                // cudaMalloc(image->array.UI8, nelement * sizeof(uint8_t));
+                // Initialize the array on the GPU to zero
+                // cudaMemset(image->array.UI8, 0, nelement * sizeof(int8_t));
+                cudaMallocManaged(image->array.UI8, nelement * sizeof(uint8_t));
+            }
+#endif
+            mapv = (char *)map;
             mapv += sizeof(IMAGE_METADATA);
-            image->array.UI8 = (uint8_t*) (mapv);
-            memset(image->array.UI8, '\0', nelement*sizeof(uint8_t));
-            mapv += sizeof(uint8_t)*nelement;
-            image->kw = (IMAGE_KEYWORD*) (mapv);
-		}
+            image->array.UI8 = (uint8_t *)(mapv);
+            memset(image->array.UI8, '\0', nelement * sizeof(uint8_t));
+            mapv += sizeof(uint8_t) * nelement;
+            image->kw = (IMAGE_KEYWORD *)(mapv);
+        }
         else
         {
-            image->array.UI8 = (uint8_t*) calloc ((size_t) nelement, sizeof(uint8_t));
+            image->array.UI8 = (uint8_t *)calloc((size_t)nelement, sizeof(uint8_t));
         }
 
-
-        if(image->array.UI8 == NULL)
+        if (image->array.UI8 == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -998,12 +1009,19 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         if(shared==1)
         {
-			mapv = (char*) map;
+#ifdef HAVE_CUDA
+            if (memType == GPU_MEM)
+            {
+                daoLog("Creating unified memory\n");
+                cudaMallocManaged(image->array.SI8, nelement * sizeof(int8_t));
+            }
+#endif
+            mapv = (char *)map;
             mapv += sizeof(IMAGE_METADATA);
-            image->array.SI8 = (int8_t*) (mapv);
-            memset(image->array.SI8, '\0', nelement*sizeof(int8_t));
-            mapv += sizeof(int8_t)*nelement;
-            image->kw = (IMAGE_KEYWORD*) (mapv);
+            image->array.SI8 = (int8_t *)(mapv);
+            memset(image->array.SI8, '\0', nelement * sizeof(int8_t));
+            mapv += sizeof(int8_t) * nelement;
+            image->kw = (IMAGE_KEYWORD *)(mapv);
 		}
         else
             image->array.SI8 = (int8_t*) calloc ((size_t) nelement, sizeof(int8_t));
@@ -1031,7 +1049,14 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         if(shared==1)
         {
-            mapv = (char*) map;
+#ifdef HAVE_CUDA
+            if (memType == GPU_MEM)
+            {
+                daoLog("Creating unified memory\n");
+                cudaMallocManaged(image->array.UI16, nelement * sizeofu=(uint16_t));
+            }
+#endif
+            mapv = (char *)map;
             mapv += sizeof(IMAGE_METADATA);
             image->array.UI16 = (uint16_t*) (mapv);
             memset(image->array.UI16, '\0', nelement*sizeof(uint16_t));
@@ -1063,6 +1088,13 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         if(shared==1)
         {
+#ifdef HAVE_CUDA
+            if (memType == GPU_MEM)
+            {
+                daoLog("Creating unified memory\n");
+                cudaMallocManaged(image->array.SI16, nelement * sizeof(int16_t));
+            }
+#endif
             mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA);
             image->array.SI16 = (int16_t*) (mapv);
@@ -1098,6 +1130,13 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         if(shared==1)
         {
+#ifdef HAVE_CUDA
+            if (memType == GPU_MEM)
+            {
+                daoLog("Creating unified memory\n");
+                cudaMallocManaged(image->array.UI32, nelement * sizeofu=(uint32_t));
+            }
+#endif
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA);
             image->array.UI32 = (uint32_t*) (mapv);
@@ -1134,6 +1173,13 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         if(shared==1)
         {
+#ifdef HAVE_CUDA
+            if (memType == GPU_MEM)
+            {
+                daoLog("Creating unified memory\n");
+                cudaMallocManaged(image->array.SI32, nelement * sizeofu=(int32_t));
+            }
+#endif
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA);
             image->array.SI32 = (int32_t*) (mapv);
@@ -1170,6 +1216,13 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         if(shared==1)
         {
+#ifdef HAVE_CUDA
+            if (memType == GPU_MEM)
+            {
+                daoLog("Creating unified memory\n");
+                cudaMallocManaged(image->array.UI64, nelement * sizeofu=(uint64_t));
+            }
+#endif
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA);
             image->array.UI64 = (uint64_t*) (mapv);
@@ -1204,6 +1257,13 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         if(shared==1)
         {
+#ifdef HAVE_CUDA
+            if (memType == GPU_MEM)
+            {
+                daoLog("Creating unified memory\n");
+                cudaMallocManaged(image->array.SI64, nelement * sizeofu=(int64_t));
+            }
+#endif
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA);
             image->array.SI64 = (int64_t*) (mapv);
@@ -1239,6 +1299,13 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         if(shared==1)
         {
+#ifdef HAVE_CUDA
+            if (memType == GPU_MEM)
+            {
+                daoLog("Creating unified memory\n");
+                cudaMallocManaged(image->array.F, nelement * sizeofu=(float));
+            }
+#endif
             mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA);
             image->array.F = (float*) (mapv);
@@ -1273,6 +1340,13 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         if(shared==1)
         {
+#ifdef HAVE_CUDA
+            if (memType == GPU_MEM)
+            {
+                daoLog("Creating unified memory\n");
+                cudaMallocManaged(image->array.D, nelement * sizeofu=(double));
+            }
+#endif
 			mapv = (char*) map;
 			mapv += sizeof(IMAGE_METADATA);
 			image->array.D = (double*) (mapv);

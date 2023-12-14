@@ -202,8 +202,9 @@ class IMAGE(ctypes.Structure):
     ]
 
 class shm:
-    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost'):
+    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', memType='cpu'):
         # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
+        self.memType=memType
         self.daoShmInit1D = daoLib.daoShmInit1D
         self.daoShmInit1D.argtypes = [
             ctypes.c_char_p,
@@ -250,7 +251,7 @@ class shm:
         self.daoShmImagePart2ShmFinalize.restype = ctypes.c_int8
 
         # int8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
-        #                              uint8_t atype, int shared, int NBkw);
+        #                              uint8_t atype, int shared, int NBkw, int8_t memType);
         self.daoShmImageCreate = daoLib.daoShmImageCreate
         self.daoShmImageCreate.argtypes = [
             ctypes.POINTER(IMAGE),
@@ -259,7 +260,8 @@ class shm:
             ctypes.POINTER(ctypes.c_uint32),
             ctypes.c_uint8,
             ctypes.c_int,
-            ctypes.c_int
+            ctypes.c_int,
+            ctypes.c_int8
         ]
         self.daoShmImageCreate.restype = ctypes.c_int8
 
@@ -295,9 +297,14 @@ class shm:
         elif data is not None:
             log.info("%s will be created or overwritten" % (fname,))
             dataSize = data.shape
-            self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), 2,\
-                                   (ctypes.c_uint32 * len(dataSize))(*dataSize),\
-                                   npType2DaoType(data), 1, 0)
+            if self.memType == 'cpu':
+                self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), 2,\
+                                       (ctypes.c_uint32 * len(dataSize))(*dataSize),\
+                                       npType2DaoType(data), 1, 0, 0)
+            elif self.memType == 'gpu':
+                self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), 2,\
+                                       (ctypes.c_uint32 * len(dataSize))(*dataSize),\
+                                       npType2DaoType(data), 1, 0, 1)
             cData = data.ctypes.data_as(ctypes.c_void_p)
             nbVal = ctypes.c_uint32(data.size)
             # Call the daoShmImage2Shm function to feel the SHM

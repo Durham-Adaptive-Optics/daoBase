@@ -76,15 +76,15 @@ void shm_init(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                               "Data type not supported.");
         }
 
-        //if (result != DAO_SUCCESS)
-        //{
-        //    mexErrMsgIdAndTxt("MATLAB:shm_init:daoError",
-        //                      "daoShmImageCreate failed.");
-        //}
-        //else
-        //{
-        //    daoShmImage2Shm(mxGetData(dataMatrix), numRows*numCols, &newImage[0]);
-        //}
+        if (result != DAO_SUCCESS)
+        {
+            mexErrMsgIdAndTxt("MATLAB:shm_init:daoError",
+                              "daoShmImageCreate failed.");
+        }
+        else
+        {
+            daoShmImage2Shm(mxGetData(dataMatrix), numRows*numCols, &newImage[0]);
+        }
     }
     else
     {
