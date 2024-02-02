@@ -322,6 +322,26 @@ namespace Dao
                 }
             }
 
+            int  FullFrameSpin(uint64_t counter)
+            {
+                uint64_t A = GetFrameCounter();
+                while(A  == counter)
+                {
+                    usleep(1);
+                    A = GetFrameCounter();
+                }
+                
+                // m_log.Debug("packet change");
+                if (A != counter+1)
+                {
+                    m_log.Warning("Frame discontinuity detected: resyncing on targetFrame: %zu", m_target_frame );
+                }
+
+                return A;    
+            }
+
+
+        
             int  FullFrameReadData(size_t timeout)
             {
                 if(m_file_is_open)

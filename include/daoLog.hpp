@@ -464,7 +464,7 @@ namespace Dao
                 inline std::string getTimeString(std::time_t time)
                 {
                     std::stringstream timeString;
-                    timeString << std::put_time(std::localtime(&time_now), "%y-%m-%d %OH:%OM:%OS");
+                    timeString << std::put_time(std::localtime(&time), "%y-%m-%d %OH:%OM:%OS");
                     return timeString.str();
                 }
 
@@ -495,10 +495,13 @@ namespace Dao
                 }
 
                 std::string m_name;
-                volatile bool m_alive;
-                size_t m_timeout_ms;
                 LEVEL m_level;
-                DESTINATION m_dst;
+                DESTINATION m_dst;               
+                volatile bool m_alive;
+                // some sort of queue probably a boost or ring buffer depending on how we feel.
+                // start with boost lock free queue move onto something more complex.
+                ThreadSafeQueue<LOG_MESSAGE> m_queue;
+                size_t m_timeout_ms;
 
                 std::string m_filename_or_ip;
                 int m_port;
@@ -510,9 +513,7 @@ namespace Dao
                 NetworkLog * m_network;
                 
 
-                // some sort of queue probably a boost or ring buffer depending on how we feel.
-                // start with boost lock free queue move onto something more complex.
-                ThreadSafeQueue<LOG_MESSAGE> m_queue;
+
                 //ThreadSafeQueue<std::string> m_queue;
                 std::thread m_log_thread;
         };    
