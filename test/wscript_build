@@ -36,8 +36,8 @@ daoLogTest = bld.program(
 	target = 'daoLogTest',
 	includes = '../include '+os.getenv('DAOROOT')+'/include/',
 	linkflags = [ '-L'+os.getenv('DAOROOT')+'/lib/','-L'+os.getenv('DAOROOT')+'/lib64/'],
-	ldflags = ['-ldaoBase', '-lpthread', '-lrt', '-lm', '-lncurses'],
-	use= 'daoBase',
+	ldflags = ['-ldao', '-lpthread', '-lrt', '-lm', '-lncurses'],
+	use= 'dao',
 	cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe', '-fdiagnostics-color=auto'],
 	)
  
