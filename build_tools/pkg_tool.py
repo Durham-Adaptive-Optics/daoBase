@@ -25,16 +25,18 @@ def add_post_build_step(self):
     c_flags=prune_c_flags(c_flags)
     
         # Generate pkgconfig file content
-    pc_content = f"""prefix={self.env.PREFIX}
-exec_prefix=${{prefix}}
-libdir=${{exec_prefix}}{self.bld.env.LIBDIR.replace(self.bld.env.PREFIX, '')}
-includedir=${{prefix}}/include
+    pc_content = f"""
+    prefix={self.env.PREFIX}
+    exec_prefix=${{prefix}}
+    libdir=${{exec_prefix}}{self.bld.env.LIBDIR.replace(self.bld.env.PREFIX, '')}
+    includedir=${{prefix}}/include
 
-Name: {self.to_list(getattr(self,'target',[])).pop(0)}
-Description: A description of MyFeature
-Version: 1.0
-Libs: -L${{libdir}} -l{self.to_list(getattr(self,'target',[])).pop(0)} {' '.join(ldflags)}
-Cflags: -I${{includedir}} {' '.join(c_flags)}"""
+    Name: {self.to_list(getattr(self,'target',[])).pop(0)}
+    Description: A description of MyFeature
+    Version: 1.0
+    Libs: -L${{libdir}} -l{self.to_list(getattr(self,'target',[])).pop(0)} {' '.join(ldflags)}
+    Cflags: -I${{includedir}} {' '.join(c_flags)}
+    """
     # Write pkgconfig file
     pc_file_path = os.path.join(self.bld.bldnode.abspath(), f'{self.target}.pc')
     with open(pc_file_path, 'w') as pc_file:
