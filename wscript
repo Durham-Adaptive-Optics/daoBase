@@ -52,6 +52,7 @@ def configure(conf):
 	conf.env.PYTHONDIR		= f'{conf.env.PREFIX}/python'
 	conf.env.DATADIR		= f'{conf.env.PREFIX}/data'
 	conf.env.PKGCONFIGDIR	= f'{conf.env.LIBDIR}/pkgconfig'
+	conf.env.JULIADIR		= f'{conf.env.PREFIX}/julia'
 
 def build(bld):
 	bld.env.DEFINES=['WAF=1']
@@ -85,6 +86,10 @@ def build(bld):
 	files = glob.glob('src/python/*.py')
 	for file in files:
 		bld.install_files(bld.env.PYTHONDIR, file, relative_trick=False)
+
+	files = glob.glob('src/julia/*.jl')
+	for file in files:
+		bld.install_files(bld.env.JULIADIR, file, relative_trick=False)
 	# apps
 	files = glob.glob('apps/*.py')
 	for file in files:
