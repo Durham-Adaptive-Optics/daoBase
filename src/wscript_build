@@ -14,7 +14,7 @@ bld.shlib(
 	source = 'c/dao.c',
 	includes = '../include',
 	#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
-	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'],
+	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector', '-g'],
 	target = 'dao',
 	name   = 'dao',
 	features	= 'pkg_build',

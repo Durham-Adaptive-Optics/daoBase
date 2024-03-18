@@ -162,6 +162,62 @@ function daoShmGetCounter(image::Ptr{IMAGE})
     return result
 end
 
+function shm(name, data=nothing)
+    if data == nothing
+        println("connecting to existing $name")
+        # if not parameters given, connect to existing SHM
+        return connect_shm(name)
+    else 
+        # else create or overwrite existing SHM
+        println("$name will be created or overwritten")
+        return create_shm(name, data)
+    end
+end
+
+function create_shm(name, data)
+    # create reference to an IMAGE
+    image = Ref{dao.IMAGE}();
+    # get the pointer
+    image_ptr =  Base.unsafe_convert(Ptr{dao.IMAGE}, image);
+
+    # get the size of the SHM
+    naxis = length(size(data))
+    println("naxis = $naxis")
+    shmSize = size(data)
+    shmSize = UInt32[UInt32(x) for x in shmSize]
+    println("shmSize = $shmSize")
+
+    # check type
+    if eltype(data) == Int8
+        atype = 1
+    elseif eltype(data) == UInt8 
+        atype = 2
+    elseif eltype(data) == Int16
+        atype = 3
+    elseif eltype(data) == UInt16
+        atype = 4
+    elseif eltype(data) == Int32
+        atype = 5
+    elseif eltype(data) == UInt32
+        atype = 6
+    elseif eltype(data) == Int64
+        atype = 7
+    elseif eltype(data) == UInt64
+        atype = 8
+    elseif eltype(data) == Float32
+        atype = 9
+    elseif eltype(data) == Float64 
+        atype = 10
+    else
+        error("Unsupported type")
+    end
+    println("atype = $atype")
+    res = daoShmImageCreate(image_ptr, name, Int64(naxis), Ptr{UInt32}(pointer(shmSize)), UInt8(atype), Int32(1), Int32(0))
+    println("SHM created")
+    res = daoShmImage2Shm(Ptr{Nothing}(pointer(data)), UInt32(length(data)), image_ptr)
+    return image 
+end
+
 function connect_shm(name)
     # Connect to an existing SHM
     # create reference to an IMAGE
@@ -196,7 +252,7 @@ function get_size(image)
     return Int(size_x), Int(size_y), Int(size_z)
 end
 
-function get_data(image, check::Bool=false, semNb::Int=0, spin::Bool=false)
+function get_data(image, ;check::Bool=false, semNb::Int=0, spin::Bool=false)
     if check == true
         # get the pointer
         image_ptr =  Base.unsafe_convert(Ptr{dao.IMAGE}, image);
@@ -235,8 +291,7 @@ function get_data(image, check::Bool=false, semNb::Int=0, spin::Bool=false)
     elseif atype == 10
         data = unsafe_wrap(Array, Ptr{Float64}(image.x.array), (sx,sy))
     else
-        println("Unknown type")
-        data = nothing
+        error("Unknown type")
     end
     return data
 end

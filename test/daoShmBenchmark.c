@@ -53,7 +53,7 @@ uid_t suid;
 struct timespec tnow;
 double tlastupdatedouble;
 
-float nbPoints;
+int nbPoints;
 
 
 // termination flag
@@ -84,10 +84,37 @@ static void ShowHelp(void)
     daoInfo("   -t nloops        test timing for i/o\n");
     daoInfo("\n");
 }
+
+// Function to calculate the mean of the vector
+double avg(double *vector, int size) 
+{
+    double sum = 0.0;
+    for (int i = 0; i < size; i++) 
+    {
+        sum += vector[i];
+    }
+    return sum / size;
+}
+
+// Function to calculate the standard deviation of the vector
+double std(double *vector, int size) 
+{
+    double mean = avg(vector, size);
+    double sum = 0.0;
+
+    for (int i = 0; i < size; i++) 
+    {
+        sum += pow(vector[i] - mean, 2);
+    }
+
+    return sqrt(sum / size);
+}
+
 /*--------------------------------------------------------------------------*/
 void * benchmarkRealTimeLoop(void *thread_data)
 {
     daoInfo("ThreadId=%p\n", thread_data);
+    int count;
     IMAGE *shm10x10 = (IMAGE*) malloc(sizeof(IMAGE));
     IMAGE *shm100x100 = (IMAGE*) malloc(sizeof(IMAGE));
     IMAGE *shm1000x1000 = (IMAGE*) malloc(sizeof(IMAGE));
@@ -99,35 +126,81 @@ void * benchmarkRealTimeLoop(void *thread_data)
     // Create SHM
     size[0] = 10;
     size[1] = 10;
-    daoShmImageCreate(shm10x10, '/tmp/data10x10.im.shm', 2, size, _DATATYPE_FLOAT, 1, 0);
+    daoShmImageCreate(shm10x10, "/tmp/data10x10.im.shm", 2, size, _DATATYPE_DOUBLE, 1, 0);
     size[0] = 100;
     size[1] = 100;
-    daoShmImageCreate(shm100x100, '/tmp/data100x100.im.shm', 2, size, _DATATYPE_FLOAT, 1, 0);
+    daoShmImageCreate(shm100x100, "/tmp/data100x100.im.shm", 2, size, _DATATYPE_FLOAT, 1, 0);
     size[0] = 1000;
     size[1] = 1000;
-    daoShmImageCreate(shm1000x1000, '/tmp/data1000x1000.im.shm', 2, size, _DATATYPE_FLOAT, 1, 0);
+    daoShmImageCreate(shm1000x1000, "/tmp/data1000x1000.im.shm", 2, size, _DATATYPE_FLOAT, 1, 0);
     size[0] = 1;
     size[1] = nbPoints;
-    daoShmImageCreate(shm10x0timing, '/tmp/timing10x10.im.shm', 2, size, _DATATYPE_FLOAT, 1, 0);
-    daoShmImageCreate(shm100x100timing, '/tmp/timing100x100.im.shm', 2, size, _DATATYPE_FLOAT, 1, 0);
-    daoShmImageCreate(shm1000x1000timing, '/tmp/timing1000x1000.im.shm', 2, size, _DATATYPE_FLOAT, 1, 0);
+    daoShmImageCreate(shm10x10timing, "/tmp/timing10x10.im.shm", 2, size, _DATATYPE_DOUBLE, 1, 0);
+    daoShmImageCreate(shm100x100timing, "/tmp/timing100x100.im.shm", 2, size, _DATATYPE_DOUBLE, 1, 0);
+    daoShmImageCreate(shm1000x1000timing, "/tmp/timing1000x1000.im.shm", 2, size, _DATATYPE_DOUBLE, 1, 0);
+    // Create random array of 
+    double array10x10[10*10];
+    double array100x100[100*100];
+    double array1000x1000[1000*1000];
     // MAIN LOOP
     daoInfo("ENTERING LOOP\n");
     fflush(stdout);
     struct timespec t[3];
-    double elapsedTime;
+//    double elapsedTime[nbPoints];
     //double shmElapsedTime=0;
     unsigned int clock[1]; 
     clock_gettime(CLOCK_REALTIME, &t[1]);
-    float pauseTime;
-    pauseTime = 1e6/shmFreq[0].array.F[0];
     struct timespec tc;
     clock_gettime(CLOCK_MONOTONIC, &tc);
 
-    for (count=0; count<bPoints; k++)
+    daoInfo("Testing 10x10 write\n");
+    // Warmup
+    for (count=0; count<10000; count++)
     {
-
+        daoShmImage2Shm((double*)array10x10, 1e2, &shm10x10[0]);
+    }    
+    for (count=0; count<nbPoints; count++)
+    {
+        clock_gettime(CLOCK_REALTIME, &t[0]);
+        daoShmImage2Shm((double*)array10x10, 1e2, &shm10x10[0]);
+        clock_gettime(CLOCK_REALTIME, &t[1]);
+        shm10x10timing[0].array.D[count] = (t[1].tv_sec - t[0].tv_sec) * 1e3;    // sec to ms
+        shm10x10timing[0].array.D[count] += (t[1].tv_nsec - t[0].tv_nsec) / 1e6; // us to ms
     }
+    daoInfo("Average time: %lf\n", avg(shm10x10timing[0].array.D, nbPoints));
+    daoInfo("Jitter      : %lf\n", std(shm10x10timing[0].array.D, nbPoints));
+    daoInfo("Testing 100x100 write\n");
+    // Warmup
+    for (count=0; count<10000; count++)
+    {
+        daoShmImage2Shm((double*)array100x100, 1e2, &shm100x100[0]);
+    }    
+    for (count=0; count<nbPoints; count++)
+    {
+        clock_gettime(CLOCK_REALTIME, &t[0]);
+        daoShmImage2Shm((double*)array100x100, 1e2, &shm100x100[0]);
+        clock_gettime(CLOCK_REALTIME, &t[1]);
+        shm100x100timing[0].array.D[count] = (t[1].tv_sec - t[0].tv_sec) * 1e3;    // sec to ms
+        shm100x100timing[0].array.D[count] += (t[1].tv_nsec - t[0].tv_nsec) / 1e6; // us to ms
+    }
+    daoInfo("Average time: %lf\n", avg(shm100x100timing[0].array.D, nbPoints));
+    daoInfo("Jitter      : %lf\n", std(shm100x100timing[0].array.D, nbPoints));
+    daoInfo("Testing 1000x1000 write\n");
+    // Warmup
+    for (count=0; count<10000; count++)
+    {
+        daoShmImage2Shm((double*)array1000x1000, 1e2, &shm1000x1000[0]);
+    }    
+    for (count=0; count<nbPoints; count++)
+    {
+        clock_gettime(CLOCK_REALTIME, &t[0]);
+        daoShmImage2Shm((double*)array1000x1000, 1e2, &shm1000x1000[0]);
+        clock_gettime(CLOCK_REALTIME, &t[1]);
+        shm1000x1000timing[0].array.D[count] = (t[1].tv_sec - t[0].tv_sec) * 1e3;    // sec to ms
+        shm1000x1000timing[0].array.D[count] += (t[1].tv_nsec - t[0].tv_nsec) / 1e6; // us to ms
+    }
+    daoInfo("Average time: %lf\n", avg(shm1000x1000timing[0].array.D, nbPoints));
+    daoInfo("Jitter      : %lf\n", std(shm1000x1000timing[0].array.D, nbPoints));
     daoInfo("EXITING MAIN LOOP\n");
     fflush(stdout);
 
@@ -140,10 +213,9 @@ static int realTimeLoop()
     int status;
     // register interrupt signal to terminate the main loop
     signal(SIGINT, endme);
-
     
     fflush(stdout);
-    daoInfo('This benchmark is measuring the write time into the shared memory for different data size\n');
+    daoInfo("This benchmark is measuring the write time into the shared memory for different data size\n");
     daoInfo("10x10     image\n");
     daoInfo("100x100   image\n");
     daoInfo("1000x1000 image\n");
