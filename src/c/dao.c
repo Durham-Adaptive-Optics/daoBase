@@ -709,10 +709,14 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
     if(image->md[0].sem != NBsem)
     {
         // Close existing semaphores ...
+        daoInfo("Closing semaphore\n");
         for(s=0; s < image->md[0].sem; s++)
+        {
             sem_close(image->semptr[s]);
+        }
         image->md[0].sem = 0;
 
+        daoInfo("Remove associated files\n");
 		// ... and remove associated files
         for(s1=NBsem; s1<100; s1++)
         {
@@ -720,8 +724,8 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
             daoDebug("removing %s\n", fname);
             remove(fname);
         }
-        daoDebug("Done\n");
-        free(image->semptr);
+        daoInfo("Done\n");
+        //free(image->semptr);
         image->semptr = NULL;
     }
 
