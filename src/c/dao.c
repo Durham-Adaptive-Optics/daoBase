@@ -265,7 +265,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
     char shmName[256];
     IMAGE_METADATA *map;
     char *mapv;
-    uint8_t atype;
+    uint8_t datatype;
     int kw;
     char shmSemName[256];
     sem_t *stest;
@@ -303,7 +303,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         image->shmfd = shmFd;
         image->md = map;
         //        image->md[0].sem = 0;
-        atype = image->md[0].atype;
+        datatype = image->md[0].datatype;
         image->md[0].shared = 1;
 
         daoDebug("image size = %ld %ld\n", (long) image->md[0].size[0], (long) image->md[0].size[1]);
@@ -331,78 +331,78 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         mapv = (char*) map;
         mapv += sizeof(IMAGE_METADATA);
 
-        daoDebug("atype = %d\n", (int) atype);
+        daoDebug("datatype = %d\n", (int) datatype);
         fflush(stdout);
 
-        if(atype == _DATATYPE_UINT8)
+        if(datatype == _DATATYPE_UINT8)
         {
-            daoDebug("atype = UINT8\n");
+            daoDebug("datatype = UINT8\n");
             image->array.UI8 = (uint8_t*) mapv;
             mapv += SIZEOF_DATATYPE_UINT8 * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_INT8)
+        if(datatype == _DATATYPE_INT8)
         {
-            daoDebug("atype = INT8\n");
+            daoDebug("datatype = INT8\n");
             image->array.SI8 = (int8_t*) mapv;
             mapv += SIZEOF_DATATYPE_INT8 * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_UINT16)
+        if(datatype == _DATATYPE_UINT16)
         {
-            daoDebug("atype = UINT16\n");
+            daoDebug("datatype = UINT16\n");
             image->array.UI16 = (uint16_t*) mapv;
             mapv += SIZEOF_DATATYPE_UINT16 * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_INT16)
+        if(datatype == _DATATYPE_INT16)
         {
-            daoDebug("atype = INT16\n");
+            daoDebug("datatype = INT16\n");
             image->array.SI16 = (int16_t*) mapv;
             mapv += SIZEOF_DATATYPE_INT16 * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_UINT32)
+        if(datatype == _DATATYPE_UINT32)
         {
-            daoDebug("atype = UINT32\n");
+            daoDebug("datatype = UINT32\n");
             image->array.UI32 = (uint32_t*) mapv;
             mapv += SIZEOF_DATATYPE_UINT32 * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_INT32)
+        if(datatype == _DATATYPE_INT32)
         {
-            daoDebug("atype = INT32\n");
+            daoDebug("datatype = INT32\n");
             image->array.SI32 = (int32_t*) mapv;
             mapv += SIZEOF_DATATYPE_INT32 * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_UINT64)
+        if(datatype == _DATATYPE_UINT64)
         {
-            daoDebug("atype = UINT64\n");
+            daoDebug("datatype = UINT64\n");
             image->array.UI64 = (uint64_t*) mapv;
             mapv += SIZEOF_DATATYPE_UINT64 * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_INT64)
+        if(datatype == _DATATYPE_INT64)
         {
-            daoDebug("atype = INT64\n");
+            daoDebug("datatype = INT64\n");
             image->array.SI64 = (int64_t*) mapv;
             mapv += SIZEOF_DATATYPE_INT64 * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_FLOAT)
+        if(datatype == _DATATYPE_FLOAT)
         {
-            daoDebug("atype = FLOAT\n");
+            daoDebug("datatype = FLOAT\n");
             image->array.F = (float*) mapv;
             mapv += SIZEOF_DATATYPE_FLOAT * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_DOUBLE)
+        if(datatype == _DATATYPE_DOUBLE)
         {
-            daoDebug("atype = DOUBLE\n");
+            daoDebug("datatype = DOUBLE\n");
             image->array.D = (double*) mapv;
             mapv += SIZEOF_DATATYPE_COMPLEX_DOUBLE * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_COMPLEX_FLOAT)
+        if(datatype == _DATATYPE_COMPLEX_FLOAT)
         {
-            daoDebug("atype = COMPLEX_FLOAT\n");
+            daoDebug("datatype = COMPLEX_FLOAT\n");
             image->array.CF = (complex_float*) mapv;
             mapv += SIZEOF_DATATYPE_COMPLEX_FLOAT * image->md[0].nelement;
         }
-        if(atype == _DATATYPE_COMPLEX_DOUBLE)
+        if(datatype == _DATATYPE_COMPLEX_DOUBLE)
         {
-            daoDebug("atype = COMPLEX_DOUBLE\n");
+            daoDebug("datatype = COMPLEX_DOUBLE\n");
             image->array.CD = (complex_double*) mapv;
             mapv += SIZEOF_DATATYPE_COMPLEX_DOUBLE * image->md[0].nelement;
         }
@@ -540,25 +540,25 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
     int ss;
     image->md[0].write = 1;
 
-    if (image->md[0].atype == _DATATYPE_UINT8)
+    if (image->md[0].datatype == _DATATYPE_UINT8)
         memcpy(image->array.UI8, (unsigned char *)im, nbVal*sizeof(unsigned char)); 
-    else if (image->md[0].atype == _DATATYPE_INT8)
+    else if (image->md[0].datatype == _DATATYPE_INT8)
         memcpy(image->array.SI8, (char *)im, nbVal*sizeof(char));       
-    else if (image->md[0].atype == _DATATYPE_UINT16)
+    else if (image->md[0].datatype == _DATATYPE_UINT16)
         memcpy(image->array.UI16, (unsigned short *)im, nbVal*sizeof(unsigned short));
-    else if (image->md[0].atype == _DATATYPE_INT16)
+    else if (image->md[0].datatype == _DATATYPE_INT16)
         memcpy(image->array.SI16, (short *)im, nbVal*sizeof(short));
-    else if (image->md[0].atype == _DATATYPE_INT32)
+    else if (image->md[0].datatype == _DATATYPE_INT32)
         memcpy(image->array.UI32, (unsigned int *)im, nbVal*sizeof(unsigned int));
-    else if (image->md[0].atype == _DATATYPE_UINT32)
+    else if (image->md[0].datatype == _DATATYPE_UINT32)
         memcpy(image->array.SI32, (int *)im, nbVal*sizeof(int));
-    else if (image->md[0].atype == _DATATYPE_UINT64)
+    else if (image->md[0].datatype == _DATATYPE_UINT64)
         memcpy(image->array.UI64, (unsigned long *)im, nbVal*sizeof(unsigned long));
-    else if (image->md[0].atype == _DATATYPE_INT64)
+    else if (image->md[0].datatype == _DATATYPE_INT64)
         memcpy(image->array.SI64, (long *)im, nbVal*sizeof(long));
-    else if (image->md[0].atype == _DATATYPE_FLOAT)
+    else if (image->md[0].datatype == _DATATYPE_FLOAT)
         memcpy(image->array.F, (float *)im, nbVal*sizeof(float));
-    else if (image->md[0].atype == _DATATYPE_DOUBLE)
+    else if (image->md[0].datatype == _DATATYPE_DOUBLE)
         memcpy(image->array.D, (double *)im, nbVal*sizeof(double));
 
     for(ss = 0; ss < image->md[0].sem; ss++)
@@ -579,9 +579,7 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 
     image->md[0].write = 0;
     image->md[0].cnt0++;
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+    clock_gettime(CLOCK_REALTIME, &image->md[0].atime);
 
     return DAO_SUCCESS;
 }
@@ -596,25 +594,25 @@ int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t
     //int pp;
     image->md[0].write = 1;
 
-    if (image->md[0].atype == _DATATYPE_UINT8)
+    if (image->md[0].datatype == _DATATYPE_UINT8)
         memcpy(&image->array.UI8[position], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
-    else if (image->md[0].atype == _DATATYPE_INT8)
+    else if (image->md[0].datatype == _DATATYPE_INT8)
         memcpy(&image->array.SI8[position], (char *)im, nbVal*sizeof(char));       
-    else if (image->md[0].atype == _DATATYPE_UINT16)
+    else if (image->md[0].datatype == _DATATYPE_UINT16)
         memcpy(&image->array.UI16[position], (unsigned short *)im, nbVal*sizeof(unsigned short));
-    else if (image->md[0].atype == _DATATYPE_INT16)
+    else if (image->md[0].datatype == _DATATYPE_INT16)
         memcpy(&image->array.SI16[position], (short *)im, nbVal*sizeof(short));
-    else if (image->md[0].atype == _DATATYPE_INT32)
+    else if (image->md[0].datatype == _DATATYPE_INT32)
         memcpy(&image->array.UI32[position], (unsigned int *)im, nbVal*sizeof(unsigned int));
-    else if (image->md[0].atype == _DATATYPE_UINT32)
+    else if (image->md[0].datatype == _DATATYPE_UINT32)
         memcpy(&image->array.SI32[position], (int *)im, nbVal*sizeof(int));
-    else if (image->md[0].atype == _DATATYPE_UINT64)
+    else if (image->md[0].datatype == _DATATYPE_UINT64)
         memcpy(&image->array.UI64[position], (unsigned long *)im, nbVal*sizeof(unsigned long));
-    else if (image->md[0].atype == _DATATYPE_INT64)
+    else if (image->md[0].datatype == _DATATYPE_INT64)
         memcpy(&image->array.SI64[position], (long *)im, nbVal*sizeof(long));
-    else if (image->md[0].atype == _DATATYPE_FLOAT)
+    else if (image->md[0].datatype == _DATATYPE_FLOAT)
         memcpy(&image->array.F[position], (float *)im, nbVal*sizeof(float));
-    else if (image->md[0].atype == _DATATYPE_DOUBLE)
+    else if (image->md[0].datatype == _DATATYPE_DOUBLE)
         memcpy(&image->array.D[position], (double *)im, nbVal*sizeof(double));
 
     image->md[0].lastPos = position;
@@ -651,9 +649,7 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
             sem_post(image->semlog);
         }
     }
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+    clock_gettime(CLOCK_REALTIME, &image->md[0].atime);
     image->md[0].cnt0++;
     return DAO_SUCCESS;
 }
@@ -765,12 +761,11 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
  * Create SHM
  */
 int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, 
-                              uint32_t *size, uint8_t atype, int shared, int NBkw)
+                              uint32_t *size, uint8_t datatype, int shared, int NBkw)
 {
     daoTrace("\n");
     long i;//,ii;
     long nelement;
-    struct timespec timenow;
     char shmSemName[256];
     size_t sharedsize = 0; // shared memory size in bytes
     int shmFd; // shared memory file descriptor
@@ -842,51 +837,51 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 
         sharedsize = sizeof(IMAGE_METADATA);
 
-        if(atype == _DATATYPE_UINT8)
+        if(datatype == _DATATYPE_UINT8)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_UINT8;
         }
-        if(atype == _DATATYPE_INT8)
+        if(datatype == _DATATYPE_INT8)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_INT8;
         }
-        if(atype == _DATATYPE_UINT16)
+        if(datatype == _DATATYPE_UINT16)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_UINT16;
         }
-        if(atype == _DATATYPE_INT16)
+        if(datatype == _DATATYPE_INT16)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_INT16;
         }
-        if(atype == _DATATYPE_INT32)
+        if(datatype == _DATATYPE_INT32)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_INT32;
         }
-        if(atype == _DATATYPE_UINT32)
+        if(datatype == _DATATYPE_UINT32)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_UINT32;
         }
-        if(atype == _DATATYPE_INT64)
+        if(datatype == _DATATYPE_INT64)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_INT64;
         }
-        if(atype == _DATATYPE_UINT64)
+        if(datatype == _DATATYPE_UINT64)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_UINT64;
         }
-        if(atype == _DATATYPE_FLOAT)
+        if(datatype == _DATATYPE_FLOAT)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_FLOAT;
         }
-        if(atype == _DATATYPE_DOUBLE)
+        if(datatype == _DATATYPE_DOUBLE)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_DOUBLE;
         }
-        if(atype == _DATATYPE_COMPLEX_FLOAT)
+        if(datatype == _DATATYPE_COMPLEX_FLOAT)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_COMPLEX_FLOAT;
         }
-        if(atype == _DATATYPE_COMPLEX_DOUBLE)
+        if(datatype == _DATATYPE_COMPLEX_DOUBLE)
         {
             sharedsize += nelement*SIZEOF_DATATYPE_COMPLEX_DOUBLE;
         }
@@ -953,7 +948,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
     }
 
-    image->md[0].atype = atype;
+    image->md[0].datatype = datatype;
     image->md[0].naxis = naxis;
 
     strcpy(image->name, name); // local name
@@ -965,7 +960,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     image->md[0].NBkw = NBkw;
 
 
-    if(atype == _DATATYPE_UINT8)
+    if(datatype == _DATATYPE_UINT8)
     {
         if(shared==1)
         {
@@ -998,7 +993,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
     }
 
-    if(atype == _DATATYPE_INT8)
+    if(datatype == _DATATYPE_INT8)
     {
         if(shared==1)
         {
@@ -1031,7 +1026,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 
 
 
-    if(atype == _DATATYPE_UINT16)
+    if(datatype == _DATATYPE_UINT16)
     {
         if(shared==1)
         {
@@ -1063,7 +1058,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
     }
 
-    if(atype == _DATATYPE_INT16)
+    if(datatype == _DATATYPE_INT16)
     {
         if(shared==1)
         {
@@ -1098,7 +1093,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     }
 
 
-    if(atype == _DATATYPE_UINT32)
+    if(datatype == _DATATYPE_UINT32)
     {
         if(shared==1)
         {
@@ -1134,7 +1129,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     
 
 
-    if(atype == _DATATYPE_INT32)
+    if(datatype == _DATATYPE_INT32)
     {
         if(shared==1)
         {
@@ -1170,7 +1165,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     
     
     
-    if(atype == _DATATYPE_UINT64)
+    if(datatype == _DATATYPE_UINT64)
     {
         if(shared==1)
         {
@@ -1204,7 +1199,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
     }
     
-    if(atype == _DATATYPE_INT64)
+    if(datatype == _DATATYPE_INT64)
     {
         if(shared==1)
         {
@@ -1239,7 +1234,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     }
 
 
-    if(atype == _DATATYPE_FLOAT)	
+    if(datatype == _DATATYPE_FLOAT)	
     {
         if(shared==1)
         {
@@ -1273,7 +1268,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
     }
     
-    if(atype == _DATATYPE_DOUBLE)
+    if(datatype == _DATATYPE_DOUBLE)
     {
         if(shared==1)
         {
@@ -1307,7 +1302,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
     }
     
-    if(atype == _DATATYPE_COMPLEX_FLOAT)
+    if(datatype == _DATATYPE_COMPLEX_FLOAT)
     {
         if(shared==1)
         {
@@ -1341,7 +1336,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
     }
     
-    if(atype == _DATATYPE_COMPLEX_DOUBLE)
+    if(datatype == _DATATYPE_COMPLEX_DOUBLE)
     {
         if(shared==1)
         {
@@ -1375,9 +1370,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
     }
 
-    clock_gettime(CLOCK_REALTIME, &timenow);
-    image->md[0].last_access = 1.0*timenow.tv_sec + 0.000000001*timenow.tv_nsec;
-    image->md[0].creation_time = image->md[0].last_access;
+    clock_gettime(CLOCK_REALTIME, &image->md[0].lastaccesstime);
+    image->md[0].creationtime = image->md[0].lastaccesstime;
     image->md[0].write = 0;
     image->md[0].cnt0 = 0;
     image->md[0].cnt1 = 0;
@@ -1412,7 +1406,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
     image->md[0].write = 1;
     
     // check type and use proper array
-    if (image->md[0].atype == _DATATYPE_UINT8)
+    if (image->md[0].datatype == _DATATYPE_UINT8)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1423,7 +1417,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_INT8)
+    else if (image->md[0].datatype == _DATATYPE_INT8)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1434,7 +1428,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_UINT16)
+    else if (image->md[0].datatype == _DATATYPE_UINT16)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1445,7 +1439,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_INT16)
+    else if (image->md[0].datatype == _DATATYPE_INT16)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1456,7 +1450,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_UINT32)
+    else if (image->md[0].datatype == _DATATYPE_UINT32)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1467,7 +1461,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_INT32)
+    else if (image->md[0].datatype == _DATATYPE_INT32)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1478,7 +1472,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_UINT64)
+    else if (image->md[0].datatype == _DATATYPE_UINT64)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1489,7 +1483,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_INT64)
+    else if (image->md[0].datatype == _DATATYPE_INT64)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1500,7 +1494,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_FLOAT)
+    else if (image->md[0].datatype == _DATATYPE_FLOAT)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1511,7 +1505,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_DOUBLE)
+    else if (image->md[0].datatype == _DATATYPE_DOUBLE)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
@@ -1542,9 +1536,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
 
     image->md[0].write = 0;
     image->md[0].cnt0++;
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+    clock_gettime(CLOCK_REALTIME, &image->md[0].atime);
 
     return DAO_SUCCESS;
 }
@@ -1610,43 +1602,43 @@ uint_fast64_t daoShmGetCounter(IMAGE *image)
 //{
 //    daoTrace("\n");
 //    // check type and use proper array
-//    if (image->md[0].atype == _DATATYPE_UINT8)
+//    if (image->md[0].datatype == _DATATYPE_UINT8)
 //    {
 //                image[0].array.UI8[pp] += imageCube[k][0].array.UI8[pp];
 //    }
-//    else if (image->md[0].atype == _DATATYPE_INT8)
+//    else if (image->md[0].datatype == _DATATYPE_INT8)
 //    {
 //                image[0].array.SI8[pp] += imageCube[k][0].array.SI8[pp];
 //    }
-//    else if (image->md[0].atype == _DATATYPE_UINT16)
+//    else if (image->md[0].datatype == _DATATYPE_UINT16)
 //    {
 //                image[0].array.UI16[pp] += imageCube[k][0].array.UI16[pp];
 //    }
-//    else if (image->md[0].atype == _DATATYPE_INT16)
+//    else if (image->md[0].datatype == _DATATYPE_INT16)
 //    {
 //                image[0].array.SI16[pp] += imageCube[k][0].array.SI16[pp];
 //    }
-//    else if (image->md[0].atype == _DATATYPE_UINT32)
+//    else if (image->md[0].datatype == _DATATYPE_UINT32)
 //    {
 //                image[0].array.UI32[pp] += imageCube[k][0].array.UI32[pp];
 //    }
-//    else if (image->md[0].atype == _DATATYPE_INT32)
+//    else if (image->md[0].datatype == _DATATYPE_INT32)
 //    {
 //                image[0].array.SI32[pp] += imageCube[k][0].array.SI32[pp];
 //    }
-//    else if (image->md[0].atype == _DATATYPE_UINT64)
+//    else if (image->md[0].datatype == _DATATYPE_UINT64)
 //    {
 //                image[0].array.UI64[pp] += imageCube[k][0].array.UI64[pp];
 //    }
-//    else if (image->md[0].atype == _DATATYPE_INT64)
+//    else if (image->md[0].datatype == _DATATYPE_INT64)
 //    {
 //                image[0].array.SI64[pp] += imageCube[k][0].array.SI64[pp];
 //    }
-//    else if (image->md[0].atype == _DATATYPE_FLOAT)
+//    else if (image->md[0].datatype == _DATATYPE_FLOAT)
 //    {
 //                image[0].array.F[pp] += imageCube[k][0].array.F[pp];
 //    }
-//    else if (image->md[0].atype == _DATATYPE_DOUBLE)
+//    else if (image->md[0].datatype == _DATATYPE_DOUBLE)
 //    {
 //                image[0].array.D[pp] += imageCube[k][0].array.D[pp];
 //    }
