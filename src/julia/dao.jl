@@ -39,6 +39,11 @@ struct TIMESPECFIXED
     firstlong::int64_t
     secondlong::int64_t
 end
+# Structure for timespec
+struct timespec
+    tv_sec::Int64  # Time in seconds
+    tv_nsec::Int64 # Additional nanoseconds
+end
 
 # Image metadata structure, including various fields like name, size, data type, etc.
 struct IMAGE_METADATA
@@ -46,10 +51,10 @@ struct IMAGE_METADATA
     naxis::uint8_t                  # Number of axes (1, 2, or 3)
     size::NTuple{3, uint32_t}       # Size along each axis
     nelement::uint64_t              # Total number of elements
-    atype::uint8_t                  # Data type
-    creation_time::double           # Creation time since process start
-    last_access::double             # Last access time since process start
-    atime::Union{TIMESPECFIXED}     # Acquisition time, fixed size
+    datatype::uint8_t               # Data type
+    creationtime::double            # Creation time since process start
+    lastaccesstime::double          # Last access time since process start
+    atime::timespec                 # Acquisition time, fixed size
     shared::uint8_t                 # 1 if in shared memory
     status::uint8_t                 # Image status (logging, etc.)
     logflag::uint8_t                # Logging flag
@@ -128,9 +133,9 @@ function daoShmImageCreateSem(image::Ptr{IMAGE}, NBsem::Int64)
 end
 
 # daoShmImageCreate wrapper
-function daoShmImageCreate(image::Ptr{IMAGE}, name::String, naxis::Int64, size::Ptr{UInt32}, atype::UInt8, shared::Cint, NBkw::Cint)
+function daoShmImageCreate(image::Ptr{IMAGE}, name::String, naxis::Int64, size::Ptr{UInt32}, datatype::UInt8, shared::Cint, NBkw::Cint)
     result = ccall((:daoShmImageCreate, libda), Cint,
-                   (Ptr{IMAGE}, Cstring, Int64, Ptr{UInt32}, UInt8, Cint, Cint), image, name, naxis, size, atype, shared, NBkw)
+                   (Ptr{IMAGE}, Cstring, Int64, Ptr{UInt32}, UInt8, Cint, Cint), image, name, naxis, size, datatype, shared, NBkw)
     return result
 end
 
@@ -189,30 +194,30 @@ function create_shm(name, data)
 
     # check type
     if eltype(data) == Int8
-        atype = 1
+        datatype = 1
     elseif eltype(data) == UInt8 
-        atype = 2
+        datatype = 2
     elseif eltype(data) == Int16
-        atype = 3
+        datatype = 3
     elseif eltype(data) == UInt16
-        atype = 4
+        datatype = 4
     elseif eltype(data) == Int32
-        atype = 5
+        datatype = 5
     elseif eltype(data) == UInt32
-        atype = 6
+        datatype = 6
     elseif eltype(data) == Int64
-        atype = 7
+        datatype = 7
     elseif eltype(data) == UInt64
-        atype = 8
+        datatype = 8
     elseif eltype(data) == Float32
-        atype = 9
+        datatype = 9
     elseif eltype(data) == Float64 
-        atype = 10
+        datatype = 10
     else
         error("Unsupported type")
     end
-    println("atype = $atype")
-    res = daoShmImageCreate(image_ptr, name, Int64(naxis), Ptr{UInt32}(pointer(shmSize)), UInt8(atype), Int32(1), Int32(0))
+    println("datatype = $datatype")
+    res = daoShmImageCreate(image_ptr, name, Int64(naxis), Ptr{UInt32}(pointer(shmSize)), UInt8(datatype), Int32(1), Int32(0))
     println("SHM created")
     res = daoShmImage2Shm(Ptr{Nothing}(pointer(data)), UInt32(length(data)), image_ptr)
     return image 
@@ -265,30 +270,30 @@ function get_data(image, ;check::Bool=false, semNb::Int=0, spin::Bool=false)
         end
     end
     metadata = get_metadata(image);
-    atype = Int(metadata.atype)
+    datatype = Int(metadata.datatype)
     # get axis size
     sx, sy, sz = dao.get_size(image)
 
     # based on type unwrap to the appropriate code
-    if atype == 1
+    if datatype == 1
         data = unsafe_wrap(Array, Ptr{Int8}(image.x.array), (sx,sy))
-    elseif atype == 2
+    elseif datatype == 2
         data = unsafe_wrap(Array, Ptr{UInt8}(image.x.array), (sx,sy))
-    elseif atype == 3
+    elseif datatype == 3
         data = unsafe_wrap(Array, Ptr{Int16}(image.x.array), (sx,sy))
-    elseif atype == 4
+    elseif datatype == 4
         data = unsafe_wrap(Array, Ptr{UInt16}(image.x.array), (sx,sy))
-    elseif atype == 5
+    elseif datatype == 5
         data = unsafe_wrap(Array, Ptr{Int32}(image.x.array), (sx,sy))
-    elseif atype == 6
+    elseif datatype == 6
         data = unsafe_wrap(Array, Ptr{UInt32}(image.x.array), (sx,sy))
-    elseif atype == 7
+    elseif datatype == 7
         data = unsafe_wrap(Array, Ptr{Int64}(image.x.array), (sx,sy))
-    elseif atype == 8
+    elseif datatype == 8
         data = unsafe_wrap(Array, Ptr{UInt64}(image.x.array), (sx,sy))
-    elseif atype == 9
+    elseif datatype == 9
         data = unsafe_wrap(Array, Ptr{Float32}(image.x.array), (sx,sy))
-    elseif atype == 10
+    elseif datatype == 10
         data = unsafe_wrap(Array, Ptr{Float64}(image.x.array), (sx,sy))
     else
         error("Unknown type")
@@ -298,7 +303,7 @@ end
 
 function set_data(image, data)
     metadata = get_metadata(image);
-    atype = Int(metadata.atype)
+    datatype = Int(metadata.datatype)
     # get axis size
     sx, sy, sz = dao.get_size(image)
 
