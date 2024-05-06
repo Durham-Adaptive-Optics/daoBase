@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-
+import os
 bld.shlib(
 	source 		= 'cpp/daoNuma.cpp',
 	includes 	= '../include',
@@ -11,8 +11,10 @@ bld.shlib(
 
 bld.shlib(
 	source = 'c/dao.c',
-	includes = ['../include', '/usr/local/include/'],
+	includes = ['../include', '/usr/local/include/', os.getenv("MILK_INSTALLDIR")+"/include"],
 	#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
+	ldflags = ["-lImageStreamIO"],
+	libpath = [os.getenv("MILK_INSTALLDIR")+"/lib"],
 	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector', '-g'],
 	target = 'dao',
 	name   = 'dao',
