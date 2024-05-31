@@ -70,6 +70,9 @@ def build(bld):
 	files = glob.glob('src/python/*.py')
 	for file in files:
 		bld.install_files(bld.env.PREFIX+'/python', file, relative_trick=False)
+	files = glob.glob('src/julia/*.jl')
+	for file in files:
+		bld.install_files(bld.env.PREFIX+'/julia', file, relative_trick=False)
 	# apps
 	files = glob.glob('apps/*.py')
 	for file in files:

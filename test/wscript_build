@@ -1,4 +1,15 @@
 #! /usr/bin/env python
+import platform
+
+if platform.system() == "Darwin":
+    my_ld_flags = ['-L/opt/homebrew/lib']
+    my_cxx_flags = ['-std=c++17']
+    my_c_flags = ['']
+else:
+	my_ld_flags = ['-lnuma']
+	my_cxx_flags = ['']
+	my_c_flags =  ['-lrt']
+
 
 # TESTING BUILDS   
 bld.program(
@@ -36,8 +47,8 @@ daoLogTest = bld.program(
 	target = 'daoLogTest',
 	includes = '../include '+os.getenv('DAOROOT')+'/include/',
 	linkflags = [ '-L'+os.getenv('DAOROOT')+'/lib/','-L'+os.getenv('DAOROOT')+'/lib64/'],
-	ldflags = ['-ldaoBase', '-lpthread', '-lrt', '-lm', '-lncurses'],
-	use= 'daoBase',
+	ldflags = ['-ldao', '-lpthread', '-lrt', '-lm', '-lncurses'],
+	use= 'dao',
 	cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe', '-fdiagnostics-color=auto'],
 	)
  
@@ -77,8 +88,19 @@ bld.program(
 	source = [ 'test_shm.cpp' ],
 	includes = ['../include/', bld.env.PREFIX+'/include',],
 	lib = [ 'gtest', 'g'],
-	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64'],
+	ldflags=my_ld_flags +[ '-L'+ bld.env.PREFIX+'/lib64'],
 	use=['dao']
+	)
+
+bld.program(
+	features='test',
+	target = 'test_update_thread',
+	source = [ 'test_update_thread.cpp' ],
+	includes = ['../include/', bld.env.PREFIX+'/include',],
+  	cxxflags = my_cxx_flags +  [''],
+	lib = [ 'gtest'],
+	ldflags=my_ld_flags + [''],
+	use=['dao',  'ZMQ', 'PROTOBUF','daoProto', 'daoNuma' ]
 	)
 
 
