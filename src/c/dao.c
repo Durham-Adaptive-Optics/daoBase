@@ -423,7 +423,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         mapv += sizeof(IMAGE_KEYWORD)*image->md[0].NBkw;
         strcpy(image->name, name);
         // to get rid off warning
-        char * nameCopy = (char *)malloc(strlen(name)*sizeof(char));
+        char * nameCopy = (char *)malloc((strlen(name)+1)*sizeof(char));
         strcpy(nameCopy, name);
         char *token = strtok(nameCopy, "/");
 
@@ -669,7 +669,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 //    int semfile[100];
 
     // to get rid off warning
-    char * nameCopy = (char *)malloc(strlen(image->md[0].name)*sizeof(char));
+    char * nameCopy = (char *)malloc((strlen(image->md[0].name)+1)*sizeof(char));
     strcpy(nameCopy, image->md[0].name);
     char *token = strtok(nameCopy, "/");
 
@@ -787,7 +787,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     // compute total size to be allocated
     if(shared==1)
     {
-        char * nameCopy = (char *)malloc(strlen(name)*sizeof(char));
+        char * nameCopy = (char *)malloc((strlen(name)+1)*sizeof(char));
         strcpy(nameCopy, name);
         char *token = strtok(nameCopy, "/");
 
