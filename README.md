@@ -75,25 +75,25 @@ The following build options are available
 
 ## Debug
 Add debug flag to support debuging build and install with '-g' to support use of gdb
-'''
+```
 waf build --debug
-'''
+```
 
 ## Sanitiser
 Mostly used for developers it is available to check address sanitisation
 
 
-'''
+```
 waf build --santizer
-'''
+```
 
 ## UNIT tests.
 
 The build include unit tests under tests. These can be built and run by running with the following
 
-'''
+```
 waf --test
-'''
+```
 
 This will build and run the tests.
 
