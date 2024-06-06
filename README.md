@@ -38,6 +38,9 @@ The following package should be installed
 ```
 pip install posix_ipc zmq protobuf= =3.20.0 astropy python-statemachine statemachine redis sphinx
 ```
+## ImageStreamIO support
+it is possible to build DAO using the ImageStreamIO library for compatibility with other CACAO tools. Please install MILK: https://github.com/milk-org/milk
+
 
 # Environment
 ```
