@@ -70,11 +70,30 @@ To clean the document build.
 waf clean_docs
 ```
 
+# Build Options
+The following build options are available 
 
-# UNIT tests.
+## Debug
+Add debug flag to support debuging build and install with '-g' to support use of gdb
+'''
+waf build --debug
+'''
 
-The build include unit tests under tests. These can be built and run by uncommenting out the following lines of code in the wscript:
+## Sanitiser
+Mostly used for developers it is available to check address sanitisation
 
-	bld.recurse('test')
-	from waflib.Tools import
-	waf_unit_testbld.add_post_fun(waf_unit_test.summary)
+
+'''
+waf build --santizer
+'''
+
+## UNIT tests.
+
+The build include unit tests under tests. These can be built and run by running with the following
+
+'''
+waf --test
+'''
+
+This will build and run the tests.
+
