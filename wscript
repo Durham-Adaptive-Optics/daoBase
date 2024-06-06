@@ -29,13 +29,21 @@ def clean_docs(conf):
 
 def options(opt):
 	opt.load('cxx compiler_c compiler_cxx gnu_dirs waf_unit_test')
+ 
+	opt.add_option('--debug', dest='debug_flag', default=False, action='store_true',
+             help='Adds \'-g\' to compiler flags to allow for debuging')
+ 
+	opt.add_option('--sanitizer', dest='sanitizer_flag', default=False, action='store_true',
+             help='flags for address sanitsation')
+ 
 	opt.add_option('--test', dest='test_flag', default=False, action='store_true',
-             help='If tersting is required')
+             help='flags for running tests')
 	
 def configure(conf):
 	conf.load('cxx compiler_c compiler_cxx gnu_dirs waf_unit_test')
 	conf.load('build_tools.pkg_tool')
 	conf.write_config_header('config.h')
+
 
 	# set required libs 
 	conf.check_cfg( package='libzmq',
@@ -56,7 +64,7 @@ def configure(conf):
 
 def build(bld):
 	bld.env.DEFINES=['WAF=1']
-	bld.recurse('proto')
+	# bld.recurse('proto')
 	bld.recurse('src')# test')
  
 	# install header files
@@ -110,6 +118,6 @@ def build(bld):
 	# uncommment to run tests
 #	bld(features='test', source='test/daoBaseTestEvent.py', target='daoBaseTestEvent', 
 #        exec_command='python -m pytest ${SRC}')
-	if bld.options.test_flag:	
+	if bld.options.test_flag:
 		bld.recurse('test')
 		bld.add_post_fun(waf_unit_test.summary)
