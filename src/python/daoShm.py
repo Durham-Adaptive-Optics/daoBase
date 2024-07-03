@@ -68,14 +68,14 @@ def npType2CtypesType(npArray):
 def npType2DaoType(npArray):
     npType = npArray.dtype.type
     daoType = {
-        np.int8: 1,
-        np.uint8: 2,
-        np.int16: 3,
-        np.uint16: 4,
-        np.int32: 5,
-        np.uint32: 6,
-        np.int64: 7,
-        np.uint64: 8,
+        np.uint8: 1,
+        np.int8: 2,
+        np.uint16: 3,
+        np.int16: 4,
+        np.uint32: 5,
+        np.int32: 6,
+        np.uint64: 7,
+        np.int64: 8,
         np.float32: 9,
         np.float64: 10
     }.get(npType)
@@ -84,14 +84,14 @@ def npType2DaoType(npArray):
 
 def daoType2NpType(daoType):
     npType = {
-        1: np.int8,
-        2: np.uint8,
-        3: np.int16,
-        4: np.uint16,
-        5: np.int32,
-        6: np.uint32,
-        7: np.int64,
-        8: np.uint64,
+        1: np.uint8,
+        2: np.int8,
+        3: np.uint16,
+        4: np.int16,
+        5: np.uint32,
+        6: np.int32,
+        7: np.uint64,
+        8: np.int64,
         9: np.float32,
         10: np.float64
     }.get(daoType)
@@ -100,14 +100,14 @@ def daoType2NpType(daoType):
 
 def daoType2CtypesType(daoType):
     ctypesType = {
-        1: ctypes.c_int8,
-        2: ctypes.c_uint8,
-        3: ctypes.c_int16,
-        4: ctypes.c_uint16,
-        5: ctypes.c_int32,
-        6: ctypes.c_uint32,
-        7: ctypes.c_int64,
-        8: ctypes.c_uint64,
+        1: ctypes.c_uint8,
+        2: ctypes.c_int8,
+        3: ctypes.c_uint16,
+        4: ctypes.c_int16,
+        5: ctypes.c_uint32,
+        6: ctypes.c_int32,
+        7: ctypes.c_uint64,
+        8: ctypes.c_int64,
         9: ctypes.c_float,
         10: ctypes.c_double
     }.get(daoType)
