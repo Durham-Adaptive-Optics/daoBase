@@ -298,7 +298,7 @@ class shm:
             self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), 2,\
                                    (ctypes.c_uint32 * len(dataSize))(*dataSize),\
                                    npType2DaoType(data), 1, 0)
-            cData = data.ctypes.data_as(ctypes.c_void_p)
+            cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
             nbVal = ctypes.c_uint32(data.size)
             # Call the daoShmImage2Shm function to feel the SHM
             result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
