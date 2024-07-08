@@ -60,7 +60,10 @@ def configure(conf):
 	conf.env.PYTHONDIR		= f'{conf.env.PREFIX}/python'
 	conf.env.DATADIR		= f'{conf.env.PREFIX}/data'
 	conf.env.PKGCONFIGDIR	= f'{conf.env.LIBDIR}/pkgconfig'
+<<<<<<< HEAD
 	conf.env.JULIADIR		= f'{conf.env.PREFIX}/julia'
+=======
+>>>>>>> 95bd236 (Rebasing on main)
 
 def build(bld):
 	bld.env.DEFINES=['WAF=1']
