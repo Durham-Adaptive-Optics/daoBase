@@ -13,3 +13,7 @@ docs/build
 build/
 
 src/python/__pycache__
+build_tools/__pycache__
+
+*.pyc
+*.pyo
