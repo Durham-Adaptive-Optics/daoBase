@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-import platform
+import platform,os
 # additional_flags
 add_ld_flags = ['']
 add_c_flags  = ['']
@@ -13,7 +13,7 @@ if platform.system() == "Darwin":
     add_c_flags += ['']
 else:
 	add_ld_flags += ['-lnuma']
-	add_cxx_flags += ['']
+	add_cxx_flags += ['-lrt']
 	add_c_flags +=  ['-lrt']
 
 
@@ -69,16 +69,7 @@ daoLogTest = bld.program(
 	use= 'dao',
 	cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe', '-fdiagnostics-color=auto'],
 	)
-# testCreate = bld.program(
-# 	source = 'testCreate.c',
-# 	target = 'testCreate',
-# 	includes = '../include',
-# 	linkflags = [''],
-# 	ldflags = ['-ldao', '-lpthread', '-lrt', '-lm', '-lncurses'] + add_ld_flags,
-# 	use= 'dao',
-# 	cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe', '-fdiagnostics-color=auto'] + add_c_flags,
-# 	)
- 
+
 bld.program(
     features='test',
     target = 'test_comp.cpp',
@@ -115,18 +106,18 @@ bld.program(
 	source = [ 'test_shm.cpp' ],
 	includes = ['../include/', bld.env.PREFIX+'/include',],
 	lib = [ 'gtest', 'g'],
-	ldflags=my_ld_flags +[ '-L'+ bld.env.PREFIX+'/lib64'],
+	ldflags=add_ld_flags +[ '-L'+ bld.env.PREFIX+'/lib64'],
 	use=['dao']
 	)
 
 bld.program(
-	features='test',
-	target = 'test_update_thread',
-	source = [ 'test_update_thread.cpp' ],
+	features ='test',
+	target   = 'test_update_thread',
+	source   = [ 'test_update_thread.cpp' ],
 	includes = ['../include/', bld.env.PREFIX+'/include',],
-  	cxxflags = my_cxx_flags +  [''],
-	lib = [ 'gtest'],
-	ldflags=my_ld_flags + [''],
+  	cxxflags = [''] + add_cxx_flags,
+	lib      = [ 'gtest'],
+	ldflags  = add_ld_flags + ['-lrt'],
 	use=['dao',  'ZMQ', 'PROTOBUF','daoProto', 'daoNuma' ]
 	)
 

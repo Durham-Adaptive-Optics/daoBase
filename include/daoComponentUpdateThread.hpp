@@ -90,59 +90,126 @@ namespace Dao
 
             }
 
-            template<class T>
-            void add(ShmIfce<T> * shm, DoubleBuffer<T> * buffer, std::string name)
+            void configure(int core=-1)
             {
-                if constexpr (std::is_same<T, int8_t>::value)
+                if(core >=0)
                 {
-                    m_int8.emplace_back(shm,buffer,name);
-                    m_log.Debug("Adding %s to m_int8", name.c_str());
+                    m_core = core;
                 }
-                else if constexpr (std::is_same<T, int16_t>::value)
-                {
-                    m_int16.emplace_back(shm,buffer,name);
-                    m_log.Debug("Adding %s to m_int16", name.c_str());
-                }
-                else if constexpr (std::is_same<T, int32_t>::value)
-                {
-                   m_int32.emplace_back(shm,buffer,name);
-                   m_log.Debug("Adding %s to m_int32", name.c_str());
-                }
-                else if constexpr (std::is_same<T, int64_t>::value)
-                {
-                    m_int64.emplace_back(shm,buffer,name);
-                    m_log.Debug("Adding %s to m_int64", name.c_str());
-                }
-                else if constexpr (std::is_same<T, uint8_t>::value)
-                {
-                    m_uint8.emplace_back(shm, buffer, name);
-                    m_log.Debug("Adding %s to m_uint8", name.c_str());
-                }
-                else if constexpr (std::is_same<T, uint16_t>::value)
-                {
-                    m_uint16.emplace_back(shm,buffer,name);
-                    m_log.Debug("Adding %s to m_uint16", name.c_str());
-                }
-                else if constexpr (std::is_same<T, uint32_t>::value)
-                {
-                    m_uint32.emplace_back(shm,buffer,name);
-                    m_log.Debug("Adding %s to m_uint32", name.c_str());
-                }
-                else if constexpr (std::is_same<T, uint64_t>::value)
-                {
-                    m_uint64.emplace_back(shm,buffer,name);
-                    m_log.Debug("Adding %s to m_uint64", name.c_str());
-                }
-                else if constexpr (std::is_same<T, float>::value)
-                {
-                    m_float.emplace_back(shm, buffer, name);
-                    m_log.Debug("Adding %s to m_float", name.c_str());
-                }
-                else if constexpr (std::is_same<T, double>::value)
-                {
-                    m_double.emplace_back(shm, buffer, name);
-                    m_log.Debug("Adding %s to m_double", name.c_str());
-                }
+            }
+
+            // template<class T>
+            // void add(ShmIfce<T> * shm, DoubleBuffer<T> * buffer, std::string name)
+            // {
+            //     if constexpr (std::is_same<T, int8_t>::value)
+            //     {
+            //         m_int8.emplace_back(shm,buffer,name);
+            //         m_log.Debug("Adding %s to m_int8", name.c_str());
+            //     }
+            //     else if constexpr (std::is_same<T, int16_t>::value)
+            //     {
+            //         m_int16.emplace_back(shm,buffer,name);
+            //         m_log.Debug("Adding %s to m_int16", name.c_str());
+            //     }
+            //     else if constexpr (std::is_same<T, int32_t>::value)
+            //     {
+            //        m_int32.emplace_back(shm,buffer,name);
+            //        m_log.Debug("Adding %s to m_int32", name.c_str());
+            //     }
+            //     else if constexpr (std::is_same<T, int64_t>::value)
+            //     {
+            //         m_int64.emplace_back(shm,buffer,name);
+            //         m_log.Debug("Adding %s to m_int64", name.c_str());
+            //     }
+            //     else if constexpr (std::is_same<T, uint8_t>::value)
+            //     {
+            //         m_uint8.emplace_back(shm, buffer, name);
+            //         m_log.Debug("Adding %s to m_uint8", name.c_str());
+            //     }
+            //     else if constexpr (std::is_same<T, uint16_t>::value)
+            //     {
+            //         m_uint16.emplace_back(shm,buffer,name);
+            //         m_log.Debug("Adding %s to m_uint16", name.c_str());
+            //     }
+            //     else if constexpr (std::is_same<T, uint32_t>::value)
+            //     {
+            //         m_uint32.emplace_back(shm,buffer,name);
+            //         m_log.Debug("Adding %s to m_uint32", name.c_str());
+            //     }
+            //     else if constexpr (std::is_same<T, uint64_t>::value)
+            //     {
+            //         m_uint64.emplace_back(shm,buffer,name);
+            //         m_log.Debug("Adding %s to m_uint64", name.c_str());
+            //     }
+            //     else if constexpr (std::is_same<T, float>::value)
+            //     {
+            //         m_float.emplace_back(shm, buffer, name);
+            //         m_log.Debug("Adding %s to m_float", name.c_str());
+            //     }
+            //     else if constexpr (std::is_same<T, double>::value)
+            //     {
+            //         m_double.emplace_back(shm, buffer, name);
+            //         m_log.Debug("Adding %s to m_double", name.c_str());
+            //     }
+            // }
+            void add(ShmIfce<int8_t> * shm, DoubleBuffer<int8_t> * buffer, std::string name)
+            {
+                m_int8.emplace_back(shm,buffer,name);
+                m_log.Debug("Adding %s to m_int8", name.c_str());
+            }
+
+            void add(ShmIfce<int16_t> * shm, DoubleBuffer<int16_t> * buffer, std::string name)
+            {
+                m_int16.emplace_back(shm,buffer,name);
+                m_log.Debug("Adding %s to m_int16", name.c_str());
+            }
+
+            void add(ShmIfce<int32_t> * shm, DoubleBuffer<int32_t> * buffer, std::string name)
+            {
+                m_int32.emplace_back(shm,buffer,name);
+                m_log.Debug("Adding %s to m_int32", name.c_str());
+            }
+
+            void add(ShmIfce<int64_t> * shm, DoubleBuffer<int64_t> * buffer, std::string name)
+            {
+                m_int64.emplace_back(shm,buffer,name);
+                m_log.Debug("Adding %s to m_int64", name.c_str());
+            }
+
+            void add(ShmIfce<uint8_t> * shm, DoubleBuffer<uint8_t> * buffer, std::string name)
+            {
+                m_uint8.emplace_back(shm,buffer,name);
+                m_log.Debug("Adding %s to m_uint8", name.c_str());
+            }
+
+            void add(ShmIfce<uint16_t> * shm, DoubleBuffer<uint16_t> * buffer, std::string name)
+            {
+                m_uint16.emplace_back(shm,buffer,name);
+                m_log.Debug("Adding %s to m_uint16", name.c_str());
+            }
+
+            void add(ShmIfce<uint32_t> * shm, DoubleBuffer<uint32_t> * buffer, std::string name)
+            {
+                m_uint32.emplace_back(shm,buffer,name);
+                m_log.Debug("Adding %s to m_uint32", name.c_str());
+            }
+
+            void add(ShmIfce<uint64_t> * shm, DoubleBuffer<uint64_t> * buffer, std::string name)
+            {
+                m_uint64.emplace_back(shm,buffer,name);
+                m_log.Debug("Adding %s to m_uint64", name.c_str());
+            }
+
+            void add(ShmIfce<float> * shm, DoubleBuffer<float> * buffer, std::string name)
+            {
+                m_float.emplace_back(shm,buffer,name);
+                m_log.Debug("Adding %s to m_float", name.c_str());
+            }
+
+            void add(ShmIfce<double> * shm, DoubleBuffer<double> * buffer, std::string name)
+            {
+                m_double.emplace_back(shm,buffer,name);
+                m_log.Debug("Adding %s to m_double", name.c_str());
             }
 
         protected:
@@ -265,20 +332,16 @@ namespace Dao
 
             // map for each type
             std::vector<ItemUpdate<int8_t>> m_int8;
-            std::vector<ItemUpdate<int8_t>> m_int16;
-            std::vector<ItemUpdate<int8_t>> m_int32;
-            std::vector<ItemUpdate<int8_t>> m_int64;
-            std::vector<ItemUpdate<int8_t>> m_uint8;
-            std::vector<ItemUpdate<int8_t>> m_uint16;
-            std::vector<ItemUpdate<int8_t>> m_uint32;
-            std::vector<ItemUpdate<int8_t>> m_uint64;
+            std::vector<ItemUpdate<int16_t>> m_int16;
+            std::vector<ItemUpdate<int32_t>> m_int32;
+            std::vector<ItemUpdate<int64_t>> m_int64;
+            std::vector<ItemUpdate<uint8_t>> m_uint8;
+            std::vector<ItemUpdate<uint16_t>> m_uint16;
+            std::vector<ItemUpdate<uint32_t>> m_uint32;
+            std::vector<ItemUpdate<uint64_t>> m_uint64;
             std::vector<ItemUpdate<float>> m_float;
-            std::vector<ItemUpdate<float>> m_double;
+            std::vector<ItemUpdate<double>> m_double;
     }; 
-
-    // template void ComponentUpdateThread::add<int8_t>(ShmIfce<int8_t> * shm, DoubleBuffer<int8_t> * buffer, std::string name);
-    // template void ComponentUpdateThread::add<float>(ShmIfce<float> * shm, DoubleBuffer<float> * buffer, std::string name);
-    // template void ComponentUpdateThread::add<double>(ShmIfce<double> * shm, DoubleBuffer<double> * buffer, std::string name);
 }; // namespace DAO
 
 

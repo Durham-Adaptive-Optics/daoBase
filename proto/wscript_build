@@ -4,10 +4,12 @@ from waflib.Task import Task
 
 
 class proto_cpp(Task):
+    name =  'proto_cpp'
     def run(self):
         return self.exec_command(f'protoc -I{self.inputs[0]} --cpp_out={self.outputs[0]} {self.inputs[1]}')
 
 class proto_py(Task):
+    name='proto_py'
     def run(self):
         return self.exec_command(f'protoc -I{self.inputs[0]} --python_out={self.outputs[0]} {self.inputs[1]}')
 
@@ -22,16 +24,10 @@ def build_proto_list(bld, list, proto_path='../../proto/', build_path='../'):
         py.set_inputs([bld.path.find_or_declare(proto_path),bld.path.find_or_declare(proto_path + i)])
         py.set_outputs(bld.path.find_or_declare(build_path))
         bld.add_to_group(py)
-        print(bld.path.find_or_declare(proto_path))
-        print(bld.path.find_or_declare(proto_path+i))
-        print(bld.path.find_or_declare(build_path))
     bld.execute_build()
     return bld
 
-#current_directory = os.getcwd()
-#print('curdir='+current_directory)
-#os.mkdir(current_directory+'/build/proto')
-bld = build_proto_list(bld,['daoCommand.proto', 'daoLogging.proto', 'daoEvent.proto'])
+bld = build_proto_list(bld, ['daoCommand.proto', 'daoLogging.proto', 'daoEvent.proto'])
 
 bld.shlib(
     target='daoProto',
