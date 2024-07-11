@@ -52,7 +52,7 @@ namespace Dao
                 google::protobuf::ShutdownProtobufLibrary();
             }
 
-            void Configure(std::string ip, int port, Dao::ComponentIfce * ifce,  size_t buffer_size=2147483647, size_t timeout_ms = 1000, bool tcp = true)
+            void Configure(std::string ip, int port, Dao::ComponentIfce * ifce, int core=-1, int thread_num=-1, size_t buffer_size=2147483647, size_t timeout_ms = 1000, bool tcp = true)
             {
                 // here we configure the thread
                 m_ip = ip;
@@ -75,6 +75,16 @@ namespace Dao
 
                 m_ifce = ifce;
 
+                if(core !=-1 && core > 0)
+                {
+                    m_core = core;
+                }
+
+                if(thread_num != 0)
+                {
+                    m_thread_number = thread_num;
+                }
+
                 m_configured = true;
             }
 
@@ -95,12 +105,12 @@ namespace Dao
                 int t = static_cast<int>(m_timeout_ms);
                 rc = zmq_setsockopt(m_responder, ZMQ_RCVTIMEO, &t, sizeof(t));
                 assert(rc == 0);
-                std::cout << m_connect.str().c_str() << std::endl;
+                // std::cout << m_connect.str().c_str() << std::endl;
                 rc = zmq_bind(m_responder, m_connect.str().c_str());
-                std::cout << rc << std::endl;
+                // std::cout << rc << std::endl;
                 assert(rc == 0);
             };
-
+ 
             void OnceOnStart() override
             {
                 // reset anything

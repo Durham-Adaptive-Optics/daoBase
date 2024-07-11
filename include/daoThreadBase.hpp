@@ -112,12 +112,19 @@ namespace Dao
             {
                 size_t core = Numa::GetProcAffinity();
                 m_log.Trace("%s: running on core: %zu", m_thread_name.c_str(), core);
-                m_log.Trace("%s: Moving to core : %zu", m_thread_name.c_str(), m_core);
-                Numa::SetProcAffinity(m_core);
+                if(m_core >= 0)
+                {
+                    m_node = Numa::Core2Node(m_core);
+                    m_log.Trace("%s: Moving to core : %zu", m_thread_name.c_str(), m_core);
+                    Numa::SetProcAffinity(m_core);
+                }
                 m_log.Trace("%s: spawning", m_thread_name.c_str());
                 m_thread = std::thread{&ThreadBase::threadEntryPoint, this};
-                m_log.Trace("%s: reverting to core %zu to wait for signal", m_thread_name.c_str(), core);
-                Numa::SetProcAffinity(core);
+                if(m_core >=0)
+                {
+                    m_log.Trace("%s: reverting to core %zu to wait for signal", m_thread_name.c_str(), core);
+                    Numa::SetProcAffinity(core);
+                }
                 usleep(200);
                 // wait for signal to say spawn has completed.
                 m_signal_table->SignalReceiveSpin(SIGNAL_THREAD_READY);

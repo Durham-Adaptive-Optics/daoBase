@@ -34,6 +34,7 @@ bld.shlib(
 	cxxflags 	= ['-Ofast', '-Wall', '-Wextra',  '-march=core-avx2', '-mavx2'],
 	target 		= 'daoNuma',
 	name   		= 'daoNuma',
+	features	= 'pkg_build',
 	vnum   		= '0.0.1')
 
 bld.shlib(
@@ -44,4 +45,5 @@ bld.shlib(
 	ldflags = [''] + add_ld_flags,
 	target = 'dao',
 	name   = 'dao',
+	features	= 'pkg_build',
 	vnum   = '0.0.1')

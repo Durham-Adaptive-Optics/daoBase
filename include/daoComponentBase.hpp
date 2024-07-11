@@ -24,6 +24,7 @@
 #include <daoThread.hpp>
 #include <daoComponentStateMachine.hpp>
 #include <daoComponentZmqThread.hpp>
+#include <daoComponentUpdateThread.hpp>
 #include <daoLog.hpp>
 
 namespace Dao
@@ -31,7 +32,7 @@ namespace Dao
     class ComponentBase : public StateMachine
     {
         public:
-            ComponentBase(std::string name, Dao::Log::Logger& logger, std::string ip, int port)
+            ComponentBase(std::string name, Dao::Log::Logger& logger, std::string ip, int port, int core=-1)
             : StateMachine(logger)
             , m_name(name)
             , m_ip(ip)
@@ -39,7 +40,8 @@ namespace Dao
             , m_log(logger)
             {
                 // create templete message
-                m_zmq_thread = std::make_unique<ComponentZmqThread>(m_name, logger, 0, 0);
+                m_zmq_thread = std::make_unique<ComponentZmqThread>(m_name, logger, core, 0);
+                m_update_thread = std::make_unique<ComponentUpdateThread>(m_name, logger);
             }
 
             virtual ~ComponentBase()
@@ -54,7 +56,29 @@ namespace Dao
                 m_zmq_thread->Configure(m_ip, m_port, ifce);
                 m_zmq_thread->Spawn();
                 m_zmq_thread->Start();
-            }            
+            }
+
+            void PostEnable()
+            {
+                // called during the enable command to launch the update thread.
+                m_update_thread->Spawn();
+                m_update_thread->Start(); 
+            }           
+
+            void PostDisable()
+            {
+                // TODO this maybe generalise and called in 
+                if(m_update_thread->isRunning())
+                {
+                    m_update_thread->Stop();
+                }
+
+                if(m_update_thread->isSpawned())
+                {
+                    m_update_thread->Exit();
+                    m_update_thread->Join();
+                }
+            }
 
             void Init(){};
             void Stop(){};
@@ -74,6 +98,7 @@ namespace Dao
 
 
             std::unique_ptr<ComponentZmqThread> m_zmq_thread;
+            std::unique_ptr<ComponentUpdateThread> m_update_thread;
 
             class Context;
 

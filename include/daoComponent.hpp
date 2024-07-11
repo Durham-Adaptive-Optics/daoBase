@@ -26,8 +26,8 @@ namespace Dao
     class Component : public ComponentBase, public ComponentIfce
     {
         public:
-            Component(std::string name, Dao::Log::Logger& logger, std::string ip, int port)
-            : ComponentBase(name, logger, ip, port)
+            Component(std::string name, Dao::Log::Logger& logger, std::string ip, int port, int core=-1)
+            : ComponentBase(name, logger, ip, port, core)
             {
                ComponentBase::PostConstructor(static_cast<Dao::ComponentIfce*>(this));
             }
@@ -50,11 +50,13 @@ namespace Dao
             void Enable() override
             {
                  postEvent(StateMachine::Events::Enable);
+                 ComponentBase::PostEnable();
             }
 
             void Disable() override
             {
                  postEvent(StateMachine::Events::Disable);
+                 ComponentBase::PostDisable();
             }
 
             void Run() override
@@ -75,6 +77,7 @@ namespace Dao
             void Recover() override
             {
                  postEvent(StateMachine::Events::Recover);
+                 ComponentBase::PostDisable();
             }
 
             std::string GetStateText() override

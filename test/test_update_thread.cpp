@@ -36,7 +36,7 @@ TEST(Restart, set_up)
     shm->OpenShm(filename,img);
     Dao::DoubleBuffer<float>* buffer = new Dao::DoubleBuffer<float>(100);
     
-    t->add<float>(shm,buffer,"test map");
+    t->add(shm,buffer,"test map");
 //     // bring online
     t->Spawn();
     t->Start();
