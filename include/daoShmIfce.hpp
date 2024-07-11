@@ -55,7 +55,7 @@ namespace Dao
                 m_log.Trace("ShmIfce()");
 
                 // initalise the clock for m_timeout etc
-                if (clock_gettime(CLOCK_MONOTONIC, &m_time) == -1)
+                if (clock_gettime(CLOCK_REALTIME, &m_time) == -1)
                 {
                     m_log.Error("clock_gettime");
                     exit(EXIT_FAILURE);
@@ -306,7 +306,7 @@ namespace Dao
                 m_shm[0].md[0].write = 0;
                 m_shm[0].md[0].cnt0++;
 
-                clock_gettime(CLOCK_MONOTONIC, &m_time);
+                clock_gettime(CLOCK_REALTIME, &m_time);
                 m_shm[0].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * m_time.tv_sec + m_time.tv_nsec);
             }
 
@@ -346,7 +346,7 @@ namespace Dao
             {
                 if(m_file_is_open)
                 {
-                    if (clock_gettime(CLOCK_MONOTONIC, &m_time) == -1) 
+                    if (clock_gettime(CLOCK_REALTIME, &m_time) == -1) 
                     {
                         m_log.Error("clock_gettime");
                         exit(EXIT_FAILURE);
@@ -534,7 +534,7 @@ namespace Dao
                 m_shm[0].md[0].cnt0++;
 
                 struct timespec t;
-                clock_gettime(CLOCK_MONOTONIC, &t);
+                clock_gettime(CLOCK_REALTIME, &t);
                 m_shm[0].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
             }
 
@@ -619,7 +619,7 @@ namespace Dao
                 m_n_packets = 0;
 
 
-                if (clock_gettime(CLOCK_MONOTONIC, &m_time) == -1)
+                if (clock_gettime(CLOCK_REALTIME, &m_time) == -1)
                 {
                     perror("clock_gettime");
                     exit(EXIT_FAILURE);
