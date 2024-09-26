@@ -46,6 +46,7 @@ export DAODATA=$HOME/DAODATA
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$DAOROOT/lib:$DAOROOT/lib64
 export PATH=$PATH:$HOME/bin:$HOME/DAOROOT/bin
 export PYTHONPATH=$DAOROOT/python
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$DAOROOT/lib/pkgconfig
 
 ```
 !! BE SURE THE DAOROOT exists. In the example
