@@ -560,6 +560,10 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
         memcpy(image->array.F, (float *)im, nbVal*sizeof(float));
     else if (image->md[0].atype == _DATATYPE_DOUBLE)
         memcpy(image->array.D, (double *)im, nbVal*sizeof(double));
+    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
+        memcpy(image->array.CF, (complex_float *)im, nbVal*sizeof(complex_float));
+    else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
+        memcpy(image->array.CD, (complex_double *)im, nbVal*sizeof(complex_double));
 
     for(ss = 0; ss < image->md[0].sem; ss++)
     {
@@ -616,6 +620,10 @@ int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t
         memcpy(&image->array.F[position], (float *)im, nbVal*sizeof(float));
     else if (image->md[0].atype == _DATATYPE_DOUBLE)
         memcpy(&image->array.D[position], (double *)im, nbVal*sizeof(double));
+    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
+        memcpy(&image->array.CF[position], (complex_float *)im, nbVal*sizeof(complex_float));
+    else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
+        memcpy(&image->array.CD[position], (complex_double *)im, nbVal*sizeof(complex_double));
 
     image->md[0].lastPos = position;
     image->md[0].lastNb = nbVal;
@@ -1522,7 +1530,32 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-
+    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
+    {
+        for (pp=0; pp<nbVal; pp++)
+        {   
+            image[0].array.CF[pp].re = 0;
+            image[0].array.CF[pp].im = 0;
+            for(k=0;k<nbChannel;k++) 
+            {
+                image[0].array.CF[pp].re += imageCube[k][0].array.CF[pp].re;
+                image[0].array.CF[pp].im += imageCube[k][0].array.CF[pp].im;
+            }
+        }
+    }
+        else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
+    {
+        for (pp=0; pp<nbVal; pp++)
+        {   
+            image[0].array.CD[pp].re = 0;
+            image[0].array.CD[pp].im = 0;
+            for(k=0;k<nbChannel;k++) 
+            {
+                image[0].array.CD[pp].re += imageCube[k][0].array.CD[pp].re;
+                image[0].array.CD[pp].im += imageCube[k][0].array.CD[pp].im;
+            }
+        }
+    }
 
     for(ss = 0; ss < image->md[0].sem; ss++)
     {

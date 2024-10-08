@@ -48,6 +48,12 @@ def struct2Dict(structure):
         
     return result
 
+class Complex64(ctypes.Structure):
+    _fields_ = [("real", ctypes.c_float), ("imag", ctypes.c_float)]
+
+class Complex128(ctypes.Structure):
+    _fields_ = [("real", ctypes.c_double), ("imag", ctypes.c_double)]
+
 def npType2CtypesType(npArray):
     npType = npArray.dtype.type
     ctypesType = {
@@ -60,7 +66,9 @@ def npType2CtypesType(npArray):
         np.int64: ctypes.c_int64,
         np.uint64: ctypes.c_uint64,
         np.float32: ctypes.c_float,
-        np.float64: ctypes.c_double
+        np.float64: ctypes.c_double,
+        np.complex64: Complex64,
+        np.complex128: Complex128
     }.get(npType)
 
     return ctypesType
@@ -77,7 +85,9 @@ def npType2DaoType(npArray):
         np.uint64: 7,
         np.int64: 8,
         np.float32: 9,
-        np.float64: 10
+        np.float64: 10,
+        np.complex64: 11,
+        np.complex128: 12
     }.get(npType)
 
     return daoType
@@ -93,7 +103,9 @@ def daoType2NpType(daoType):
         7: np.uint64,
         8: np.int64,
         9: np.float32,
-        10: np.float64
+        10: np.float64,
+        11: np.complex64,
+        12: np.complex128
     }.get(daoType)
 
     return npType
@@ -109,7 +121,9 @@ def daoType2CtypesType(daoType):
         7: ctypes.c_uint64,
         8: ctypes.c_int64,
         9: ctypes.c_float,
-        10: ctypes.c_double
+        10: ctypes.c_double,
+        11: Complex64,
+        12: Complex128
     }.get(daoType)
 
     return ctypesType
@@ -295,7 +309,7 @@ class shm:
         elif data is not None:
             log.info("%s will be created or overwritten" % (fname,))
             dataSize = data.shape
-            self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), 2,\
+            self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
                                    (ctypes.c_uint32 * len(dataSize))(*dataSize),\
                                    npType2DaoType(data), 1, 0)
             if data.flags['C_CONTIGUOUS']:
@@ -364,7 +378,22 @@ class shm:
         arrayPtr = ctypes.cast(self.image.array,\
                                ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
         #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
-        data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1])).astype(daoType2NpType(self.image.md.contents.atype))
+        if arraySize[2] == 0:
+            if arraySize[1] == 0:
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
+            else:
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+        else:
+            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+
+        # Check if the dtype is structured (i.e., for complex types)
+        if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
+            # Reconstruct complex array by combining real and imaginary parts
+            data = data['real'] + 1j * data['imag']
+        
+        # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
+        data = data.astype(daoType2NpType(self.image.md.contents.atype))
+
         return data
 
     def get_meta_data(self):
