@@ -14,6 +14,7 @@ from threading import Thread
 from threading import Event
 import zmq
 import datetime
+import Pyro4
 
 #
 # ctypes interface for dao
@@ -215,129 +216,138 @@ class IMAGE(ctypes.Structure):
         ('semWritePID', ctypes.POINTER(ctypes.c_int32))
     ]
 
+@Pyro4.expose
 class shm:
-    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost'):
-        # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
-        self.daoShmInit1D = daoLib.daoShmInit1D
-        self.daoShmInit1D.argtypes = [
-            ctypes.c_char_p,
-            ctypes.POINTER(ctypes.c_char),
-            ctypes.c_uint32,
-            ctypes.POINTER(ctypes.POINTER(IMAGE))
-        ]
-        self.daoShmInit1D.restype = ctypes.c_int8
-
-        # int8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image);
-        self.daoShmShm2Img = daoLib.daoShmShm2Img
-        self.daoShmShm2Img.argtypes = [
-            ctypes.c_char_p,
-            ctypes.POINTER(IMAGE)
-        ]
-        self.daoShmShm2Img.restype = ctypes.c_int8
-
-        # int8_t daoShmImage2Shm(void *procim, uint32_t nbVal, IMAGE *image);
-        self.daoShmImage2Shm = daoLib.daoShmImage2Shm
-        self.daoShmImage2Shm.argtypes = [
-            ctypes.c_void_p,
-            ctypes.c_uint32,
-            ctypes.POINTER(IMAGE)
-        ]
-        self.daoShmImage2Shm.restype = ctypes.c_int8
-
-        # int8_t daoShmImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_t position,
-        #                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber);
-        self.daoShmImagePart2Shm = daoLib.daoShmImagePart2Shm
-        self.daoShmImagePart2Shm.argtypes = [
-            ctypes.POINTER(ctypes.c_char),
-            ctypes.c_uint32,
-            ctypes.POINTER(IMAGE),
-            ctypes.c_uint32,
-            ctypes.c_uint16,
-            ctypes.c_uint16,
-            ctypes.c_uint64
-        ]
-        self.daoShmImagePart2Shm.restype = ctypes.c_int8
-
-        # int8_t daoShmImagePart2ShmFinalize(IMAGE *image);
-        self.daoShmImagePart2ShmFinalize = daoLib.daoShmImagePart2ShmFinalize
-        self.daoShmImagePart2ShmFinalize.argtypes = [ctypes.POINTER(IMAGE)]
-        self.daoShmImagePart2ShmFinalize.restype = ctypes.c_int8
-
-        # int8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
-        #                              uint8_t atype, int shared, int NBkw);
-        self.daoShmImageCreate = daoLib.daoShmImageCreate
-        self.daoShmImageCreate.argtypes = [
-            ctypes.POINTER(IMAGE),
-            ctypes.c_char_p,
-            ctypes.c_long,
-            ctypes.POINTER(ctypes.c_uint32),
-            ctypes.c_uint8,
-            ctypes.c_int,
-            ctypes.c_int
-        ]
-        self.daoShmImageCreate.restype = ctypes.c_int8
-
-        # int8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal);
-        self.daoShmCombineShm2Shm = daoLib.daoShmCombineShm2Shm
-        self.daoShmCombineShm2Shm.argtypes = [
-            ctypes.POINTER(ctypes.POINTER(IMAGE)),
-            ctypes.POINTER(IMAGE),
-            ctypes.c_int,
-            ctypes.c_int
-        ]
-        self.daoShmCombineShm2Shm.restype = ctypes.c_int8
-
-        # uint64_t daoShmGetCounter(IMAGE *image);
-        self.daoShmGetCounter = daoLib.daoShmGetCounter
-        self.daoShmGetCounter.argtypes = [ctypes.POINTER(IMAGE)]
-        self.daoShmGetCounter.restype = ctypes.c_uint64
-
-        self.daoShmWaitForSemaphore = daoLib.daoShmWaitForSemaphore
-        self.daoShmWaitForSemaphore.argtypes = [
-            ctypes.POINTER(IMAGE),
-            ctypes.c_int32
-        ]
-        self.daoShmWaitForSemaphore.restype = ctypes.c_int8
-
-        self.daoShmWaitForCounter = daoLib.daoShmWaitForCounter
-        self.daoShmWaitForCounter.argtypes = [ctypes.POINTER(IMAGE)]
-        self.daoShmWaitForCounter.restype = ctypes.c_int8
-
-        self.image=IMAGE()
-        if fname == '':
-            log.error("Need at least a SHM name")
-        elif data is not None:
-            log.info("%s will be created or overwritten" % (fname,))
-            dataSize = data.shape
-            self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
-                                   (ctypes.c_uint32 * len(dataSize))(*dataSize),\
-                                   npType2DaoType(data), 1, 0)
-            if data.flags['C_CONTIGUOUS']:
-                cData = data.ctypes.data_as(ctypes.c_void_p)
-            else:
-                cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
-            nbVal = ctypes.c_uint32(data.size)
-            # Call the daoShmImage2Shm function to feel the SHM
-            result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
+    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', remote=False, host='localhost'):
+        self.remote = remote
+        self.host = host
+        if self.remote == True:
+            # Locate the Pyro nameserver and look up the object by the name "shared_memory"
+            self.ns = Pyro4.locateNS(host=host)
+            self.uri = self.ns.lookup(fname)
+            self._proxy = Pyro4.Proxy(self.uri)
         else:
-            log.info("loading existing %s " % (fname))
-            result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
-        # Publisher
-        self.pubPort = pubPort
-        self.pubContext = zmq.Context()
-        
-        self.pubEvent = Event()
-        self.pubThread = Thread(target = self.publish)
-        self.pubEnable = False
-        #self.pubThread.start()
-        # Subscriber
-        self.subPort = subPort
-        self.subHost = subHost
-        self.subContext = zmq.Context()
-        self.subEvent = Event()
-        self.subThread = Thread(target = self.subscribe)
-        self.subEnable = False
-        #self.subThread.start()
+            # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
+            self.daoShmInit1D = daoLib.daoShmInit1D
+            self.daoShmInit1D.argtypes = [
+                ctypes.c_char_p,
+                ctypes.POINTER(ctypes.c_char),
+                ctypes.c_uint32,
+                ctypes.POINTER(ctypes.POINTER(IMAGE))
+            ]
+            self.daoShmInit1D.restype = ctypes.c_int8
+
+            # int8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image);
+            self.daoShmShm2Img = daoLib.daoShmShm2Img
+            self.daoShmShm2Img.argtypes = [
+                ctypes.c_char_p,
+                ctypes.POINTER(IMAGE)
+            ]
+            self.daoShmShm2Img.restype = ctypes.c_int8
+
+            # int8_t daoShmImage2Shm(void *procim, uint32_t nbVal, IMAGE *image);
+            self.daoShmImage2Shm = daoLib.daoShmImage2Shm
+            self.daoShmImage2Shm.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_uint32,
+                ctypes.POINTER(IMAGE)
+            ]
+            self.daoShmImage2Shm.restype = ctypes.c_int8
+
+            # int8_t daoShmImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_t position,
+            #                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber);
+            self.daoShmImagePart2Shm = daoLib.daoShmImagePart2Shm
+            self.daoShmImagePart2Shm.argtypes = [
+                ctypes.POINTER(ctypes.c_char),
+                ctypes.c_uint32,
+                ctypes.POINTER(IMAGE),
+                ctypes.c_uint32,
+                ctypes.c_uint16,
+                ctypes.c_uint16,
+                ctypes.c_uint64
+            ]
+            self.daoShmImagePart2Shm.restype = ctypes.c_int8
+
+            # int8_t daoShmImagePart2ShmFinalize(IMAGE *image);
+            self.daoShmImagePart2ShmFinalize = daoLib.daoShmImagePart2ShmFinalize
+            self.daoShmImagePart2ShmFinalize.argtypes = [ctypes.POINTER(IMAGE)]
+            self.daoShmImagePart2ShmFinalize.restype = ctypes.c_int8
+
+            # int8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
+            #                              uint8_t atype, int shared, int NBkw);
+            self.daoShmImageCreate = daoLib.daoShmImageCreate
+            self.daoShmImageCreate.argtypes = [
+                ctypes.POINTER(IMAGE),
+                ctypes.c_char_p,
+                ctypes.c_long,
+                ctypes.POINTER(ctypes.c_uint32),
+                ctypes.c_uint8,
+                ctypes.c_int,
+                ctypes.c_int
+            ]
+            self.daoShmImageCreate.restype = ctypes.c_int8
+
+            # int8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal);
+            self.daoShmCombineShm2Shm = daoLib.daoShmCombineShm2Shm
+            self.daoShmCombineShm2Shm.argtypes = [
+                ctypes.POINTER(ctypes.POINTER(IMAGE)),
+                ctypes.POINTER(IMAGE),
+                ctypes.c_int,
+                ctypes.c_int
+            ]
+            self.daoShmCombineShm2Shm.restype = ctypes.c_int8
+
+            # uint64_t daoShmGetCounter(IMAGE *image);
+            self.daoShmGetCounter = daoLib.daoShmGetCounter
+            self.daoShmGetCounter.argtypes = [ctypes.POINTER(IMAGE)]
+            self.daoShmGetCounter.restype = ctypes.c_uint64
+
+            self.daoShmWaitForSemaphore = daoLib.daoShmWaitForSemaphore
+            self.daoShmWaitForSemaphore.argtypes = [
+                ctypes.POINTER(IMAGE),
+                ctypes.c_int32
+            ]
+            self.daoShmWaitForSemaphore.restype = ctypes.c_int8
+
+            self.daoShmWaitForCounter = daoLib.daoShmWaitForCounter
+            self.daoShmWaitForCounter.argtypes = [ctypes.POINTER(IMAGE)]
+            self.daoShmWaitForCounter.restype = ctypes.c_int8
+
+            self.image=IMAGE()
+            if fname == '':
+                log.error("Need at least a SHM name")
+            elif data is not None:
+                log.info("%s will be created or overwritten" % (fname,))
+                dataSize = data.shape
+                self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
+                                       (ctypes.c_uint32 * len(dataSize))(*dataSize),\
+                                       npType2DaoType(data), 1, 0)
+                if data.flags['C_CONTIGUOUS']:
+                    cData = data.ctypes.data_as(ctypes.c_void_p)
+                else:
+                    cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
+                nbVal = ctypes.c_uint32(data.size)
+                # Call the daoShmImage2Shm function to feel the SHM
+                result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
+            else:
+                log.info("loading existing %s " % (fname))
+                result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
+            # Publisher
+            self.pubPort = pubPort
+            self.pubContext = zmq.Context()
+
+            self.pubEvent = Event()
+            self.pubThread = Thread(target = self.publish)
+            self.pubEnable = False
+            #self.pubThread.start()
+            # Subscriber
+            self.subPort = subPort
+            self.subHost = subHost
+            self.subContext = zmq.Context()
+            self.subEvent = Event()
+            self.subThread = Thread(target = self.subscribe)
+            self.subEnable = False
+            #self.subThread.start()
 
     def set_data(self, data):
         ''' --------------------------------------------------------------
@@ -348,16 +358,22 @@ class shm:
         - data: the array to upload to SHM
         - check_dt: boolean (default: false) recasts data
         '''
-        # Call the daoShmImage2Shm function to feel the SHM
-        if data.flags['C_CONTIGUOUS']:
-            cData = data.ctypes.data_as(ctypes.c_void_p)
+        if self.remote:
+            self._proxy.set_data(data.tolist())
         else:
-            cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
+            # if the data passed are list, convert it to numpy array
+            if isinstance(data, list):
+                data = np.array(data)
+            # Call the daoShmImage2Shm function to feel the SHM
+            if data.flags['C_CONTIGUOUS']:
+                cData = data.ctypes.data_as(ctypes.c_void_p)
+            else:
+                cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
 
-        nbVal = ctypes.c_uint32(data.size)
-        result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
+            nbVal = ctypes.c_uint32(data.size)
+            result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         
-    def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False):
+    def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, aslist=False):
         ''' --------------------------------------------------------------
         Reads and returns the data part of the SHM file
 
@@ -366,35 +382,45 @@ class shm:
         - check: integer (last index) if not False, waits image update
         - reform: boolean, if True, reshapes the array in a 2-3D format
         -------------------------------------------------------------- '''
-        if check == True:
-            if spin == True:
-                result = self.daoShmWaitForCounter(ctypes.byref(self.image))
-            else:
-                result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
-
-        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
-                                                      ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
-
-        arrayPtr = ctypes.cast(self.image.array,\
-                               ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
-        #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
-        if arraySize[2] == 0:
-            if arraySize[1] == 0:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
-            else:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+        if self.remote:
+            result = self._proxy.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, aslist=True)
+            if isinstance(result, list):
+                result = np.array(result)
+            return result
         else:
-            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+            if check == True:
+                if spin == True:
+                    result = self.daoShmWaitForCounter(ctypes.byref(self.image))
+                else:
+                    result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
 
-        # Check if the dtype is structured (i.e., for complex types)
-        if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
-            # Reconstruct complex array by combining real and imaginary parts
-            data = data['real'] + 1j * data['imag']
-        
-        # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
-        data = data.astype(daoType2NpType(self.image.md.contents.atype))
+            arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+                                                          ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
 
-        return data
+            arrayPtr = ctypes.cast(self.image.array,\
+                                   ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
+            #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
+            if arraySize[2] == 0:
+                if arraySize[1] == 0:
+                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
+                else:
+                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+            else:
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+
+            # Check if the dtype is structured (i.e., for complex types)
+            if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
+                # Reconstruct complex array by combining real and imaginary parts
+                data = data['real'] + 1j * data['imag']
+
+            # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
+            data = data.astype(daoType2NpType(self.image.md.contents.atype))
+
+            # if the data are asked as list, convert the numpy array
+            if aslist==True:
+                data = data.tolist()
+
+            return data
 
     def get_meta_data(self):
         ''' --------------------------------------------------------------
@@ -405,24 +431,27 @@ class shm:
         ----------
         - verbose: (boolean, default: True), prints its findings
         -------------------------------------------------------------- '''
-        md=self.image.md.contents
-        self.mtdata=struct2Dict(md)
-
-        #decode time
-        # it will replace the C timestamp to something readble
-        mdt=self.mtdata['atime']
-        mdts=struct2Dict(mdt)
-
-        mdt1=mdts['ts']
-        mdt1s=struct2Dict(mdt1)
-        mdts['ts'] = mdt1s
-
-        mdt2=mdts['tsfixed']
-        mdt2s=struct2Dict(mdt2)
-        mdts['tsfixed'] = mdt2s
-
-        self.mtdata['atime'] = mdts
-
+        if self.remote:
+            self.mtdata = self._proxy.get_meta_data()
+        else:
+            md=self.image.md.contents
+            self.mtdata=struct2Dict(md)
+    
+            #decode time
+            # it will replace the C timestamp to something readble
+            mdt=self.mtdata['atime']
+            mdts=struct2Dict(mdt)
+    
+            mdt1=mdts['ts']
+            mdt1s=struct2Dict(mdt1)
+            mdts['ts'] = mdt1s
+    
+            mdt2=mdts['tsfixed']
+            mdt2s=struct2Dict(mdt2)
+            mdts['tsfixed'] = mdt2s
+    
+            self.mtdata['atime'] = mdts
+    
         return self.mtdata
 
     def get_counter(self,):
