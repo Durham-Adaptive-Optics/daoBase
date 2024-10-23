@@ -159,7 +159,7 @@ void get_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         struct timespec timeout;
         clock_gettime(CLOCK_REALTIME, &timeout);
         timeout.tv_sec += 1; // 1 second timeout
-        if (sem_timedwait(selectedImage[0].semptr[semNb], &timeout) != -1)
+        if (sem_timedwait(selectedImage[0].semptr[semNb], &timeout) == -1)
         {
             daoInfo("Time out (1s) waiting for new data in the SHM, using what is currently in it\n");
         }
