@@ -153,6 +153,35 @@ array([[1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
 
 
 ```
+Open a second python console, this time only pass the shared memory name to connect to the existing shared memory and get the value which will match the ones you last set in the shared memory
+```
+(base) scetre@LAPTOP-53NU7121:~$ ipython
+Python 3.12.3 | packaged by Anaconda, Inc. | (main, May  6 2024, 19:46:43) [GCC 11.2.0]
+Type 'copyright', 'credits' or 'license' for more information
+IPython 8.24.0 -- An enhanced Interactive Python. Type '?' for help.
+
+In [1]: import dao
+
+In [2]: shm=dao.shm('/tmp/test.im.shm')
+[2024-10-23 14:37:10,617] [LAPTOP-53NU7121] - daoShm [INFO] : loading existing /tmp/test.im.shm  (daoShm.py:333)
+2024-10-23_16:37:10:617998 [info] dao.c:daoShmShm2Img:441: shm name = test.im.shm
+2024-10-23_16:37:10:618019 [info] dao.c:daoShmShm2Img:445: local name: test
+
+In [3]: shm.get_data()
+Out[3]: 
+array([[1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+       [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+       [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+       [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+       [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+       [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+       [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+       [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+       [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+       [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]])
 
 
+```
+
+The shared memory is accessible from any python, c, julia or matlab code using dao API.
 
