@@ -337,7 +337,7 @@ class shm:
 
         self.image=IMAGE()
         if self.remote:
-            data = self._proxy.get_data(aslist=True)
+            data = self._proxy.get_data(serialized=True)
             data = deserialize_numpy_from_marshal(data)
         if fname == '':
             log.error("Need at least a SHM name")
@@ -391,11 +391,11 @@ class shm:
 
     def syncGet(self):
         while self.syncGetThreadRun:
-            data = self._proxy.get_data(check=True, semNb=9, aslist=True)
+            data = self._proxy.get_data(check=True, semNb=9, serialized=True)
             data = deserialize_numpy_from_marshal(data)
             self.set_data(data, sync=False)
 
-    def set_data(self, data, sync=True):
+    def set_data(self, data, serialized=False, sync=True):
         ''' --------------------------------------------------------------
         Upload new data to the SHM file.
 
@@ -405,10 +405,8 @@ class shm:
         - check_dt: boolean (default: false) recasts data
         '''
         # if the data passed are list, convert it to numpy array
-        try:
+        if serialized==True:
             data = deserialize_numpy_from_marshal(data)
-        except:
-            pass
         # Call the daoShmImage2Shm function to feel the SHM
         if data.flags['C_CONTIGUOUS']:
             cData = data.ctypes.data_as(ctypes.c_void_p)
@@ -419,9 +417,9 @@ class shm:
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         # once it is written, automatically update the remote one if sync enabled
         if self.remote and sync:
-            self._proxy.set_data(serialize_numpy_to_marshal(data))
+            self._proxy.set_data(serialize_numpy_to_marshal(data), serialized=True)
         
-    def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, aslist=False):
+    def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, serialized=False):
         ''' --------------------------------------------------------------
         Reads and returns the data part of the SHM file
 
@@ -431,7 +429,7 @@ class shm:
         - reform: boolean, if True, reshapes the array in a 2-3D format
         -------------------------------------------------------------- '''
         #if self.remote:
-        #    data = self._proxy.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, aslist=True)
+        #    data = self._proxy.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, serialized=True)
         #    return deserialize_numpy_from_marshal(data)
         #else:
         if check == True:
@@ -463,7 +461,7 @@ class shm:
         data = data.astype(daoType2NpType(self.image.md.contents.atype))
 
         # if the data are asked as list, convert the numpy array
-        if aslist==True:
+        if serialized==True:
             data = serialize_numpy_to_marshal(data)
 
         return data
