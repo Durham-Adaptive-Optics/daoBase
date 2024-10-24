@@ -1588,12 +1588,31 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
  * @param image 
  * @return uint_fast64_t 
  */
-int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
+int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb, int32_t timeout)
 {
     daoTrace("\n");
-    // Wait for new image
-    sem_wait(image->semptr[semNb]);
-    return DAO_SUCCESS;
+    if (timeout == 0)
+    {
+        // Wait for new image indefinitively
+        sem_wait(image->semptr[semNb]);
+        return DAO_SUCCESS;
+    }
+    else
+    {
+        struct timespec tOut;
+        clock_gettime(CLOCK_REALTIME, &tOut);
+        tOut.tv_sec += timeout; // second timeout
+        // Wait for new image
+        //sem_wait(image->semptr[semNb]);
+        if (sem_timedwait(image->semptr[semNb], &tOut) != -1)
+        {
+            return DAO_SUCCESS;
+        }
+        else
+        {
+            return DAO_ERROR;
+        }
+    }
 }
 
 /**
