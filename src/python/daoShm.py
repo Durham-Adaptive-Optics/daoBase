@@ -248,7 +248,8 @@ class shm:
             # Locate the Pyro nameserver and look up the object by the name "shared_memory"
             self.ns = Pyro4.locateNS(host=host)
             self.uri = self.ns.lookup(fname)
-            self._proxy = Pyro4.Proxy(self.uri)
+            self.proxyGet = Pyro4.Proxy(self.uri)
+            self.proxySet = Pyro4.Proxy(self.uri)
         # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
         self.daoShmInit1D = daoLib.daoShmInit1D
         self.daoShmInit1D.argtypes = [
@@ -338,7 +339,7 @@ class shm:
 
         self.image=IMAGE()
         if self.remote:
-            data = self._proxy.get_data(serialized=True)
+            data = self.proxyGet.get_data(serialized=True)
             data = deserialize_numpy_from_marshal(data)
         if fname == '':
             log.error("Need at least a SHM name")
@@ -383,16 +384,16 @@ class shm:
             self.syncPutThread = Thread(target=self.syncPut)
             self.syncPutThread.daemon = True  # This ensures the thread will exit when the main program does
             self.syncPutThreadRun = True
-            #self.syncPutThread.start()
+            self.syncPutThread.start()
 
     def syncPut(self):
         while self.syncPutThreadRun:
             data = self.get_data(check=True, semNb=9)
-            self._proxy.set_data(serialize_numpy_to_marshal(data))
+            self.proxySet.set_data(serialize_numpy_to_marshal(data))
 
     def syncGet(self):
         while self.syncGetThreadRun:
-            data = self._proxy.get_data(check=True, semNb=9, serialized=True, timeout=1)
+            data = self.proxyGet.get_data(check=True, semNb=9, serialized=True, timeout=1)
             if data is not None:
                 data = deserialize_numpy_from_marshal(data)
                 self.set_data(data, sync=False)
@@ -420,7 +421,7 @@ class shm:
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         # once it is written, automatically update the remote one if sync enabled
         if self.remote and sync:
-            self._proxy.set_data(serialize_numpy_to_marshal(data), serialized=True)
+            self.proxySet.set_data(serialize_numpy_to_marshal(data), serialized=True)
         
     def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, serialized=False):
         ''' --------------------------------------------------------------
@@ -432,7 +433,7 @@ class shm:
         - reform: boolean, if True, reshapes the array in a 2-3D format
         -------------------------------------------------------------- '''
         #if self.remote:
-        #    data = self._proxy.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, serialized=True)
+        #    data = self.proxyGet.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, serialized=True)
         #    return deserialize_numpy_from_marshal(data)
         #else:
         if check == True:
@@ -481,7 +482,7 @@ class shm:
         - verbose: (boolean, default: True), prints its findings
         -------------------------------------------------------------- '''
         #if self.remote:
-        #    self.mtdata = self._proxy.get_meta_data()
+        #    self.mtdata = self.proxyGet.get_meta_data()
         #else:
         md=self.image.md.contents
         self.mtdata=struct2Dict(md)
