@@ -18,8 +18,8 @@ import Pyro4
 import json
 
 # Set Pyro to use JSON serialization instead of pickle
-Pyro4.config.SERIALIZER = "json"
-Pyro4.config.SERIALIZERS_ACCEPTED = {"json"}
+Pyro4.config.SERIALIZER = "marshal"
+Pyro4.config.SERIALIZERS_ACCEPTED = {"marshal"}
 
 #
 # ctypes interface for dao
@@ -221,18 +221,18 @@ class IMAGE(ctypes.Structure):
         ('semWritePID', ctypes.POINTER(ctypes.c_int32))
     ]
 
-def serialize_numpy_to_json(arr):
-    # Convert numpy array to a JSON serializable format
-    json_data = {
+def serialize_numpy_to_marshall(arr):
+    # Convert numpy array to a marshall serializable format
+    marshall_data = {
         'data': arr.tolist(),    # Convert array data to a list
         'shape': arr.shape,      # Save the shape of the array
         'dtype': str(arr.dtype)  # Save the data type of the array (e.g., uint16)
     }
-    return json.dumps(json_data)
+    return marshall.dumps(marshall_data)
 
-def deserialize_numpy_from_json(json_data):
-    # Load JSON string into a dictionary
-    data_dict = json.loads(json_data)
+def deserialize_numpy_from_marshall(marshall_data):
+    # Load marshall string into a dictionary
+    data_dict = marshall.loads(marshall_data)
     
     # Rebuild the numpy array from the list, shape, and dtype
     return np.array(data_dict['data'], dtype=data_dict['dtype']).reshape(data_dict['shape'])
@@ -337,7 +337,7 @@ class shm:
         self.image=IMAGE()
         if self.remote:
             data = self._proxy.get_data(aslist=True)
-            data = deserialize_numpy_from_json(data)
+            data = deserialize_numpy_from_marshall(data)
         if fname == '':
             log.error("Need at least a SHM name")
         elif data is not None:
@@ -386,12 +386,12 @@ class shm:
     def syncPut(self):
         while self.syncPutThreadRun:
             data = self.get_data(check=True, semNb=9)
-            self._proxy.set_data(serialize_numpy_to_json(data))
+            self._proxy.set_data(serialize_numpy_to_marshall(data))
 
     def syncGet(self):
         while self.syncGetThreadRun:
             data = self._proxy.get_data(check=True, semNb=9, aslist=True)
-            data = deserialize_numpy_from_json(data)
+            data = deserialize_numpy_from_marshall(data)
             self.set_data(data, sync=False)
 
     def set_data(self, data, sync=True):
@@ -414,9 +414,9 @@ class shm:
 
         nbVal = ctypes.c_uint32(data.size)
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
-        # once it is written, automatically update the remote one if enabled
+        # once it is written, automatically update the remote one if sync enabled
         if self.remote and sync:
-            self._proxy.set_data(serialize_numpy_to_json(data))
+            self._proxy.set_data(serialize_numpy_to_marshall(data))
         
     def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, aslist=False):
         ''' --------------------------------------------------------------
@@ -429,9 +429,7 @@ class shm:
         -------------------------------------------------------------- '''
         #if self.remote:
         #    data = self._proxy.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, aslist=True)
-        #    if isinstance(data, list):
-        #        data = np.array(data)
-        #    return data
+        #    return deserialize_numpy_from_marshall(data)
         #else:
         if check == True:
             if spin == True:
@@ -463,7 +461,7 @@ class shm:
 
         # if the data are asked as list, convert the numpy array
         if aslist==True:
-            data = serialize_numpy_to_json(data)
+            data = serialize_numpy_to_marshall(data)
 
         return data
 
