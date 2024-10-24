@@ -406,6 +406,7 @@ class shm:
         '''
         # if the data passed are list, convert it to numpy array
         if serialized==True:
+            print('deserializing')
             data = deserialize_numpy_from_marshal(data)
         # Call the daoShmImage2Shm function to feel the SHM
         if data.flags['C_CONTIGUOUS']:
