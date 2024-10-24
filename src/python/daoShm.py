@@ -241,8 +241,9 @@ def deserialize_numpy_from_marshal(marshal_data):
 
 @Pyro4.expose
 class shm:
-    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', remote=False, host='localhost'):
+    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', remote=False, host='localhost', sync=True):
         self.remote = remote
+        self.sync = sync
         self.host = host
         if self.remote == True:
             # Locate the Pyro nameserver and look up the object by the name "shared_memory"
@@ -374,8 +375,9 @@ class shm:
         self.subEvent = Event()
         self.subThread = Thread(target = self.subscribe)
         self.subEnable = False
+        self.lastRemoteWriteCounter = self.get_counter()
         #self.subThread.start()
-        if self.remote:
+        if self.remote and self.sync:
             # Create and start the sync thread
             self.syncGetThread = Thread(target=self.syncGet)
             self.syncGetThread.daemon = True  # This ensures the thread will exit when the main program does
@@ -389,20 +391,20 @@ class shm:
             self.syncPutThreadCounter = 0
 
     def syncPut(self):
-        data = self.get_data(check=True, semNb=9, timeout=1)
         while self.syncPutThreadRun:
-            data = self.get_data(check=True, semNb=9, timeout=1)
-            self.localCounter = self.get_counter()
-            if data is not None:
+            data = self.get_data(check=True, semNb=9)
+            if data is not None and self.get_counter() > self.lastRemoteWriteCounter:
                 self.proxySet.set_data(serialize_numpy_to_marshal(data), serialized=True)
+                self.lastRemoteWriteCounter = self.get_counter()
             self.syncPutThreadCounter += 1
 
     def syncGet(self):
         while self.syncGetThreadRun:
             data = self.proxyGet.get_data(check=True, semNb=9, serialized=True, timeout=1)
-            if data is not None:
+            if data is not None and self.lastRemoteWriteCounter == self.get_counter():
                 data = deserialize_numpy_from_marshal(data)
                 self.set_data(data, sync=False)
+                self.lastRemoteWriteCounter = self.get_counter()
             self.syncGetThreadCounter += 1
 
     def set_data(self, data, serialized=False, sync=True):
@@ -414,9 +416,11 @@ class shm:
         - data: the array to upload to SHM
         - check_dt: boolean (default: false) recasts data
         '''
+        if self.remote and not self.sync:
+            self.proxySet.set_data(serialize_numpy_to_marshal(data), serialized=True)
+            return
         # if the data passed are list, convert it to numpy array
         if serialized==True:
-            print('deserializing')
             data = deserialize_numpy_from_marshal(data)
         # Call the daoShmImage2Shm function to feel the SHM
         if data.flags['C_CONTIGUOUS']:
@@ -439,10 +443,10 @@ class shm:
         - check: integer (last index) if not False, waits image update
         - reform: boolean, if True, reshapes the array in a 2-3D format
         -------------------------------------------------------------- '''
-        #if self.remote:
-        #    data = self.proxyGet.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, serialized=True)
-        #    return deserialize_numpy_from_marshal(data)
-        #else:
+        if self.remote and not self.sync:
+            data = self.proxyGet.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, serialized=True)
+            return deserialize_numpy_from_marshal(data)
+
         if check == True:
             if spin == True:
                 result = self.daoShmWaitForCounter(ctypes.byref(self.image))
