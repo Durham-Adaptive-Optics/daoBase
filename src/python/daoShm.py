@@ -16,6 +16,7 @@ import zmq
 import datetime
 import Pyro4
 import json
+import marshal
 
 # Set Pyro to use JSON serialization instead of pickle
 Pyro4.config.SERIALIZER = "marshal"
