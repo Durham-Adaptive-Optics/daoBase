@@ -403,29 +403,20 @@ typedef struct          		/**< structure used to store data arrays              
 } IMAGE;
 #endif
 
-// Define the version of the structure for serialization (without semaphores)
+// Define serialization structure for IMAGE
 typedef struct
 {
     char name[80];
     uint8_t used;
     int32_t shmfd;
     uint64_t memsize;
-    IMAGE_METADATA *md;
-    union {
-        uint8_t *UI8;
-        int8_t  *SI8;
-        uint16_t *UI16;
-        int16_t *SI16;
-        uint32_t *UI32;
-        int32_t *SI32;
-        uint64_t *UI64;
-        int64_t *SI64;
-        float *F;
-        double *D;
-        void * V;
-    } array;
-    pid_t *semReadPID;
-    pid_t *semWritePID;
+    IMAGE_METADATA md;  // Serialize metadata directly
+    uint8_t atype;
+    uint64_t nelement;
+    uint64_t array_size; // Size of the array in bytes
+    pid_t semReadPID;
+    pid_t semWritePID;
+    char array[];             // Flexible array member to hold array data (placeholder not used, just data put at the end)
 } IMAGE_SERIALIZED;
 
 #ifdef __cplusplus
@@ -451,4 +442,12 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel,
 int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb,  int32_t timeout);
 int_fast8_t daoShmWaitForCounter(IMAGE *image);
 uint64_t    daoShmGetCounter(IMAGE *image);
+
+// Functions below are for remote communication using zmq
+size_t calculateArraySize(uint8_t atype, uint64_t nelement);
+size_t calculateBufferSize(IMAGE *image);
+void serializeImage(IMAGE *image, char *buffer);
+void deserializeImage(char *buffer, IMAGE *image); 
+void zmqSendImage(IMAGE *image, void *socket);
+void zmqReceiveImage(IMAGE *image, void *socket);
 #endif

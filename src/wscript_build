@@ -42,7 +42,7 @@ bld.shlib(
 	includes = '../include',
 	#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
 	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
-	ldflags = [''] + add_ld_flags,
+	ldflags = ['-lzmq'] + add_ld_flags,
 	target = 'dao',
 	name   = 'dao',
 	features	= 'pkg_build',

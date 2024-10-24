@@ -28,6 +28,8 @@
 #include <sys/time.h>
 #include <gsl/gsl_blas.h>
 #include <omp.h>
+#include <zmq.h>
+
 
 #ifdef __MACH__
 #include <mach/mach_time.h>
@@ -1704,3 +1706,225 @@ uint_fast64_t daoShmGetCounter(IMAGE *image)
 //    }
 //    return DAO_SUCCESS;
 //}
+
+// Function to calculate array size based on data type and number of elements
+size_t calculateArraySize(uint8_t atype, uint64_t nelement) 
+{
+    switch(atype) 
+    {
+        case _DATATYPE_UINT8:
+            return nelement * sizeof(uint8_t);
+        case _DATATYPE_INT8:
+            return nelement * sizeof(int8_t);
+        case _DATATYPE_UINT16:
+            return nelement * sizeof(uint16_t);
+        case _DATATYPE_INT16:
+            return nelement * sizeof(int16_t);
+        case _DATATYPE_UINT32:
+            return nelement * sizeof(uint32_t);
+        case _DATATYPE_INT32:
+            return nelement * sizeof(int32_t);
+        case _DATATYPE_UINT64:
+            return nelement * sizeof(uint64_t);
+        case _DATATYPE_INT64:
+            return nelement * sizeof(int64_t);
+        case _DATATYPE_FLOAT:
+            return nelement * sizeof(float);
+        case _DATATYPE_DOUBLE:
+            return nelement * sizeof(double);
+        case _DATATYPE_COMPLEX_FLOAT:
+            return nelement * sizeof(complex_float);
+        case _DATATYPE_COMPLEX_DOUBLE:
+            return nelement * sizeof(complex_double);
+        default:
+            return 0;  // Invalid data type
+    }
+}
+
+// Serialize the IMAGE structure
+void serializeImage(IMAGE *image, char *buffer) 
+{
+    daoTrace("\n");
+    IMAGE_SERIALIZED serialized;
+    
+    // Copy fields
+    strncpy(serialized.name, image->name, sizeof(serialized.name));
+    serialized.used = image->used;
+    serialized.shmfd = image->shmfd;
+    serialized.memsize = image->memsize;
+    serialized.md = *image->md;
+    serialized.atype = image->md->atype;
+    serialized.nelement = image->md->nelement;
+    serialized.array_size = calculateArraySize(image->md->atype, image->md->nelement);
+    
+    // Serialize the main fields
+    memcpy(buffer, &serialized, sizeof(IMAGE_SERIALIZED));
+    buffer += sizeof(IMAGE_SERIALIZED);
+    
+    // Serialize array data
+    size_t array_size = serialized.array_size;
+    if (array_size > 0) 
+    {
+        switch (image->md->atype) 
+        {
+            case _DATATYPE_UINT8:
+                memcpy(buffer, image->array.UI8, array_size);
+                break;
+            case _DATATYPE_INT8:
+                memcpy(buffer, image->array.SI8, array_size);
+                break;
+            case _DATATYPE_UINT16:
+                memcpy(buffer, image->array.UI16, array_size);
+                break;
+            case _DATATYPE_INT16:
+                memcpy(buffer, image->array.SI16, array_size);
+                break;
+            case _DATATYPE_UINT32:
+                memcpy(buffer, image->array.UI32, array_size);
+                break;
+            case _DATATYPE_INT32:
+                memcpy(buffer, image->array.SI32, array_size);
+                break;
+            case _DATATYPE_UINT64:
+                memcpy(buffer, image->array.UI64, array_size);
+                break;
+            case _DATATYPE_INT64:
+                memcpy(buffer, image->array.SI64, array_size);
+                break;
+            case _DATATYPE_FLOAT:
+                memcpy(buffer, image->array.F, array_size);
+                break;
+            case _DATATYPE_DOUBLE:
+                memcpy(buffer, image->array.D, array_size);
+                break;
+            case _DATATYPE_COMPLEX_FLOAT:
+                memcpy(buffer, image->array.CF, array_size);
+                break;
+            case _DATATYPE_COMPLEX_DOUBLE:
+                memcpy(buffer, image->array.CD, array_size);
+                break;
+        }
+    }
+}
+
+size_t calculateBufferSize(IMAGE *image)
+{
+    // Base size: serialized structure size (without semaphores, etc.)
+    size_t size = sizeof(IMAGE_SERIALIZED); 
+
+    // Add the size of the serialized array data
+    size += calculateArraySize(image->md->atype, image->md->nelement);
+    
+    return size;
+}
+
+// Deserialize the IMAGE structure
+void deserializeImage(char *buffer, IMAGE *image) 
+{
+    daoTrace("\n");
+    IMAGE_SERIALIZED serialized;
+    
+    // Deserialize the main fields
+    memcpy(&serialized, buffer, sizeof(IMAGE_SERIALIZED));
+    buffer += sizeof(IMAGE_SERIALIZED);
+    
+    // Set the fields in the IMAGE structure
+    strncpy(image->name, serialized.name, sizeof(image->name));
+    image->used = serialized.used;
+    image->shmfd = serialized.shmfd;
+    image->memsize = serialized.memsize;
+    image->md = (IMAGE_METADATA *)malloc(sizeof(IMAGE_METADATA));
+    *image->md = serialized.md;
+    
+    // Allocate memory for the array based on the data type
+    size_t array_size = serialized.array_size;
+    if (array_size > 0) 
+    {
+        switch (image->md->atype) 
+        {
+            case _DATATYPE_UINT8:
+                image->array.UI8 = (uint8_t *)malloc(array_size);
+                memcpy(image->array.UI8, buffer, array_size);
+                break;
+            case _DATATYPE_INT8:
+                image->array.SI8 = (int8_t *)malloc(array_size);
+                memcpy(image->array.SI8, buffer, array_size);
+                break;
+            case _DATATYPE_UINT16:
+                image->array.UI16 = (uint16_t *)malloc(array_size);
+                memcpy(image->array.UI16, buffer, array_size);
+                break;
+            case _DATATYPE_INT16:
+                image->array.SI16 = (int16_t *)malloc(array_size);
+                memcpy(image->array.SI16, buffer, array_size);
+                break;
+            case _DATATYPE_UINT32:
+                image->array.UI32 = (uint32_t *)malloc(array_size);
+                memcpy(image->array.UI32, buffer, array_size);
+                break;
+            case _DATATYPE_INT32:
+                image->array.SI32 = (int32_t *)malloc(array_size);
+                memcpy(image->array.SI32, buffer, array_size);
+                break;
+            case _DATATYPE_UINT64:
+                image->array.UI64 = (uint64_t *)malloc(array_size);
+                memcpy(image->array.UI64, buffer, array_size);
+                break;
+            case _DATATYPE_INT64:
+                image->array.SI64 = (int64_t *)malloc(array_size);
+                memcpy(image->array.SI64, buffer, array_size);
+                break;
+            case _DATATYPE_FLOAT:
+                image->array.F = (float *)malloc(array_size);
+                memcpy(image->array.F, buffer, array_size);
+                break;
+            case _DATATYPE_DOUBLE:
+                image->array.D = (double *)malloc(array_size);
+                memcpy(image->array.D, buffer, array_size);
+                break;
+            case _DATATYPE_COMPLEX_FLOAT:
+                image->array.CF = (complex_float *)malloc(array_size);
+                memcpy(image->array.CF, buffer, array_size);
+                break;
+            case _DATATYPE_COMPLEX_DOUBLE:
+                image->array.CD = (complex_double *)malloc(array_size);
+                memcpy(image->array.CD, buffer, array_size);
+                break;
+        }
+    }
+}
+
+// ZeroMQ send function
+void zmqSendImage(IMAGE *image, void *socket) 
+{
+    size_t buffer_size = calculateBufferSize(image);
+
+    // Dynamically allocate buffer
+    char *buffer = (char *)malloc(buffer_size);
+    if (buffer == NULL) {
+        perror("Failed to allocate memory for serialization");
+        exit(EXIT_FAILURE);
+    }
+
+    serializeImage(image, buffer);
+
+    zmq_msg_t message;
+    zmq_msg_init_size(&message, sizeof(buffer));
+    memcpy(zmq_msg_data(&message), buffer, buffer_size);//sizeof(buffer));
+    zmq_msg_send(&message, socket, 0);
+    zmq_msg_close(&message);
+    free(buffer);
+}
+
+// ZeroMQ receive function
+void zmqReceiveImage(IMAGE *image, void *socket) 
+{
+    zmq_msg_t message;
+    zmq_msg_init(&message);
+    zmq_msg_recv(&message, socket, 0);
+
+    char *buffer = (char *)zmq_msg_data(&message);
+    deserializeImage(buffer, image);
+
+    zmq_msg_close(&message);
+}
