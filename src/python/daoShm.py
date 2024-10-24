@@ -15,6 +15,11 @@ from threading import Event
 import zmq
 import datetime
 import Pyro4
+import json
+
+# Set Pyro to use JSON serialization instead of pickle
+Pyro4.config.SERIALIZER = "json"
+Pyro4.config.SERIALIZERS_ACCEPTED = {"json"}
 
 #
 # ctypes interface for dao
@@ -215,6 +220,23 @@ class IMAGE(ctypes.Structure):
         ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
         ('semWritePID', ctypes.POINTER(ctypes.c_int32))
     ]
+
+def serialize_numpy_to_json(arr):
+    # Convert numpy array to a JSON serializable format
+    json_data = {
+        'data': arr.tolist(),    # Convert array data to a list
+        'shape': arr.shape,      # Save the shape of the array
+        'dtype': str(arr.dtype)  # Save the data type of the array (e.g., uint16)
+    }
+    return json.dumps(json_data)
+
+def deserialize_numpy_from_json(json_data):
+    # Load JSON string into a dictionary
+    data_dict = json.loads(json_data)
+    
+    # Rebuild the numpy array from the list, shape, and dtype
+    return np.array(data_dict['data'], dtype=data_dict['dtype']).reshape(data_dict['shape'])
+
 
 @Pyro4.expose
 class shm:
