@@ -337,8 +337,7 @@ class shm:
         self.image=IMAGE()
         if self.remote:
             data = self._proxy.get_data(aslist=True)
-            if isinstance(data, list):
-                data = np.array(data)
+            data = deserialize_numpy_from_json(data)
         if fname == '':
             log.error("Need at least a SHM name")
         elif data is not None:
@@ -387,13 +386,12 @@ class shm:
     def syncPut(self):
         while self.syncPutThreadRun:
             data = self.get_data(check=True, semNb=9)
-            self._proxy.set_data(data.tolist())
+            self._proxy.set_data(serialize_numpy_to_json(data))
 
     def syncGet(self):
         while self.syncGetThreadRun:
             data = self._proxy.get_data(check=True, semNb=9, aslist=True)
-            if isinstance(data, list):
-                data = np.array(data)
+            data = deserialize_numpy_from_json(data)
             self.set_data(data, sync=False)
 
     def set_data(self, data, sync=True):
@@ -406,8 +404,8 @@ class shm:
         - check_dt: boolean (default: false) recasts data
         '''
         # if the data passed are list, convert it to numpy array
-        if isinstance(data, list):
-            data = np.array(data)
+        #if isinstance(data, list):
+        #    data = np.array(data)
         # Call the daoShmImage2Shm function to feel the SHM
         if data.flags['C_CONTIGUOUS']:
             cData = data.ctypes.data_as(ctypes.c_void_p)
@@ -418,7 +416,7 @@ class shm:
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         # once it is written, automatically update the remote one if enabled
         if self.remote and sync:
-            self._proxy.set_data(data.tolist())
+            self._proxy.set_data(serialize_numpy_to_json(data))
         
     def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, aslist=False):
         ''' --------------------------------------------------------------
@@ -465,7 +463,7 @@ class shm:
 
         # if the data are asked as list, convert the numpy array
         if aslist==True:
-            data = data.tolist()
+            data = serialize_numpy_to_json(data)
 
         return data
 
