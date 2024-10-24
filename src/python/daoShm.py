@@ -360,7 +360,7 @@ class shm:
             self.syncPutThread = Thread(target=self.syncPut)
             self.syncPutThread.daemon = True  # This ensures the thread will exit when the main program does
             self.syncPutThreadRun = True
-            self.syncPutThread.start()
+            #self.syncPutThread.start()
 
     def syncPut(self):
         while self.syncPutThreadRun:
