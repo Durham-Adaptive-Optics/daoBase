@@ -405,8 +405,10 @@ class shm:
         - check_dt: boolean (default: false) recasts data
         '''
         # if the data passed are list, convert it to numpy array
-        #if isinstance(data, list):
-        #    data = np.array(data)
+        try:
+            data = deserialize_numpy_from_marshal(data)
+        except:
+            pass
         # Call the daoShmImage2Shm function to feel the SHM
         if data.flags['C_CONTIGUOUS']:
             cData = data.ctypes.data_as(ctypes.c_void_p)
