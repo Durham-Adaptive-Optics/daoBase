@@ -315,7 +315,7 @@ class shm:
 
         self.image=IMAGE()
         if self.remote:
-            data = self._proxy.get_data(aslist=True)
+            data = self._proxy.get_data(serialized=True)
             data = pickle.loads(data)
             #if isinstance(data, list):
             #    data = np.array(data)
@@ -359,9 +359,9 @@ class shm:
             self.syncGetThread.daemon = True  # This ensures the thread will exit when the main program does
             self.syncGetThreadRun = True
             self.syncGetThread.start()
-            self.syncPutThread = Thread(target=self.syncPut)
-            self.syncPutThread.daemon = True  # This ensures the thread will exit when the main program does
-            self.syncPutThreadRun = True
+            #self.syncPutThread = Thread(target=self.syncPut)
+            #self.syncPutThread.daemon = True  # This ensures the thread will exit when the main program does
+            #self.syncPutThreadRun = True
             #self.syncPutThread.start()
 
     def syncPut(self):
@@ -370,14 +370,9 @@ class shm:
             self.set_data(data, sync=True)
 
     def syncGet(self):
-        # first read
-        data = self._proxy.get_data(aslist=True)
-        #first sync the metadata, especially for counter and frame id
-        self.mtdata = self._proxy.get_meta_data()
         while self.syncGetThreadRun:
-            data = self._proxy.get_data(check=True, semNb=9, aslist=True)
-            if isinstance(data, list):
-                data = np.array(data)
+            data = self._proxy.get_data(check=True, semNb=9, serialized=True)
+            data = pickle.loads(data)
             self.set_data(data, sync=False)
 
     def set_data(self, data, sync=True):
@@ -389,9 +384,12 @@ class shm:
         - data: the array to upload to SHM
         - check_dt: boolean (default: false) recasts data
         '''
-        # if the data passed are list, convert it to numpy array
-        if isinstance(data, list):
-            data = np.array(data)
+        # try to desialize the data in case it is from remote
+        # if failed, it will just pass the data as it is
+        try:
+            data = pickle.loads(data)
+        except:
+            pass
         # Call the daoShmImage2Shm function to feel the SHM
         if data.flags['C_CONTIGUOUS']:
             cData = data.ctypes.data_as(ctypes.c_void_p)
@@ -400,12 +398,13 @@ class shm:
 
         nbVal = ctypes.c_uint32(data.size)
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
+
         # once it is written, automatically update the remote one if enabled
         if self.remote and sync:
             #self._proxy.set_data(data.tolist())
-            self._proxy.set_data(ipickle.dumps(data))
+            self._proxy.set_data(pickle.dumps(data))
         
-    def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, aslist=False):
+    def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, serialized=False):
         ''' --------------------------------------------------------------
         Reads and returns the data part of the SHM file
 
@@ -414,43 +413,41 @@ class shm:
         - check: integer (last index) if not False, waits image update
         - reform: boolean, if True, reshapes the array in a 2-3D format
         -------------------------------------------------------------- '''
-        #if self.remote:
-        #    data = self._proxy.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, aslist=True)
-        #    if isinstance(data, list):
-        #        data = np.array(data)
-        #    return data
-        #else:
-        if check == True:
-            if spin == True:
-                result = self.daoShmWaitForCounter(ctypes.byref(self.image))
-            else:
-                result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
-
-        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
-                                                      ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
-
-        arrayPtr = ctypes.cast(self.image.array,\
-                               ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
-        #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
-        if arraySize[2] == 0:
-            if arraySize[1] == 0:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
-            else:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+        if self.remote:
+            data = self._proxy.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, serialized=True)
+            data = pickle.loads(data)
         else:
-            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+            if check == True:
+                if spin == True:
+                    result = self.daoShmWaitForCounter(ctypes.byref(self.image))
+                else:
+                    result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
 
-        # Check if the dtype is structured (i.e., for complex types)
-        if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
-            # Reconstruct complex array by combining real and imaginary parts
-            data = data['real'] + 1j * data['imag']
+            arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+                                                          ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
 
-        # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
-        data = data.astype(daoType2NpType(self.image.md.contents.atype))
+            arrayPtr = ctypes.cast(self.image.array,\
+                                   ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
+            #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
+            if arraySize[2] == 0:
+                if arraySize[1] == 0:
+                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
+                else:
+                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+            else:
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
 
-        # if the data are asked as list, convert the numpy array
-        #if aslist==True:
-        #    data = data.tolist()
+            # Check if the dtype is structured (i.e., for complex types)
+            if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
+                # Reconstruct complex array by combining real and imaginary parts
+                data = data['real'] + 1j * data['imag']
+
+            # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
+            data = data.astype(daoType2NpType(self.image.md.contents.atype))
+
+        # if coming from remote, need to be serialized
+        if serialized:
+            data = pickle.dumps(data)
 
         return data
 
