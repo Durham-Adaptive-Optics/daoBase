@@ -389,8 +389,10 @@ class shm:
             self.syncPutThreadCounter = 0
 
     def syncPut(self):
+        data = self.get_data(check=True, semNb=9, timeout=1)
         while self.syncPutThreadRun:
             data = self.get_data(check=True, semNb=9, timeout=1)
+            self.localCounter = self.get_counter()
             if data is not None:
                 self.proxySet.set_data(serialize_numpy_to_marshal(data), serialized=True)
             self.syncPutThreadCounter += 1
