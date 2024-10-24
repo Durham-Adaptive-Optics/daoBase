@@ -221,18 +221,18 @@ class IMAGE(ctypes.Structure):
         ('semWritePID', ctypes.POINTER(ctypes.c_int32))
     ]
 
-def serialize_numpy_to_marshall(arr):
-    # Convert numpy array to a marshall serializable format
-    marshall_data = {
+def serialize_numpy_to_marshal(arr):
+    # Convert numpy array to a marshal serializable format
+    marshal_data = {
         'data': arr.tolist(),    # Convert array data to a list
         'shape': arr.shape,      # Save the shape of the array
         'dtype': str(arr.dtype)  # Save the data type of the array (e.g., uint16)
     }
-    return marshall.dumps(marshall_data)
+    return marshal.dumps(marshal_data)
 
-def deserialize_numpy_from_marshall(marshall_data):
-    # Load marshall string into a dictionary
-    data_dict = marshall.loads(marshall_data)
+def deserialize_numpy_from_marshal(marshal_data):
+    # Load marshal string into a dictionary
+    data_dict = marshal.loads(marshal_data)
     
     # Rebuild the numpy array from the list, shape, and dtype
     return np.array(data_dict['data'], dtype=data_dict['dtype']).reshape(data_dict['shape'])
@@ -337,7 +337,7 @@ class shm:
         self.image=IMAGE()
         if self.remote:
             data = self._proxy.get_data(aslist=True)
-            data = deserialize_numpy_from_marshall(data)
+            data = deserialize_numpy_from_marshal(data)
         if fname == '':
             log.error("Need at least a SHM name")
         elif data is not None:
@@ -386,12 +386,12 @@ class shm:
     def syncPut(self):
         while self.syncPutThreadRun:
             data = self.get_data(check=True, semNb=9)
-            self._proxy.set_data(serialize_numpy_to_marshall(data))
+            self._proxy.set_data(serialize_numpy_to_marshal(data))
 
     def syncGet(self):
         while self.syncGetThreadRun:
             data = self._proxy.get_data(check=True, semNb=9, aslist=True)
-            data = deserialize_numpy_from_marshall(data)
+            data = deserialize_numpy_from_marshal(data)
             self.set_data(data, sync=False)
 
     def set_data(self, data, sync=True):
@@ -416,7 +416,7 @@ class shm:
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         # once it is written, automatically update the remote one if sync enabled
         if self.remote and sync:
-            self._proxy.set_data(serialize_numpy_to_marshall(data))
+            self._proxy.set_data(serialize_numpy_to_marshal(data))
         
     def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, aslist=False):
         ''' --------------------------------------------------------------
@@ -429,7 +429,7 @@ class shm:
         -------------------------------------------------------------- '''
         #if self.remote:
         #    data = self._proxy.get_data(check=check, reform=reform, semNb=semNb, timeout=timeout, spin=spin, aslist=True)
-        #    return deserialize_numpy_from_marshall(data)
+        #    return deserialize_numpy_from_marshal(data)
         #else:
         if check == True:
             if spin == True:
@@ -461,7 +461,7 @@ class shm:
 
         # if the data are asked as list, convert the numpy array
         if aslist==True:
-            data = serialize_numpy_to_marshall(data)
+            data = serialize_numpy_to_marshal(data)
 
         return data
 
