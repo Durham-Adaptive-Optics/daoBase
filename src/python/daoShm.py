@@ -392,9 +392,10 @@ class shm:
 
     def syncGet(self):
         while self.syncGetThreadRun:
-            data = self._proxy.get_data(check=True, semNb=9, serialized=True)
-            data = deserialize_numpy_from_marshal(data)
-            self.set_data(data, sync=False)
+            data = self._proxy.get_data(check=True, semNb=9, serialized=True, timeout=1)
+            if data is not None:
+                data = deserialize_numpy_from_marshal(data)
+                self.set_data(data, sync=False)
 
     def set_data(self, data, serialized=False, sync=True):
         ''' --------------------------------------------------------------
@@ -439,6 +440,9 @@ class shm:
                 result = self.daoShmWaitForCounter(ctypes.byref(self.image))
             else:
                 result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb, timeout)
+                if result != 0:
+                    log.error('timeout waiting for new data')
+                    return None
 
         arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
                                                       ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
