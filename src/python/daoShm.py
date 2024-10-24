@@ -441,7 +441,6 @@ class shm:
             else:
                 result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb, timeout)
                 if result != 0:
-                    log.error('timeout waiting for new data')
                     return None
 
         arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
