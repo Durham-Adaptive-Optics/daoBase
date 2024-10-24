@@ -403,6 +403,31 @@ typedef struct          		/**< structure used to store data arrays              
 } IMAGE;
 #endif
 
+// Define the version of the structure for serialization (without semaphores)
+typedef struct
+{
+    char name[80];
+    uint8_t used;
+    int32_t shmfd;
+    uint64_t memsize;
+    IMAGE_METADATA *md;
+    union {
+        uint8_t *UI8;
+        int8_t  *SI8;
+        uint16_t *UI16;
+        int16_t *SI16;
+        uint32_t *UI32;
+        int32_t *SI32;
+        uint64_t *UI64;
+        int64_t *SI64;
+        float *F;
+        double *D;
+        void * V;
+    } array;
+    pid_t *semReadPID;
+    pid_t *semWritePID;
+} IMAGE_SERIALIZED;
+
 #ifdef __cplusplus
 } //extern "C"
 #endif
