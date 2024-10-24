@@ -381,15 +381,19 @@ class shm:
             self.syncGetThread.daemon = True  # This ensures the thread will exit when the main program does
             self.syncGetThreadRun = True
             self.syncGetThread.start()
+            self.syncGetThreadCounter = 0
             self.syncPutThread = Thread(target=self.syncPut)
             self.syncPutThread.daemon = True  # This ensures the thread will exit when the main program does
             self.syncPutThreadRun = True
-            #self.syncPutThread.start()
+            self.syncPutThread.start()
+            self.syncPutThreadCounter = 0
 
     def syncPut(self):
         while self.syncPutThreadRun:
-            data = self.get_data(check=True, semNb=9)
-            self.proxySet.set_data(serialize_numpy_to_marshal(data))
+            data = self.get_data(check=True, semNb=9, timeout=1)
+            if data is not None:
+                self.proxySet.set_data(serialize_numpy_to_marshal(data), serialized=True)
+            self.syncPutThreadCounter += 1
 
     def syncGet(self):
         while self.syncGetThreadRun:
@@ -397,6 +401,7 @@ class shm:
             if data is not None:
                 data = deserialize_numpy_from_marshal(data)
                 self.set_data(data, sync=False)
+            self.syncGetThreadCounter += 1
 
     def set_data(self, data, serialized=False, sync=True):
         ''' --------------------------------------------------------------
