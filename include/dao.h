@@ -411,11 +411,8 @@ typedef struct
     int32_t shmfd;
     uint64_t memsize;
     IMAGE_METADATA md;  // Serialize metadata directly
-    uint8_t atype;
-    uint64_t nelement;
+    uint64_t : 0; // align array to 8-byte boundary for speed
     uint64_t array_size; // Size of the array in bytes
-    pid_t semReadPID;
-    pid_t semWritePID;
     char array[];             // Flexible array member to hold array data (placeholder not used, just data put at the end)
 } IMAGE_SERIALIZED;
 

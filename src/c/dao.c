@@ -1753,8 +1753,6 @@ void serializeImage(IMAGE *image, char *buffer)
     serialized.shmfd = image->shmfd;
     serialized.memsize = image->memsize;
     serialized.md = *image->md;
-    serialized.atype = image->md->atype;
-    serialized.nelement = image->md->nelement;
     serialized.array_size = calculateArraySize(image->md->atype, image->md->nelement);
     
     // Serialize the main fields
@@ -1811,9 +1809,11 @@ size_t calculateBufferSize(IMAGE *image)
 {
     // Base size: serialized structure size (without semaphores, etc.)
     size_t size = sizeof(IMAGE_SERIALIZED); 
+    daoDebug("buffer_size = %ld\n", size);
 
     // Add the size of the serialized array data
     size += calculateArraySize(image->md->atype, image->md->nelement);
+    daoDebug("buffer_size = %ld\n", size);
     
     return size;
 }
@@ -1909,8 +1909,8 @@ void zmqSendImage(IMAGE *image, void *socket)
     serializeImage(image, buffer);
 
     zmq_msg_t message;
-    zmq_msg_init_size(&message, sizeof(buffer));
-    memcpy(zmq_msg_data(&message), buffer, buffer_size);//sizeof(buffer));
+    zmq_msg_init_size(&message, buffer_size);
+    memcpy(zmq_msg_data(&message), buffer, buffer_size);
     zmq_msg_send(&message, socket, 0);
     zmq_msg_close(&message);
     free(buffer);
