@@ -1833,8 +1833,9 @@ void deserializeImage(char *buffer, IMAGE *image)
     image->used = serialized.used;
     image->shmfd = serialized.shmfd;
     image->memsize = serialized.memsize;
-    image->md = (IMAGE_METADATA *)malloc(sizeof(IMAGE_METADATA));
-    *image->md = serialized.md;
+    //image->md = (IMAGE_METADATA *)malloc(sizeof(IMAGE_METADATA));
+    //*image->md = serialized.md;
+    memcpy(image->md, &serialized.md, sizeof(IMAGE_METADATA));
     
     // Allocate memory for the array based on the data type
     size_t array_size = serialized.array_size;
@@ -1843,51 +1844,51 @@ void deserializeImage(char *buffer, IMAGE *image)
         switch (image->md->atype) 
         {
             case _DATATYPE_UINT8:
-                image->array.UI8 = (uint8_t *)malloc(array_size);
+//                image->array.UI8 = (uint8_t *)malloc(array_size);
                 memcpy(image->array.UI8, buffer, array_size);
                 break;
             case _DATATYPE_INT8:
-                image->array.SI8 = (int8_t *)malloc(array_size);
+//                image->array.SI8 = (int8_t *)malloc(array_size);
                 memcpy(image->array.SI8, buffer, array_size);
                 break;
             case _DATATYPE_UINT16:
-                image->array.UI16 = (uint16_t *)malloc(array_size);
+//                image->array.UI16 = (uint16_t *)malloc(array_size);
                 memcpy(image->array.UI16, buffer, array_size);
                 break;
             case _DATATYPE_INT16:
-                image->array.SI16 = (int16_t *)malloc(array_size);
+//                image->array.SI16 = (int16_t *)malloc(array_size);
                 memcpy(image->array.SI16, buffer, array_size);
                 break;
             case _DATATYPE_UINT32:
-                image->array.UI32 = (uint32_t *)malloc(array_size);
+//                image->array.UI32 = (uint32_t *)malloc(array_size);
                 memcpy(image->array.UI32, buffer, array_size);
                 break;
             case _DATATYPE_INT32:
-                image->array.SI32 = (int32_t *)malloc(array_size);
+//                image->array.SI32 = (int32_t *)malloc(array_size);
                 memcpy(image->array.SI32, buffer, array_size);
                 break;
             case _DATATYPE_UINT64:
-                image->array.UI64 = (uint64_t *)malloc(array_size);
+//                image->array.UI64 = (uint64_t *)malloc(array_size);
                 memcpy(image->array.UI64, buffer, array_size);
                 break;
             case _DATATYPE_INT64:
-                image->array.SI64 = (int64_t *)malloc(array_size);
+//                image->array.SI64 = (int64_t *)malloc(array_size);
                 memcpy(image->array.SI64, buffer, array_size);
                 break;
             case _DATATYPE_FLOAT:
-                image->array.F = (float *)malloc(array_size);
+//                image->array.F = (float *)malloc(array_size);
                 memcpy(image->array.F, buffer, array_size);
                 break;
             case _DATATYPE_DOUBLE:
-                image->array.D = (double *)malloc(array_size);
+//                image->array.D = (double *)malloc(array_size);
                 memcpy(image->array.D, buffer, array_size);
                 break;
             case _DATATYPE_COMPLEX_FLOAT:
-                image->array.CF = (complex_float *)malloc(array_size);
+//                image->array.CF = (complex_float *)malloc(array_size);
                 memcpy(image->array.CF, buffer, array_size);
                 break;
             case _DATATYPE_COMPLEX_DOUBLE:
-                image->array.CD = (complex_double *)malloc(array_size);
+//                image->array.CD = (complex_double *)malloc(array_size);
                 memcpy(image->array.CD, buffer, array_size);
                 break;
         }
