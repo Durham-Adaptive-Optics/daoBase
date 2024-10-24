@@ -360,18 +360,14 @@ class shm:
             self.syncPutThread = Thread(target=self.syncPut)
             self.syncPutThread.daemon = True  # This ensures the thread will exit when the main program does
             self.syncPutThreadRun = True
-            #self.syncPutThread.start()
+            self.syncPutThread.start()
 
     def syncPut(self):
         while self.syncPutThreadRun:
             data = self.get_data(check=True, semNb=9)
-            self.set_data(data, sync=True)
+            self._proxy.set_data(data.tolist())
 
     def syncGet(self):
-        # first read
-        data = self._proxy.get_data(aslist=True)
-        #first sync the metadata, especially for counter and frame id
-        self.mtdata = self._proxy.get_meta_data()
         while self.syncGetThreadRun:
             data = self._proxy.get_data(check=True, semNb=9, aslist=True)
             if isinstance(data, list):
