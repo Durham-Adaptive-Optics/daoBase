@@ -2041,6 +2041,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
 
         // Receive a chunk of data from the ZMQ_DISH socket
         if (zmq_msg_recv(&message, socket, 0) == -1) {
+            daoError("Receive timed out or failed\n");
             zmq_msg_close(&message);
             free(buffer);
             return DAO_ERROR;
