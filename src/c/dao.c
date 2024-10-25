@@ -1972,8 +1972,8 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
     serializeImage(image, buffer + group_len);
 
     // Initialize ZeroMQ message with total size (group name + image data)
-    //zmq_msg_t message;
-    //zmq_msg_init_size(&message, total_size);
+    zmq_msg_t message;
+    zmq_msg_init_size(&message, total_size);
     //memcpy(zmq_msg_data(&message), buffer, total_size);
     
     // Send message over ZMQ_RADIO socket
