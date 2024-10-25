@@ -1956,13 +1956,14 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
 {
     daoTrace("\n");
 
-printf("group = %s\n", group);
-    size_t group_len = strlen(group);
+    printf("group = %s\n", group);
+    //size_t group_len = strlen(group);
     size_t buffer_size = calculateBufferSize(image);
-    size_t total_size = group_len + buffer_size;
+    //size_t total_size = group_len + buffer_size;
 
     // Dynamically allocate buffer
-    char *buffer = (char *)malloc(total_size);
+    //char *buffer = (char *)malloc(total_size);
+    char *buffer = (char *)malloc(buffer_size);
     if (buffer == NULL) 
     {
         daoError("Failed to allocate memory for serialization\n");
@@ -1970,20 +1971,24 @@ printf("group = %s\n", group);
     }
 
     // Copy group name to buffer
-    memcpy(buffer, group, group_len);
-printf("Group name in buffer: %.*s\n", (int)group_len, buffer);
+    //memcpy(buffer, group, group_len);
+//printf("Group name in buffer: %.*s\n", (int)group_len, buffer);
 
-    serializeImage(image, buffer + group_len);
-printf("Group name in buffer after serialization: %.*s\n", (int)group_len, buffer);
+    //serializeImage(image, buffer + group_len);
+    serializeImage(image, buffer);
+//printf("Group name in buffer after serialization: %.*s\n", (int)group_len, buffer);
 
     // Initialize ZeroMQ message with total size (group name + image data)
     zmq_msg_t message;
-    zmq_msg_init_size(&message, total_size);
-    memcpy(zmq_msg_data(&message), buffer, total_size);
+    //zmq_msg_init_size(&message, total_size);
+    zmq_msg_init_size(&message, buffer_size);
+    //memcpy(zmq_msg_data(&message), buffer, total_size);
+    memcpy(zmq_msg_data(&message), buffer, buffer_size);
     
     // Send in chunks
     size_t offset = 0;
-    size_t remaining = total_size;
+    //size_t remaining = total_size;
+    size_t remaining = buffer_size;
 
     while (remaining > 0) {
         size_t chunk_size = remaining > maxPayload ? maxPayload : remaining;
@@ -1991,7 +1996,7 @@ printf("Group name in buffer after serialization: %.*s\n", (int)group_len, buffe
         zmq_msg_t message;
         zmq_msg_init_size(&message, chunk_size);
         
-printf("Group name in buffer+offset '%.*s', chunk size = %d\n", (int)group_len, buffer+offset, chunk_size);
+printf("Group name in buffer+offset '%.*s', chunk size = %d\n", (int)chunk_size, buffer+offset, chunk_size);
         // Copy chunk data to message
         memcpy(zmq_msg_data(&message), buffer + offset, chunk_size);
 
@@ -2031,7 +2036,8 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
     }
 
     size_t offset = 0;  // Track the current write position within the buffer
-    while (offset < buffer_size + group_len) 
+    //while (offset < buffer_size + group_len) 
+    while (offset < buffer_size) 
     {
         zmq_msg_t message;
         zmq_msg_init(&message);
@@ -2048,13 +2054,13 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         size_t chunk_size = zmq_msg_size(&message);
 
         // Ensure the received message has the expected prefix size
-        if (chunk_size <= group_len) 
-        {
-            daoError("Received chunk is too small for group prefix\n");
-            zmq_msg_close(&message);
-            free(buffer);
-            return DAO_ERROR;
-        }
+        //if (chunk_size <= group_len) 
+        //{
+        //    daoError("Received chunk is too small for group prefix\n");
+        //    zmq_msg_close(&message);
+        //    free(buffer);
+        //    return DAO_ERROR;
+        //}
 
         // Skip the group name prefix in the message
         const char *data = (const char *)zmq_msg_data(&message) + group_len;
