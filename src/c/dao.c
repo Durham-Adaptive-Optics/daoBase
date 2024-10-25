@@ -1950,6 +1950,8 @@ int_fast8_t zmqReceiveImageTCP(IMAGE *image, void *socket)
     return DAO_SUCCESS;
 }
 
+#define MAX_UDP_PAYLOAD 1400  // Maximum chunk size to avoid fragmentation
+
 // ZeroMQ send functio UDPn
 int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group) 
 {
@@ -1983,10 +1985,38 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
 //    {
 //        daoError("Failed to send message\n");
 //    }
+//
+//    zmq_msg_close(&message);
+    // Send in chunks
+    size_t offset = 0;
+    size_t remaining = total_size;
+    uint16_t sequence = 0;  // Optional: sequence number for tracking order
 
-    zmq_msg_close(&message);
+    while (remaining > 0) {
+        size_t chunk_size = remaining > MAX_UDP_PAYLOAD ? MAX_UDP_PAYLOAD : remaining;
+
+        zmq_msg_t message;
+        zmq_msg_init_size(&message, chunk_size);
+        
+        // Copy chunk data to message
+        memcpy(zmq_msg_data(&message), buffer + offset, chunk_size);
+
+        // Send the chunk
+        int rc = zmq_msg_send(&message, socket, 0);
+        if (rc == -1) {
+            daoError("Failed to send message: %s\n", zmq_strerror(errno));
+            zmq_msg_close(&message);
+            free(buffer);
+            return DAO_ERROR;
+        }
+
+        zmq_msg_close(&message);
+        offset += chunk_size;
+        remaining -= chunk_size;
+        sequence++;
+    }
+
     free(buffer);
-//    return (rc == -1) ? DAO_ERROR : DAO_SUCCESS;
     return DAO_SUCCESS;
 }
 
