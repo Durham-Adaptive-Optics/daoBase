@@ -1975,6 +1975,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
     zmq_msg_t message;
     zmq_msg_init_size(&message, total_size);
     memcpy(zmq_msg_data(&message), buffer, total_size);
+    printf("Sending image of size %ld\n", total_size);
     
     // Send message over ZMQ_RADIO socket
 //    int rc = zmq_msg_send(&message, socket, 0);
