@@ -1993,7 +1993,7 @@ printf("Group name in buffer after serialization: %.*s\n", (int)group_len, buffe
         
 printf("Group name in buffer+offset '%.*s', chunk size = %d\n", (int)group_len, buffer+offset, chunk_size);
         // Copy chunk data to message
-        memcpy(zmq_msg_data(&message), buffer + offset +1, chunk_size);
+        memcpy(zmq_msg_data(&message), buffer + offset, chunk_size);
 
         // Send the chunk
         int rc = zmq_msg_send(&message, socket, 0);
