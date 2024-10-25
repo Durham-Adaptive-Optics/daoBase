@@ -1952,7 +1952,7 @@ int_fast8_t zmqReceiveImageTCP(IMAGE *image, void *socket)
 
 // ZeroMQ send functio UDPn
 int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
-                            int maxPayload) 
+                            size_t maxPayload) 
 {
     daoTrace("\n");
     size_t group_len = strlen(group);
