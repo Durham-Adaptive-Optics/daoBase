@@ -1956,7 +1956,6 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
 {
     daoTrace("\n");
 
-    printf("group = %s\n", group);
     size_t buffer_size = calculateBufferSize(image);
 
     // Dynamically allocate buffer
@@ -2042,7 +2041,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         // Ensure the chunk fits within the remaining buffer
         if (offset + chunk_size > buffer_size) 
         {
-            daoError("Received data exceeds expected buffer size\n");
+            daoError("Received data (%d) exceeds expected buffer size = %d\n", offset + chunk_size, buffer_size);
             zmq_msg_close(&message);
             free(buffer);
             return DAO_ERROR;
