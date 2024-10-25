@@ -445,6 +445,8 @@ size_t calculateArraySize(uint8_t atype, uint64_t nelement);
 size_t calculateBufferSize(IMAGE *image);
 int_fast8_t serializeImage(IMAGE *image, char *buffer);
 int_fast8_t deserializeImage(char *buffer, IMAGE *image); 
-int_fast8_t zmqSendImage(IMAGE *image, void *socket);
-int_fast8_t zmqReceiveImage(IMAGE *image, void *socket);
+int_fast8_t zmqSendImageTCP(IMAGE *image, void *socket);
+int_fast8_t zmqReceiveImageTCP(IMAGE *image, void *socket);
+int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group);
+int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group);
 #endif

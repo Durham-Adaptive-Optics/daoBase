@@ -1899,7 +1899,7 @@ int_fast8_t deserializeImage(char *buffer, IMAGE *image)
 }
 
 // ZeroMQ send function
-int_fast8_t zmqSendImage(IMAGE *image, void *socket) 
+int_fast8_t zmqSendImageTCP(IMAGE *image, void *socket) 
 {
     size_t buffer_size = calculateBufferSize(image);
 
@@ -1916,24 +1916,91 @@ int_fast8_t zmqSendImage(IMAGE *image, void *socket)
     zmq_msg_t message;
     zmq_msg_init_size(&message, buffer_size);
     memcpy(zmq_msg_data(&message), buffer, buffer_size);
-    zmq_msg_send(&message, socket, 0);
+    
+    // Send message over ZMQ_RADIO socket
+    int rc = zmq_msg_send(&message, socket, 0);
+    if (rc == -1) 
+    {
+        daoError("Failed to send message\n");
+    }
+
     zmq_msg_close(&message);
     free(buffer);
-    return DAO_SUCCESS;
+    return (rc == -1) ? DAO_ERROR : DAO_SUCCESS;
 }
 
 // ZeroMQ receive function
-int_fast8_t zmqReceiveImage(IMAGE *image, void *socket) 
+int_fast8_t zmqReceiveImageTCP(IMAGE *image, void *socket) 
 {
     zmq_msg_t message;
     zmq_msg_init(&message);
+
     if (zmq_msg_recv(&message, socket, 0) == -1)
     {
+        zmq_msg_close(&message);
         return DAO_ERROR;
     }
 
     char *buffer = (char *)zmq_msg_data(&message);
     deserializeImage(buffer, image);
+
+    zmq_msg_close(&message);
+    return DAO_SUCCESS;
+}
+
+// ZeroMQ send functio UDPn
+int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group) 
+{
+    size_t group_len = strlen(group);
+    size_t buffer_size = calculateBufferSize(image);
+    size_t total_size = group_len + buffer_size;
+
+    // Dynamically allocate buffer
+    char *buffer = (char *)malloc(total_size);
+    if (buffer == NULL) 
+    {
+        daoError("Failed to allocate memory for serialization\n");
+        return DAO_ERROR;
+    }
+
+    // Copy group name to buffer
+    memcpy(buffer, group, group_len);
+
+    serializeImage(image, buffer);
+
+    zmq_msg_t message;
+    zmq_msg_init_size(&message, buffer_size);
+    memcpy(zmq_msg_data(&message), buffer, buffer_size);
+    
+    // Send message over ZMQ_RADIO socket
+    int rc = zmq_msg_send(&message, socket, 0);
+    if (rc == -1) 
+    {
+        daoError("Failed to send message\n");
+    }
+
+    zmq_msg_close(&message);
+    free(buffer);
+    return (rc == -1) ? DAO_ERROR : DAO_SUCCESS;
+}
+
+// ZeroMQ receive function UDP
+int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group) 
+{
+    zmq_msg_t message;
+    zmq_msg_init(&message);
+
+    // Receive message on ZMQ_DISH socket
+    if (zmq_msg_recv(&message, socket, 0) == -1) {
+        zmq_msg_close(&message);
+        return DAO_ERROR;
+    }
+
+    char *buffer = (char *)zmq_msg_data(&message);
+    size_t group_len = strlen(group);  // Length of the group name
+
+    // Deserialize image from message (skip the group prefix)
+    deserializeImage(buffer + group_len, image);
 
     zmq_msg_close(&message);
     return DAO_SUCCESS;
