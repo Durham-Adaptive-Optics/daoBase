@@ -1971,8 +1971,10 @@ printf("group = %s\n", group);
 
     // Copy group name to buffer
     memcpy(buffer, group, group_len);
+printf("Group name in buffer: %.*s\n", (int)group_len, buffer);
 
     serializeImage(image, buffer + group_len);
+printf("Group name in buffer after serialization: %.*s\n", (int)group_len, buffer);
 
     // Initialize ZeroMQ message with total size (group name + image data)
     zmq_msg_t message;
