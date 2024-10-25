@@ -50,6 +50,9 @@ def configure(conf):
 					args='--cflags --libs',
 					uselib_store='ZMQ'
 					)
+	# Enable draft API support
+	conf.env.CFLAGS += ['-DZMQ_BUILD_DRAFT_API']
+	conf.env.CXXFLAGS += ['-DZMQ_BUILD_DRAFT_API']
 
 	conf.check_cfg( package='protobuf',
 					args='--cflags --libs',

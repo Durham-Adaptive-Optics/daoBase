@@ -1996,7 +1996,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
         zmq_msg_t message;
         zmq_msg_init_size(&message, chunk_size);
         
-printf("Group name in buffer+offset '%.*s', chunk size = %d\n", (int)chunk_size, buffer+offset, chunk_size);
+printf("buffer+offset '%.*s', chunk size = %d\n", (int)chunk_size, buffer+offset, chunk_size);
         // Copy chunk data to message
         memcpy(zmq_msg_data(&message), buffer + offset, chunk_size);
 
@@ -2025,7 +2025,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
 {
     daoTrace("\n");
 
-    size_t group_len = strlen(group);        // Length of the group name prefix
+    //size_t group_len = strlen(group);        // Length of the group name prefix
     size_t buffer_size = calculateBufferSize(image);  // Determine total size for reassembled data
 
     // Allocate buffer for reassembly of the full image data
@@ -2063,11 +2063,12 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         //}
 
         // Skip the group name prefix in the message
-        const char *data = (const char *)zmq_msg_data(&message) + group_len;
-        size_t data_size = chunk_size - group_len;
+        const char *data = (const char *)zmq_msg_data(&message);
+        //const char *data = (const char *)zmq_msg_data(&message) + group_len;
+        //size_t data_size = chunk_size - group_len;
 
         // Ensure the chunk fits within the remaining buffer
-        if (offset + data_size > buffer_size) 
+        if (offset + chunk_size > buffer_size) 
         {
             daoError("Received data exceeds expected buffer size\n");
             zmq_msg_close(&message);
@@ -2076,10 +2077,11 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         }
 
         // Copy the data portion (after the group prefix) into the buffer
-        memcpy(buffer + offset, data, data_size);
+        //memcpy(buffer + offset, data, data_size);
+        memcpy(buffer + offset, data, chunk_size);
         zmq_msg_close(&message);  // Close message to release resources
         
-        offset += data_size;  // Update the offset to track the total received data
+        offset += chunk_size;  // Update the offset to track the total received data
     }
 
     // Deserialize the full image from the buffer
