@@ -1985,8 +1985,8 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
 
     zmq_msg_close(&message);
     free(buffer);
-    //return (rc == -1) ? DAO_ERROR : DAO_SUCCESS;
-    return DAO_SUCCESS;
+    return (rc == -1) ? DAO_ERROR : DAO_SUCCESS;
+    //return DAO_SUCCESS;
 }
 
 // ZeroMQ receive function UDP
