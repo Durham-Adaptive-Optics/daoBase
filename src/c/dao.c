@@ -2029,7 +2029,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
     }
 
     size_t offset = 0;  // Track the current write position within the buffer
-    while (offset < buffer_size) 
+    while (offset < buffer_size + group_len) 
     {
         zmq_msg_t message;
         zmq_msg_init(&message);
