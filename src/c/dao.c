@@ -29,7 +29,7 @@
 #include <gsl/gsl_blas.h>
 #include <omp.h>
 #include <zmq.h>
-
+#include <errno.h>
 
 #ifdef __MACH__
 #include <mach/mach_time.h>
@@ -2039,8 +2039,9 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         zmq_msg_t message;
         zmq_msg_init(&message);
         // Receive a chunk of data from the ZMQ_DISH socket
-        if (zmq_msg_recv(&message, socket, 0) == -1) {
-            daoError("Receive timed out or failed\n");
+        if (zmq_msg_recv(&message, socket, 0) == -1)
+        {
+            daoError("Receive timed out or failed, error: %s\n", zmq_strerror(errno));
             zmq_msg_close(&message);
             free(buffer);
             return DAO_ERROR;
