@@ -1955,6 +1955,8 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
                             size_t maxPayload) 
 {
     daoTrace("\n");
+
+printf("group = %s\n", group);
     size_t group_len = strlen(group);
     size_t buffer_size = calculateBufferSize(image);
     size_t total_size = group_len + buffer_size;
@@ -1977,18 +1979,9 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
     zmq_msg_init_size(&message, total_size);
     memcpy(zmq_msg_data(&message), buffer, total_size);
     
-    // Send message over ZMQ_RADIO socket
-//    int rc = zmq_msg_send(&message, socket, 0);
-//    if (rc == -1) 
-//    {
-//        daoError("Failed to send message\n");
-//    }
-//
-//    zmq_msg_close(&message);
     // Send in chunks
     size_t offset = 0;
     size_t remaining = total_size;
-    uint16_t sequence = 0;  // Optional: sequence number for tracking order
 
     while (remaining > 0) {
         size_t chunk_size = remaining > maxPayload ? maxPayload : remaining;
@@ -2011,7 +2004,6 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
         zmq_msg_close(&message);
         offset += chunk_size;
         remaining -= chunk_size;
-        sequence++;
     }
 
     free(buffer);
