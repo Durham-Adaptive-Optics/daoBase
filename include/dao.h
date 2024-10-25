@@ -443,8 +443,8 @@ uint64_t    daoShmGetCounter(IMAGE *image);
 // Functions below are for remote communication using zmq
 size_t calculateArraySize(uint8_t atype, uint64_t nelement);
 size_t calculateBufferSize(IMAGE *image);
-void serializeImage(IMAGE *image, char *buffer);
-void deserializeImage(char *buffer, IMAGE *image); 
-void zmqSendImage(IMAGE *image, void *socket);
-void zmqReceiveImage(IMAGE *image, void *socket);
+int_fast8_t serializeImage(IMAGE *image, char *buffer);
+int_fast8_t deserializeImage(char *buffer, IMAGE *image); 
+int_fast8_t zmqSendImage(IMAGE *image, void *socket);
+int_fast8_t zmqReceiveImage(IMAGE *image, void *socket);
 #endif

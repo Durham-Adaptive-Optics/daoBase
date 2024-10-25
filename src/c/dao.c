@@ -1742,7 +1742,7 @@ size_t calculateArraySize(uint8_t atype, uint64_t nelement)
 }
 
 // Serialize the IMAGE structure
-void serializeImage(IMAGE *image, char *buffer) 
+int_fast8_t serializeImage(IMAGE *image, char *buffer) 
 {
     daoTrace("\n");
     IMAGE_SERIALIZED serialized;
@@ -1803,6 +1803,7 @@ void serializeImage(IMAGE *image, char *buffer)
                 break;
         }
     }
+    return DAO_SUCCESS;
 }
 
 size_t calculateBufferSize(IMAGE *image)
@@ -1818,8 +1819,9 @@ size_t calculateBufferSize(IMAGE *image)
     return size;
 }
 
+
 // Deserialize the IMAGE structure
-void deserializeImage(char *buffer, IMAGE *image) 
+int_fast8_t deserializeImage(char *buffer, IMAGE *image) 
 {
     daoTrace("\n");
     IMAGE_SERIALIZED serialized;
@@ -1893,18 +1895,20 @@ void deserializeImage(char *buffer, IMAGE *image)
                 break;
         }
     }
+    return DAO_SUCCESS;
 }
 
 // ZeroMQ send function
-void zmqSendImage(IMAGE *image, void *socket) 
+int_fast8_t zmqSendImage(IMAGE *image, void *socket) 
 {
     size_t buffer_size = calculateBufferSize(image);
 
     // Dynamically allocate buffer
     char *buffer = (char *)malloc(buffer_size);
-    if (buffer == NULL) {
-        perror("Failed to allocate memory for serialization");
-        exit(EXIT_FAILURE);
+    if (buffer == NULL) 
+    {
+        daoError("Failed to allocate memory for serialization\n");
+        return DAO_ERROR;
     }
 
     serializeImage(image, buffer);
@@ -1915,17 +1919,22 @@ void zmqSendImage(IMAGE *image, void *socket)
     zmq_msg_send(&message, socket, 0);
     zmq_msg_close(&message);
     free(buffer);
+    return DAO_SUCCESS;
 }
 
 // ZeroMQ receive function
-void zmqReceiveImage(IMAGE *image, void *socket) 
+int_fast8_t zmqReceiveImage(IMAGE *image, void *socket) 
 {
     zmq_msg_t message;
     zmq_msg_init(&message);
-    zmq_msg_recv(&message, socket, 0);
+    if (zmq_msg_recv(&message, socket, 0) == -1)
+    {
+        return DAO_ERROR;
+    }
 
     char *buffer = (char *)zmq_msg_data(&message);
     deserializeImage(buffer, image);
 
     zmq_msg_close(&message);
+    return DAO_SUCCESS;
 }
