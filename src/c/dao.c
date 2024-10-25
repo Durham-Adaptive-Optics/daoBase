@@ -1995,6 +1995,8 @@ printf("Group name in buffer+offset '%.*s', chunk size = %d\n", (int)group_len, 
         // Copy chunk data to message
         memcpy(zmq_msg_data(&message), buffer + offset, chunk_size);
 
+        // Set the group for the message
+        zmq_msg_set_group(&message, group);  // Group name ≤ 13 characters
         // Send the chunk
         int rc = zmq_msg_send(&message, socket, 0);
         if (rc == -1) {
@@ -2033,6 +2035,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
     {
         zmq_msg_t message;
         zmq_msg_init(&message);
+        zmq_msg_set_group(&message, group);  // Group name ≤ 13 characters
         // Receive a chunk of data from the ZMQ_DISH socket
         if (zmq_msg_recv(&message, socket, 0) == -1)
         {
