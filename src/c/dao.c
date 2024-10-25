@@ -1978,10 +1978,10 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
     
     // Send message over ZMQ_RADIO socket
     int rc = zmq_msg_send(&message, socket, 0);
-    if (rc == -1) 
-    {
-        daoError("Failed to send message\n");
-    }
+    //if (rc == -1) 
+    //{
+    //    daoError("Failed to send message\n");
+    //}
 
     zmq_msg_close(&message);
     free(buffer);
