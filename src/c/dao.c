@@ -1967,7 +1967,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
     }
 
     // Copy group name to buffer
-    //memcpy(buffer, group, group_len);
+    memcpy(buffer, group, group_len);
 
     //serializeImage(image, buffer + group_len);
 
