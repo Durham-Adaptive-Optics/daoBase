@@ -1901,6 +1901,7 @@ int_fast8_t deserializeImage(char *buffer, IMAGE *image)
 // ZeroMQ send function
 int_fast8_t zmqSendImageTCP(IMAGE *image, void *socket) 
 {
+    daoTrace("\n");
     size_t buffer_size = calculateBufferSize(image);
 
     // Dynamically allocate buffer
@@ -1932,6 +1933,7 @@ int_fast8_t zmqSendImageTCP(IMAGE *image, void *socket)
 // ZeroMQ receive function
 int_fast8_t zmqReceiveImageTCP(IMAGE *image, void *socket) 
 {
+    daoTrace("\n");
     zmq_msg_t message;
     zmq_msg_init(&message);
 
@@ -1951,6 +1953,7 @@ int_fast8_t zmqReceiveImageTCP(IMAGE *image, void *socket)
 // ZeroMQ send functio UDPn
 int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group) 
 {
+    daoTrace("\n");
     size_t group_len = strlen(group);
     size_t buffer_size = calculateBufferSize(image);
     size_t total_size = group_len + buffer_size;
@@ -1966,18 +1969,19 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
     // Copy group name to buffer
     memcpy(buffer, group, group_len);
 
-    serializeImage(image, buffer);
+    serializeImage(image, buffer + group_len);
 
-    zmq_msg_t message;
-    zmq_msg_init_size(&message, buffer_size);
-    memcpy(zmq_msg_data(&message), buffer, buffer_size);
+    // Initialize ZeroMQ message with total size (group name + image data)
+    //zmq_msg_t message;
+    //zmq_msg_init_size(&message, total_size);
+    //memcpy(zmq_msg_data(&message), buffer, total_size);
     
     // Send message over ZMQ_RADIO socket
-    int rc = zmq_msg_send(&message, socket, 0);
-    if (rc == -1) 
-    {
-        daoError("Failed to send message\n");
-    }
+    //int rc = zmq_msg_send(&message, socket, 0);
+    //if (rc == -1) 
+    //{
+    //    daoError("Failed to send message\n");
+    //}
 
     zmq_msg_close(&message);
     free(buffer);
@@ -1987,6 +1991,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
 // ZeroMQ receive function UDP
 int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group) 
 {
+    daoTrace("\n");
     zmq_msg_t message;
     zmq_msg_init(&message);
 
