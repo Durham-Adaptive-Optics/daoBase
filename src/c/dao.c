@@ -1927,7 +1927,7 @@ int_fast8_t zmqSendImageTCP(IMAGE *image, void *socket)
 
     zmq_msg_close(&message);
     free(buffer);
-    return DAO_SUCCESS;
+    return (rc == -1) ? DAO_ERROR : DAO_SUCCESS;
 }
 
 // ZeroMQ receive function
@@ -1977,7 +1977,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
     memcpy(zmq_msg_data(&message), buffer, total_size);
     
     // Send message over ZMQ_RADIO socket
-    int rc = zmq_msg_send(&message, socket, 0);
+    //int rc = zmq_msg_send(&message, socket, 0);
     //if (rc == -1) 
     //{
     //    daoError("Failed to send message\n");
@@ -1985,6 +1985,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
 
     zmq_msg_close(&message);
     free(buffer);
+    //return (rc == -1) ? DAO_ERROR : DAO_SUCCESS;
     return DAO_SUCCESS;
 }
 
