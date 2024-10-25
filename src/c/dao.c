@@ -2035,7 +2035,8 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
     }
 
     size_t offset = 0;  // Track the current write position within the buffer
-    while (offset < buffer_size) {
+    while (offset < buffer_size) 
+    {
         zmq_msg_t message;
         zmq_msg_init(&message);
 
@@ -2050,7 +2051,8 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         size_t chunk_size = zmq_msg_size(&message);
 
         // Ensure the received message has the expected prefix size
-        if (chunk_size <= group_len) {
+        if (chunk_size <= group_len) 
+        {
             daoError("Received chunk is too small for group prefix\n");
             zmq_msg_close(&message);
             free(buffer);
@@ -2062,7 +2064,8 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         size_t data_size = chunk_size - group_len;
 
         // Ensure the chunk fits within the remaining buffer
-        if (offset + data_size > buffer_size) {
+        if (offset + data_size > buffer_size) 
+        {
             daoError("Received data exceeds expected buffer size\n");
             zmq_msg_close(&message);
             free(buffer);
