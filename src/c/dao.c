@@ -1969,7 +1969,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group)
     // Copy group name to buffer
     memcpy(buffer, group, group_len);
 
-    //serializeImage(image, buffer + group_len);
+    serializeImage(image, buffer + group_len);
 
     // Initialize ZeroMQ message with total size (group name + image data)
     //zmq_msg_t message;
