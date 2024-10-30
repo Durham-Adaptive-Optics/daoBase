@@ -14,14 +14,25 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <time.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <time.h>
+#else
+#include <unistd.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <semaphore.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <time.h>
+#endif
+
+#ifdef _WIN32
+#define DLL_EXPORT __declspec(dllexport)
+#else
+#define DLL_EXPORT
+#endif
 
 // BOTH old and new log system are available and maintained
 // New Log System
@@ -59,7 +70,12 @@ void daoLogSetLevel(int log_level);
 #define ANSI_COLOR_RESET     "\x1b[0m"
 
 char * daoBaseGetTimeStamp();
+#ifdef _WIN32
+// Need to find an equivalent way to get the filename with MSVC
+#define __FILENAME__ __FILE__
+#else
 #define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
+#endif
 
 int daoLogLevel = 1;
 #define daoError(fmt, ...) fprintf(stderr, ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET ANSI_COLOR_RED "[error]" ANSI_COLOR_RESET " %s:%d: " fmt, daoBaseGetTimeStamp(), __FUNCTION__, __LINE__, ##__VA_ARGS__)
@@ -318,6 +334,7 @@ typedef struct          		/**< structure used to store data arrays              
     char name[80]; 				/**< local name (can be different from name in shared memory) */
     // mem offset = 80
      
+	// TODO: Fix mem offset comments
     /** @brief Image usage flag
      * 
      * 1 if image is used, 0 otherwise. \n
@@ -329,14 +346,26 @@ typedef struct          		/**< structure used to store data arrays              
     uint8_t used;              
     // mem offset = 81
     
+#ifdef _WIN32
+	HANDLE shmfd;						/**< shared memory file handle */
+	// mem offset = 89
+	HANDLE shmfm;						/**< shared memory file mapping view handle */
+	// mem offset = 97
+#else
     int32_t shmfd;		     	        /**< if shared memory, file descriptor */
 	// mem offset = 85
+#endif
 
     uint64_t memsize; 			        /**< total size in memory if shared    */
 	// mem offset = 93
 
-    sem_t *semlog; 				        /**< pointer to semaphore for logging  (8 bytes on 64-bit system) */
+#ifdef _WIN32
+    DWORD *semlog;						/**< pointer to semaphore for logging  (8 bytes on 64-bit system) */
 	// mem offset = 101
+#else
+	sem_t *semlog; 				        /**< pointer to semaphore for logging  (8 bytes on 64-bit system) */
+	// mem offset = 101
+#endif
 
     IMAGE_METADATA *md;			
 	// mem offset = 109
@@ -381,8 +410,13 @@ typedef struct          		/**< structure used to store data arrays              
     } array;                 	/**< pointer to data array */
 	// mem offset 120
 
+#ifdef _WIN32
+    HANDLE *semptr;                    /**< array of pointers to semaphores   (each 8 bytes on 64-bit system) */
+	// mem offset 128
+#else
     sem_t **semptr;	                    /**< array of pointers to semaphores   (each 8 bytes on 64-bit system) */
 	// mem offset 128
+#endif
 
     IMAGE_KEYWORD *kw;
     // mem offset 136    
@@ -390,11 +424,18 @@ typedef struct          		/**< structure used to store data arrays              
     // PID of process that read shared memory stream
     // Initialized at 0. Otherwise, when process is waiting on semaphore, its PID is written in this array
     // The array can be used to look for available semaphores
+#ifdef _WIN32
+	DWORD *semReadPID;
+#else
     pid_t *semReadPID;
-    
+#endif
+
     // PID of the process writing the data
+#ifdef _WIN32
+	DWORD *semWritePID;
+#else
     pid_t *semWritePID;
-    
+#endif
     
     // total size is 152 byte = 1216 bit
 #ifdef DATA_PACKED
@@ -409,21 +450,21 @@ typedef struct          		/**< structure used to store data arrays              
 
 
 // Function declaration
-void daoSetLogLevel(int logLevel);
-unsigned daoBaseIp2Int(const char * ip); 
-
-
-int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image);
-int_fast8_t daoShmShm2Img(const char *name, IMAGE *image);
-int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image); 
-int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t position,
+DLL_EXPORT void daoSetLogLevel(int logLevel);
+DLL_EXPORT unsigned daoBaseIp2Int(const char * ip); 
+						   
+DLL_EXPORT int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image);
+DLL_EXPORT int_fast8_t daoShmShm2Img(const char *name, IMAGE *image);
+DLL_EXPORT int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image); 
+DLL_EXPORT int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t position,
                              uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber); 
-int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image); 
-int_fast8_t daoShmImageCreateSem(IMAGE *image, long NBsem);
-int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
+DLL_EXPORT int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image); 
+DLL_EXPORT int_fast8_t daoShmImageCreateSem(IMAGE *image, long NBsem);
+DLL_EXPORT int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
                            uint8_t atype, int shared, int NBkw);
-int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal); 
-int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
-int_fast8_t daoShmWaitForCounter(IMAGE *image);
-uint64_t    daoShmGetCounter(IMAGE *image);
+DLL_EXPORT int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal); 
+DLL_EXPORT int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
+DLL_EXPORT int_fast8_t daoShmWaitForCounter(IMAGE *image);
+DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE *image);
+
 #endif
