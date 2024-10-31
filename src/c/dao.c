@@ -2017,6 +2017,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
             free(buffer);
             return DAO_ERROR;
         }
+        nanosleep((const struct timespec[]){{0, 1000000L}}, NULL); // Sleep for 1 ms
         sequenceNumber++; // Increment sequence number for each packet in the frame
 
         zmq_msg_close(&message);
