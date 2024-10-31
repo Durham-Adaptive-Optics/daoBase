@@ -1956,11 +1956,9 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
 {
     daoTrace("\n");
 
-     // End time measurement
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    // Calculate the elapsed time in microseconds
-    double elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
-    daoInfo("Total receive time: %.3f microseconds\n", elapsed_time);
+    // Start time measurement
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     size_t buffer_size = calculateBufferSize(image);
 
