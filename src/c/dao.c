@@ -2042,6 +2042,11 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
     int expectedFrameId = -1;  // Initialize to an invalid frame ID to check on the first packet
     int expectedSequenceNumber = 0;
     int isLastPacket = 0;
+     // Extract frameId and isLastPacket from the beginning of the received data
+    int receivedFrameId;
+    int receivedSequenceNumber;
+    size_t chunk_size;
+
 
     while (offset < buffer_size && !isLastPacket) 
     {
@@ -2058,11 +2063,9 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
             return DAO_ERROR;
         }
 
-        size_t chunk_size = zmq_msg_size(&message);
+        chunk_size = zmq_msg_size(&message);
         const char *data = (const char *)zmq_msg_data(&message);
 
-         // Extract frameId and isLastPacket from the beginning of the received data
-        int receivedFrameId;
         memcpy(&receivedFrameId, data, sizeof(receivedFrameId));
         memcpy(&isLastPacket, data + sizeof(receivedFrameId), sizeof(isLastPacket));
         memcpy(&receivedSequenceNumber, data + sizeof(receivedFrameId) + sizeof(isLastPacket), sizeof(receivedSequenceNumber));
