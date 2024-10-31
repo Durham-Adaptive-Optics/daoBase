@@ -2082,7 +2082,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
             return DAO_ERROR;
         }
     clock_gettime(CLOCK_MONOTONIC, &recvEnd);
-    elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
+    elapsed_time = (recvEnd.tv_sec - recvStart.tv_sec) * 1e6 + (recvEnd.tv_nsec - recvStart.tv_nsec) / 1e3;
     
 
         chunk_size = zmq_msg_size(&message);
