@@ -1980,6 +1980,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
     int isLastPacket = 0;
     size_t message_size;
     size_t chunk_size;
+    int sequenceNumber = 0; // Reset at the beginning of each frame
 
     while (remaining > 0) 
     {
@@ -1989,7 +1990,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
         chunk_size = remaining > maxPayload ? maxPayload : remaining;
 
         // Calculate total message size (frameId + flag + chunk data)
-        message_size = sizeof(frameId) + sizeof(isLastPacket) + chunk_size;
+        message_size = sizeof(frameId) + sizeof(isLastPacket) + sizeof(sequenceNumber) + chunk_size;
         
         zmq_msg_t message;
         zmq_msg_init_size(&message, message_size);
@@ -1997,9 +1998,10 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
         // Set frameId and isLastPacket flag in the message
         memcpy(zmq_msg_data(&message), &frameId, sizeof(frameId));
         memcpy((char *)zmq_msg_data(&message) + sizeof(frameId), &isLastPacket, sizeof(isLastPacket));
-        
+        memcpy((char *)zmq_msg_data(&message) + sizeof(frameId) + sizeof(isLastPacket), &sequenceNumber, sizeof(sequenceNumber));
+
         // Copy the chunk data to the message
-        memcpy((char *)zmq_msg_data(&message) + sizeof(frameId) + sizeof(isLastPacket), buffer + offset, chunk_size);
+        memcpy((char *)zmq_msg_data(&message) + sizeof(frameId) + sizeof(isLastPacket) + sizeof(sequenceNumber), buffer + offset, chunk_size);
 
         // Set the group for the message
         zmq_msg_set_group(&message, group);  // Group name ≤ 13 characters
@@ -2038,6 +2040,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
     size_t offset = 0;  // Track the current write position within the buffer
     int nPacket = 0;
     int expectedFrameId = -1;  // Initialize to an invalid frame ID to check on the first packet
+    int expectedSequenceNumber = 0;
     int isLastPacket = 0;
 
     while (offset < buffer_size && !isLastPacket) 
@@ -2062,14 +2065,20 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         int receivedFrameId;
         memcpy(&receivedFrameId, data, sizeof(receivedFrameId));
         memcpy(&isLastPacket, data + sizeof(receivedFrameId), sizeof(isLastPacket));
+        memcpy(&receivedSequenceNumber, data + sizeof(receivedFrameId) + sizeof(isLastPacket), sizeof(receivedSequenceNumber));
 
         // Check if the frame ID matches the expected frame ID
-        if (expectedFrameId == -1) {
+        if (expectedFrameId == -1) 
+        {
             // First packet, set the expected frame ID
             expectedFrameId = receivedFrameId;
-        } else if (receivedFrameId != expectedFrameId) {
+            expectedSequenceNumber = 0;
+        } 
+        else if (receivedFrameId != expectedFrameId) 
+        {
             // Frame ID mismatch, discard the packet and restart
             daoError("Frame ID mismatch: expected %d but received %d\n", expectedFrameId, receivedFrameId);
+            expectedFrameId = -1;
             zmq_msg_close(&message);
             free(buffer);
             return DAO_ERROR;
@@ -2079,7 +2088,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         //daoInfo("Received packet %d of size %ld for frame %d\n", nPacket, chunk_size, receivedFrameId);
 
         // Calculate the start of the actual data after frameId and isLastPacket
-        size_t header_size = sizeof(receivedFrameId) + sizeof(isLastPacket);
+        size_t header_size = sizeof(receivedFrameId) + sizeof(isLastPacket) + sizeof(receivedSequenceNumber);
         size_t data_size = chunk_size - header_size;
 
         // Ensure the chunk fits within the remaining buffer
@@ -2096,6 +2105,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         zmq_msg_close(&message);  // Close message to release resources
         
         offset += data_size;  // Update the offset to track the total received data
+        expectedSequenceNumber++;
     }
 
     // Deserialize the full image from the buffer
