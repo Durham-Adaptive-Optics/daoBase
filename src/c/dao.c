@@ -2021,6 +2021,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
     }
 
     size_t offset = 0;  // Track the current write position within the buffer
+    int nPacket = 0;
     while (offset < buffer_size) 
     {
         zmq_msg_t message;
@@ -2037,6 +2038,8 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
 
         size_t chunk_size = zmq_msg_size(&message);
         const char *data = (const char *)zmq_msg_data(&message);
+        nPacket++;
+        daoInfo("Received packet %d of size %ld\n", nPacket, chunk_size);
 
         // Ensure the chunk fits within the remaining buffer
         if (offset + chunk_size > buffer_size) 
