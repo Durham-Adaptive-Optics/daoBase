@@ -2076,7 +2076,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         }
 
         nPacket++;
-        daoInfo("Received packet %d of size %ld for frame %d\n", nPacket, chunk_size, receivedFrameId);
+        //daoInfo("Received packet %d of size %ld for frame %d\n", nPacket, chunk_size, receivedFrameId);
 
         // Calculate the start of the actual data after frameId and isLastPacket
         size_t header_size = sizeof(receivedFrameId) + sizeof(isLastPacket);
