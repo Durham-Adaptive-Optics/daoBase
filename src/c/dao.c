@@ -2043,6 +2043,8 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
+    struct timespec recvStart, recvEnd;
+
     size_t buffer_size = calculateBufferSize(image);  // Determine total size for reassembled data
 
     // Allocate buffer for reassembly of the full image data
@@ -2061,6 +2063,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     int receivedFrameId;
     int receivedSequenceNumber;
     size_t chunk_size;
+    double elapsed_time;
 
 
     while (offset < buffer_size && !isLastPacket) 
@@ -2068,6 +2071,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
         zmq_msg_t message;
         zmq_msg_init(&message);
 
+    clock_gettime(CLOCK_MONOTONIC, &recvStart);
         //zmq_msg_set_group(&message, group);  // Group name 
         // Receive a chunk of data from the ZMQ_DISH socket
         if (zmq_msg_recv(&message, socket, 0) == -1)
@@ -2077,6 +2081,9 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
             free(buffer);
             return DAO_ERROR;
         }
+    clock_gettime(CLOCK_MONOTONIC, &recvEnd);
+    elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
+    
 
         chunk_size = zmq_msg_size(&message);
         const char *data = (const char *)zmq_msg_data(&message);
@@ -2103,7 +2110,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
         }
 
         nPacket++;
-        daoInfo("Received packet %d of size %ld for frame %d\n", nPacket, chunk_size, receivedFrameId);
+        daoInfo("Received packet %d of size %ld for frame %d in %lf\n", nPacket, chunk_size, receivedFrameId, elapsed_time);
 
         // Calculate the start of the actual data after frameId and isLastPacket
         size_t header_size = sizeof(receivedFrameId) + sizeof(isLastPacket) + sizeof(receivedSequenceNumber);
@@ -2134,7 +2141,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
      // End time measurement
     clock_gettime(CLOCK_MONOTONIC, &end);
     // Calculate the elapsed time in microseconds
-    double elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
+    elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
     daoInfo("Total receive time: %.3f microseconds\n", elapsed_time);
 
     return result == 0 ? DAO_SUCCESS : DAO_ERROR;  // Check deserialization success
