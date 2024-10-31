@@ -2024,7 +2024,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
 }
 
 // ZeroMQ receive function UDP
-int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group) 
+int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket) 
 {
     daoTrace("\n");
 
