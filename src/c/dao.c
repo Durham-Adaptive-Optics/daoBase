@@ -2041,7 +2041,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket, const char *group)
         // Ensure the chunk fits within the remaining buffer
         if (offset + chunk_size > buffer_size) 
         {
-            daoError("Received data (%d) exceeds expected buffer size = %d\n", offset + chunk_size, buffer_size);
+            daoError("Received data (%zu) exceeds expected buffer size = %zu\n", offset + chunk_size, buffer_size);
             zmq_msg_close(&message);
             free(buffer);
             return DAO_ERROR;
