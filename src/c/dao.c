@@ -2148,14 +2148,14 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
 }
 
 
-int zmqSendImagePGM(IMAGE *image, void *socket, size_t maxPayload) 
+int_fast8_t zmqSendImagePGM(IMAGE *image, void *socket, size_t maxPayload) 
 {
     size_t buffer_size = calculateBufferSize(image);
     char *buffer = (char *)malloc(buffer_size);
 
     if (buffer == NULL) {
         fprintf(stderr, "Failed to allocate buffer for serialization\n");
-        return -1;
+        return DAO_ERROR;
     }
 
     serializeImage(image, buffer);
@@ -2180,7 +2180,7 @@ int zmqSendImagePGM(IMAGE *image, void *socket, size_t maxPayload)
             fprintf(stderr, "Send failed: %s\n", zmq_strerror(errno));
             zmq_msg_close(&message);
             free(buffer);
-            return -1;
+            return DAO_ERROR;
         }
 
         zmq_msg_close(&message);
@@ -2190,17 +2190,17 @@ int zmqSendImagePGM(IMAGE *image, void *socket, size_t maxPayload)
     }
 
     free(buffer);
-    return 0;
+    return DAO_SUCCESS;
 }
 
 
-int zmqReceiveImagePGM(IMAGE *image, void *socket) 
+int_fast8_t zmqReceiveImagePGM(IMAGE *image, void *socket) 
 {
     size_t buffer_size = calculateBufferSize(image);
     char *buffer = (char *)malloc(buffer_size);
     if (buffer == NULL) {
         fprintf(stderr, "Failed to allocate buffer\n");
-        return -1;
+        return DAO_ERROR;
     }
 
     size_t offset = 0;
@@ -2217,7 +2217,7 @@ int zmqReceiveImagePGM(IMAGE *image, void *socket)
             fprintf(stderr, "Receive failed: %s\n", zmq_strerror(errno));
             zmq_msg_close(&message);
             free(buffer);
-            return -1;
+            return DAO_ERROR;
         }
 
         size_t chunk_size = zmq_msg_size(&message) - sizeof(int);
@@ -2229,7 +2229,7 @@ int zmqReceiveImagePGM(IMAGE *image, void *socket)
             fprintf(stderr, "Sequence number mismatch\n");
             zmq_msg_close(&message);
             free(buffer);
-            return -1;
+            return DAO_SUCCESS;
         }
 
         memcpy(buffer + offset, data + sizeof(int), chunk_size);
@@ -2240,5 +2240,5 @@ int zmqReceiveImagePGM(IMAGE *image, void *socket)
 
     int result = deserializeImage(buffer, image);
     free(buffer);
-    return result;
+    return result == 0 ? DAO_SUCCESS : DAO_ERROR;  // Check deserialization success
 }
