@@ -2013,6 +2013,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
             free(buffer);
             return DAO_ERROR;
         }
+        sequenceNumber++; // Increment sequence number for each packet in the frame
 
         zmq_msg_close(&message);
         offset += chunk_size;
