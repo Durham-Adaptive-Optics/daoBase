@@ -349,8 +349,6 @@ typedef struct          		/**< structure used to store data arrays              
 #ifdef _WIN32
 	HANDLE shmfd;						/**< shared memory file handle */
 	// mem offset = 89
-	HANDLE shmfm;						/**< shared memory file mapping view handle */
-	// mem offset = 97
 #else
     int32_t shmfd;		     	        /**< if shared memory, file descriptor */
 	// mem offset = 85
@@ -435,6 +433,10 @@ typedef struct          		/**< structure used to store data arrays              
 	DWORD *semWritePID;
 #else
     pid_t *semWritePID;
+#endif
+
+#ifdef _WIN32
+	HANDLE shmfm;						/**< shared memory file mapping view handle */
 #endif
     
     // total size is 152 byte = 1216 bit

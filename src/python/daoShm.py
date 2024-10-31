@@ -218,7 +218,6 @@ if isWindows:
             ('name', ctypes.c_char * 80),
             ('used', ctypes.c_uint8),
             ('shmfd', ctypes.POINTER(ctypes.c_void_p)),
-            ('shmfm', ctypes.POINTER(ctypes.c_void_p)),
             ('memsize', ctypes.c_uint64),
             ('semlog', ctypes.POINTER(ctypes.c_void_p)),
             ('md', ctypes.POINTER(IMAGE_METADATA)),
@@ -227,7 +226,8 @@ if isWindows:
             ('semptr', ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))),
             ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
             ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
-            ('semWritePID', ctypes.POINTER(ctypes.c_int32))
+            ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
+            ('shmfm', ctypes.POINTER(ctypes.c_void_p))
         ]
 else:
     # Define the IMAGE structure
