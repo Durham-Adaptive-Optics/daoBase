@@ -2017,7 +2017,6 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
             free(buffer);
             return DAO_ERROR;
         }
-        nanosleep((const struct timespec[]){{0, 1000000L}}, NULL); // Sleep for 1 ms
         sequenceNumber++; // Increment sequence number for each packet in the frame
 
         zmq_msg_close(&message);
@@ -2104,7 +2103,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
         }
 
         nPacket++;
-        //daoInfo("Received packet %d of size %ld for frame %d\n", nPacket, chunk_size, receivedFrameId);
+        daoInfo("Received packet %d of size %ld for frame %d\n", nPacket, chunk_size, receivedFrameId);
 
         // Calculate the start of the actual data after frameId and isLastPacket
         size_t header_size = sizeof(receivedFrameId) + sizeof(isLastPacket) + sizeof(receivedSequenceNumber);
