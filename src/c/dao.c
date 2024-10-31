@@ -2029,6 +2029,10 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
 {
     daoTrace("\n");
 
+    // Start time measurement
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
     size_t buffer_size = calculateBufferSize(image);  // Determine total size for reassembled data
 
     // Allocate buffer for reassembly of the full image data
@@ -2117,6 +2121,11 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
 
     // Free the reassembly buffer after deserialization
     free(buffer);
+     // End time measurement
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    // Calculate the elapsed time in microseconds
+    double elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
+    daoInfo("Total receive time: %.3f microseconds\n", elapsed_time);
 
     return result == 0 ? DAO_SUCCESS : DAO_ERROR;  // Check deserialization success
 }
