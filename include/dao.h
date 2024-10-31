@@ -449,6 +449,4 @@ int_fast8_t zmqSendImageTCP(IMAGE *image, void *socket);
 int_fast8_t zmqReceiveImageTCP(IMAGE *image, void *socket);
 int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group, size_t maxPaylod);
 int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket);
-int_fast8_t zmqSendImagePGM(IMAGE *image, void *socket, size_t maxPaylod);
-int_fast8_t zmqReceiveImagePGM(IMAGE *image, void *socket);
 #endif

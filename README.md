@@ -39,6 +39,18 @@ The following package should be installed
 pip install posix_ipc zmq protobuf==3.20.0 astropy python-statemachine statemachine redis sphinx screeninfo
 ```
 
+## PMG and ZMQ
+need to have recent version of ZMQ and ensure PGM is install
+```
+git clone https://github.com/zeromq/libzmq.git
+cd libzmq
+mkdir build && cd build
+cmake ..
+make -j4
+sudo make install
+sudo ldconfig
+```
+
 # Environment
 ```
 export DAOROOT=$HOME/DAOROOT
