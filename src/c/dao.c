@@ -2146,3 +2146,99 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
 
     return result == 0 ? DAO_SUCCESS : DAO_ERROR;  // Check deserialization success
 }
+
+
+int zmqSendImagePGM(IMAGE *image, void *socket, size_t maxPayload) 
+{
+    size_t buffer_size = calculateBufferSize(image);
+    char *buffer = (char *)malloc(buffer_size);
+
+    if (buffer == NULL) {
+        fprintf(stderr, "Failed to allocate buffer for serialization\n");
+        return -1;
+    }
+
+    serializeImage(image, buffer);
+
+    size_t offset = 0;
+    size_t remaining = buffer_size;
+    int sequenceNumber = 0;
+
+    while (remaining > 0) 
+    {
+        size_t chunk_size = remaining > maxPayload ? maxPayload : remaining;
+        size_t message_size = sizeof(int) + chunk_size;
+
+        zmq_msg_t message;
+        zmq_msg_init_size(&message, message_size);
+        memcpy(zmq_msg_data(&message), &sequenceNumber, sizeof(int));
+        memcpy((char *)zmq_msg_data(&message) + sizeof(int), buffer + offset, chunk_size);
+
+        int rc = zmq_msg_send(&message, socket, 0);
+        if (rc == -1) 
+        {
+            fprintf(stderr, "Send failed: %s\n", zmq_strerror(errno));
+            zmq_msg_close(&message);
+            free(buffer);
+            return -1;
+        }
+
+        zmq_msg_close(&message);
+        offset += chunk_size;
+        remaining -= chunk_size;
+        sequenceNumber++;
+    }
+
+    free(buffer);
+    return 0;
+}
+
+
+int zmqReceiveImagePGM(IMAGE *image, void *socket) 
+{
+    size_t buffer_size = calculateBufferSize(image);
+    char *buffer = (char *)malloc(buffer_size);
+    if (buffer == NULL) {
+        fprintf(stderr, "Failed to allocate buffer\n");
+        return -1;
+    }
+
+    size_t offset = 0;
+    int expectedSequenceNumber = 0;
+    int receivedSequenceNumber;
+
+    while (offset < buffer_size) 
+    {
+        zmq_msg_t message;
+        zmq_msg_init(&message);
+
+        if (zmq_msg_recv(&message, socket, 0) == -1) 
+        {
+            fprintf(stderr, "Receive failed: %s\n", zmq_strerror(errno));
+            zmq_msg_close(&message);
+            free(buffer);
+            return -1;
+        }
+
+        size_t chunk_size = zmq_msg_size(&message) - sizeof(int);
+        const char *data = (const char *)zmq_msg_data(&message);
+
+        memcpy(&receivedSequenceNumber, data, sizeof(int));
+        if (receivedSequenceNumber != expectedSequenceNumber) 
+        {
+            fprintf(stderr, "Sequence number mismatch\n");
+            zmq_msg_close(&message);
+            free(buffer);
+            return -1;
+        }
+
+        memcpy(buffer + offset, data + sizeof(int), chunk_size);
+        offset += chunk_size;
+        expectedSequenceNumber++;
+        zmq_msg_close(&message);
+    }
+
+    int result = deserializeImage(buffer, image);
+    free(buffer);
+    return result;
+}
