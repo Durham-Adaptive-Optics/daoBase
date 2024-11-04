@@ -1957,9 +1957,9 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
     daoTrace("\n");
 
     // Start time measurement
-    struct timespec start, end;
+    struct timespec startTime, endTime;
     struct timespec sendStart, sendEnd;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    clock_gettime(CLOCK_MONOTONIC, &startTime);
 
     size_t buffer_size = calculateBufferSize(image);
 
@@ -2034,9 +2034,9 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
     free(buffer);
 
          // End time measurement
-    clock_gettime(CLOCK_MONOTONIC, &end);
+    clock_gettime(CLOCK_MONOTONIC, &endTime);
     // Calculate the elapsed time in microseconds
-    elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
+    elapsed_time = (endTime.tv_sec - startTime.tv_sec) * 1e6 + (endTime.tv_nsec - startTime.tv_nsec) / 1e3;
     daoInfo("Total send = %ld in time: %.3f microseconds\n", total_size ,elapsed_time);
     return DAO_SUCCESS;
 }
