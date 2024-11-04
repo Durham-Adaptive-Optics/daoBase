@@ -2074,7 +2074,10 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
         // Receive a chunk of data from the ZMQ_DISH socket
         if (zmq_msg_recv(&message, socket, 0) == -1)
         {
-            //daoError("Receive timed out or failed, error: %s\n", zmq_strerror(errno));
+            // Timeout or error; reset sync if timeout occurs
+            daoError("Receive timed out or failed, attempting to resynchronize\n");
+            expectedFrameId = -1;
+            expectedSequenceNumber = 0;
             zmq_msg_close(&message);
             free(buffer);
             return DAO_ERROR;
@@ -2088,23 +2091,24 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
         memcpy(&isLastPacket, data + sizeof(receivedFrameId), sizeof(isLastPacket));
         memcpy(&receivedSequenceNumber, data + sizeof(receivedFrameId) + sizeof(isLastPacket), sizeof(receivedSequenceNumber));
 
-        // Check if the frame ID matches the expected frame ID
-        if (expectedFrameId == -1) 
-        {
-            // First packet, set the expected frame ID
+        // Check if we're starting a new frame
+        if (receivedSequenceNumber == 0) {
             expectedFrameId = receivedFrameId;
             expectedSequenceNumber = 0;
-        } 
-        else if (receivedFrameId != expectedFrameId) 
-        {
-            // Frame ID mismatch, discard the packet and restart
-            daoError("Frame ID mismatch: expected %d but received %d\n", expectedFrameId, receivedFrameId);
+            offset = 0;  // Reset buffer offset for new frame
+        }
+
+        // Verify frame ID and sequence number
+        if (receivedFrameId != expectedFrameId || receivedSequenceNumber != expectedSequenceNumber) {
+            daoError("Frame or sequence mismatch: expected frame %d seq %d but received frame %d seq %d. Resynchronizing...\n",
+                     expectedFrameId, expectedSequenceNumber, receivedFrameId, receivedSequenceNumber);
+            // Reset expected frame and sequence, wait for next frame start
             expectedFrameId = -1;
+            expectedSequenceNumber = 0;
             zmq_msg_close(&message);
             free(buffer);
             return DAO_ERROR;
         }
-
 
         // Calculate the start of the actual data after frameId and isLastPacket
         size_t header_size = sizeof(receivedFrameId) + sizeof(isLastPacket) + sizeof(receivedSequenceNumber);
