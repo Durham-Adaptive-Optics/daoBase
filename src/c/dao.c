@@ -2023,8 +2023,8 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
         }
     clock_gettime(CLOCK_MONOTONIC, &sendEnd);
     elapsed_time = (sendEnd.tv_sec - sendStart.tv_sec) * 1e6 + (sendEnd.tv_nsec - sendStart.tv_nsec) / 1e3;
-        sequenceNumber++; // Increment sequence number for each packet in the frame
         daoInfo("Sent packet %d of size %ld for frame %d in %lf usec\n", sequenceNumber, message_size, frameId, elapsed_time);
+        sequenceNumber++; // Increment sequence number for each packet in the frame
 
         zmq_msg_close(&message);
         offset += chunk_size;
