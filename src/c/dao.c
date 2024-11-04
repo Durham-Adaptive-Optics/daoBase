@@ -2061,7 +2061,6 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     }
 
     size_t offset = 0;  // Track the current write position within the buffer
-    int nPacket = 0;
     int expectedFrameId = -1;  // Initialize to an invalid frame ID to check on the first packet
     int expectedSequenceNumber = 0;
     int isLastPacket = 0;
@@ -2117,8 +2116,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
             return DAO_ERROR;
         }
 
-        nPacket++;
-        daoInfo("Received packet %d of size %ld for frame %d in %lf usec\n", nPacket, chunk_size, receivedFrameId, elapsed_time);
+        daoInfo("Received packet %d of size %ld for frame %d in %lf usec\n", receivedSequenceNumber, chunk_size, receivedFrameId, elapsed_time);
 
         // Calculate the start of the actual data after frameId and isLastPacket
         size_t header_size = sizeof(receivedFrameId) + sizeof(isLastPacket) + sizeof(receivedSequenceNumber);
