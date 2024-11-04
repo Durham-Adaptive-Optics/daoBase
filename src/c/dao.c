@@ -2024,7 +2024,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
     clock_gettime(CLOCK_MONOTONIC, &sendEnd);
     elapsed_time = (sendEnd.tv_sec - sendStart.tv_sec) * 1e6 + (sendEnd.tv_nsec - sendStart.tv_nsec) / 1e3;
         sequenceNumber++; // Increment sequence number for each packet in the frame
-        daoInfo("Sent packet %d of size %ld for frame %d in %lf usec\n", sequenceNumber, message_size, frameId, elapsed_time);
+//        daoInfo("Sent packet %d of size %ld for frame %d in %lf usec\n", sequenceNumber, message_size, frameId, elapsed_time);
 
         zmq_msg_close(&message);
         offset += chunk_size;
@@ -2037,7 +2037,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
     clock_gettime(CLOCK_MONOTONIC, &end);
     // Calculate the elapsed time in microseconds
     elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
-    daoInfo("Total send = %ld in time: %.3f microseconds\n", total_size ,elapsed_time);
+//    daoInfo("Total send = %ld in time: %.3f microseconds\n", total_size ,elapsed_time);
     return DAO_SUCCESS;
 }
 
@@ -2116,7 +2116,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
             return DAO_ERROR;
         }
 
-        daoInfo("Received packet %d of size %ld for frame %d in %lf usec\n", receivedSequenceNumber, chunk_size, receivedFrameId, elapsed_time);
+//        daoInfo("Received packet %d of size %ld for frame %d in %lf usec\n", receivedSequenceNumber, chunk_size, receivedFrameId, elapsed_time);
 
         // Calculate the start of the actual data after frameId and isLastPacket
         size_t header_size = sizeof(receivedFrameId) + sizeof(isLastPacket) + sizeof(receivedSequenceNumber);
@@ -2148,7 +2148,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     clock_gettime(CLOCK_MONOTONIC, &end);
     // Calculate the elapsed time in microseconds
     elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
-    daoInfo("Total receive = %ld in time: %.3f microseconds\n", total_size, elapsed_time);
+//    daoInfo("Total receive = %ld in time: %.3f microseconds\n", total_size, elapsed_time);
 
     return result == 0 ? DAO_SUCCESS : DAO_ERROR;  // Check deserialization success
 }
