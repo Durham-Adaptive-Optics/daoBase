@@ -2029,12 +2029,12 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
         remaining -= chunk_size;
         clock_gettime(CLOCK_MONOTONIC, &sendEnd);
         elapsed_time = (sendEnd.tv_sec - sendStart.tv_sec) * 1e6 + (sendEnd.tv_nsec - sendStart.tv_nsec) / 1e3;
-        daoInfo("Sent packet %d of size %ld for frame %d in %lf usec\n", sequenceNumber, message_size, frameId, elapsed_time);
+//        daoInfo("Sent packet %d of size %ld for frame %d in %lf usec\n", sequenceNumber, message_size, frameId, elapsed_time);
     }
 
     free(buffer);
 
-    daoInfo("Total send = %ld in time: %.3f microseconds\n", total_size, total_time);
+//    daoInfo("Total send = %ld in time: %.3f microseconds\n", total_size, total_time);
     return DAO_SUCCESS;
 }
 
@@ -2133,7 +2133,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
         {
             total_time += elapsed_time;
         }
-        daoInfo("Received packet %d of size %ld for frame %d in %lf usec\n", receivedSequenceNumber, chunk_size, receivedFrameId, elapsed_time);
+//        daoInfo("Received packet %d of size %ld for frame %d in %lf usec\n", receivedSequenceNumber, chunk_size, receivedFrameId, elapsed_time);
     }
 
     // Deserialize the full image from the buffer
@@ -2142,7 +2142,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     // Free the reassembly buffer after deserialization
     free(buffer);
 
-    daoInfo("Total receive = %ld in time: %.3f microseconds\n", total_size, total_time);
+//    daoInfo("Total receive = %ld in time: %.3f microseconds\n", total_size, total_time);
 
     return result == 0 ? DAO_SUCCESS : DAO_ERROR;  // Check deserialization success
 }
