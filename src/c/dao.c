@@ -20,6 +20,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <aclapi.h>
 #include <time.h>
 
 #define CLOCK_REALTIME 0
@@ -286,6 +287,154 @@ int NBIMAGES = 10;
 //}
 
 /**
+ * Create a security descriptor equivalent to the provided UNIX mode.
+ */
+
+SECURITY_ATTRIBUTES* daoCreateWindowsSecurityAttrs(int mode)
+{
+	PACL newDacl = NULL;
+	PSID currentUser = NULL;
+	SECURITY_ATTRIBUTES *sa = NULL;
+	SID everyoneSid;
+	PSECURITY_DESCRIPTOR sd = NULL;
+	PTOKEN_USER user = NULL;
+	DWORD sidSize = SECURITY_MAX_SID_SIZE;
+	DWORD result;
+	EXPLICIT_ACCESS_ ea[2];
+	DWORD size = 0;
+	HANDLE token = NULL;
+	TOKEN_INFORMATION_CLASS tokenClass = TokenUser;
+	
+	int success = 0;
+	
+	do {
+		// First, get the SID for "Everyone"
+		if (CreateWellKnownSid(WinWorldSid, NULL, &everyoneSid, &sidSize) == FALSE) {
+			daoDebug("Could not create SID for 'Everyone'.\n");
+			break;
+		}
+		
+		// Now get the token for the current user
+		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_READ | TOKEN_QUERY, &token)) {
+			daoDebug("Could not get handle to access token.\n");
+			break;
+		} else
+			daoDebug("Got handle to access token.\n");
+		
+		if (!GetTokenInformation(token, tokenClass, NULL, 0, &size)) {
+			if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+				daoDebug("Error in GetTokenInformation1. %d\n", GetLastError());
+				break;
+			}
+		} else
+			daoDebug("Buffer for token group is OK.\n");
+		
+		user = (PTOKEN_USER)malloc((size_t)size);
+		if (!user) {
+			daoDebug("Malloc error for user token\n");
+			break;
+		}
+		
+		if (!GetTokenInformation(token, tokenClass, user, size, &size)) {
+			daoDebug("Error in GetTokenInformation.\n");
+			break;
+		} else
+			daoDebug("Got token information for TokenUser.\n");
+
+		DWORD sidLen = GetLengthSid(user->User.Sid);
+		currentUser = malloc((size_t)sidLen);
+		CopySid(sidLen, currentUser, user->User.Sid);
+		
+		// Now set up "explicit access" details
+		memset(&ea, 0, 2 * sizeof(EXPLICIT_ACCESSA));
+		ZeroMemory(&ea, 2 * sizeof(EXPLICIT_ACCESSA));
+		
+		// TODO - mode set up here
+		ea[0].grfAccessPermissions = ACCESS_SYSTEM_SECURITY | READ_CONTROL | WRITE_DAC | GENERIC_ALL | SYNCHRONIZE;
+		ea[0].grfAccessMode = GRANT_ACCESS;
+		ea[0].grfInheritance = NO_INHERITANCE;
+		ea[0].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+		ea[0].Trustee.ptstrName = (LPTSTR)(currentUser);
+
+		ea[1].grfAccessPermissions = ACCESS_SYSTEM_SECURITY | READ_CONTROL;
+		ea[1].grfAccessMode = GRANT_ACCESS;
+		ea[1].grfInheritance = NO_INHERITANCE;
+		ea[1].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+		ea[1].Trustee.ptstrName = (LPTSTR)(&everyoneSid);
+		
+		int numAclEntries = 1;
+		
+		if (mode == 0644) {
+			numAclEntries = 2;
+		} else if (mode == 0600) {
+			numAclEntries = 1;
+		} else {
+			daoDebug("Unsupported mode: %o", mode);
+			break;
+		}
+		
+		result = SetEntriesInAcl(numAclEntries, ea, NULL, &newDacl);
+		if (ERROR_SUCCESS != result) {
+			daoDebug("Error in SetEntriesInAcl: %u", result);
+			break;
+		}
+		
+		sd = (PSECURITY_DESCRIPTOR*)malloc(SECURITY_DESCRIPTOR_MIN_LENGTH);
+		if (sd == NULL) {
+			daoDebug("Malloc error for security descriptor\n");
+			break;
+		}
+		
+		if (!InitializeSecurityDescriptor(sd, SECURITY_DESCRIPTOR_REVISION)) {
+			daoDebug("Could not initialize security descriptor\n");
+			break;
+		}
+		
+		if (!SetSecurityDescriptorDacl(sd, TRUE, newDacl, FALSE)) {
+			daoDebug("Error in SetSecurityDescriptorDacl\n");
+			break;
+		}
+		
+		sa = (SECURITY_ATTRIBUTES*)malloc(sizeof(SECURITY_ATTRIBUTES));
+		if (sa == NULL) {
+			daoDebug("Malloc error for security attributes.\n");
+			break;
+		}
+		
+		sa->nLength = sizeof(SECURITY_ATTRIBUTES);
+		sa->lpSecurityDescriptor = sd;
+		sa->bInheritHandle = FALSE;
+		success = 1;
+	} while (0);
+
+	if (!token)
+		CloseHandle(token);
+	
+	if (!user)
+		free(user);
+
+	if (!sa) {
+		if (!newDacl)
+			free(newDacl);
+		if (!sd)
+			free(sd);
+	}
+
+	return sa;
+}
+
+/**
+ * Free the allocated security descriptor
+ */
+
+void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa)
+{
+	//free(sa->lpSecurityDescriptor->Dacl);
+	free(sa->lpSecurityDescriptor);
+	free(sa);
+}
+
+/**
  * Init 1D array in shared memory
  */
 int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
@@ -353,7 +502,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
     sprintf(shmName, "%s", name);
     //sprintf(shmName, "%s/%s%s.im.shm", SHAREDMEMDIR, prefix, name);
 
-	#ifdef _WIN32
+	#ifdef _WIN32	
 	MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, 256);
 	shmFd = CreateFileW(wideShmName, GENERIC_READ | GENERIC_WRITE,
 						FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -581,6 +730,10 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         
 		#ifdef _WIN32
 		// create semaphores one-by-one, and stop when we get one that does NOT exist
+		SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644);
+		if (!saShm)
+			daoDebug("Could not create security descriptor - using default\n");
+		
 		snb = 0;
 		sOK = 1;
 		while(sOK==1)
@@ -588,7 +741,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
             sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, snb);
 			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
             daoDebug("semaphore %s\n", shmSemName);
-			stest = CreateSemaphoreW(NULL, 0, 1, wideShmSemName);
+			stest = CreateSemaphoreW(saShm, 0, 1, wideShmSemName);
             if(stest == NULL)
             {
 				daoDebug("no handle returned %d\n", snb);
@@ -614,7 +767,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         {
             sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, s);
 			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
-            if ((image->semptr[s] = CreateSemaphoreW(NULL, 0, 1, wideShmSemName)) == NULL) 
+            if ((image->semptr[s] = CreateSemaphoreW(saShm, 0, 1, wideShmSemName)) == NULL) 
             {
                 daoError("could not open semaphore %s\n", shmSemName);
             }
@@ -624,7 +777,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 		
         sprintf(shmSemName, "Local\\DAO_%s_semlog", localName);
 		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
-        if ((image->semlog = CreateSemaphoreW(NULL, 0, 1, wideShmSemName)) == NULL) 
+        if ((image->semlog = CreateSemaphoreW(saShm, 0, 1, wideShmSemName)) == NULL) 
         {
             daoWarning("could not open semaphore %s\n", shmSemName);
         }
@@ -666,6 +819,9 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         }
 		#endif
         free(nameCopy);
+		
+		if (saShm)
+			daoDestroyWindowsSecurityAttrs(saShm);
     }
     return(rval);
 }
@@ -890,10 +1046,16 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
         free(nameCopy);
         return DAO_ERROR;
     }
-	
 
     // Remove pre-existing semaphores if any
 	#ifdef _WIN32
+	SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644);
+	if (!saShm) {
+		daoError("Could not create semaphore security attributes\n");
+		free(nameCopy);
+		return DAO_ERROR;
+	}
+	
     if(image->md[0].sem != NBsem)
     {
         // Close existing semaphores ...
@@ -955,7 +1117,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 			// TODO - security attribute
 			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
 			
-			if (!(image->semptr[s] = CreateSemaphoreW(NULL, 0, 1, wideShmSemName))) {
+			if (!(image->semptr[s] = CreateSemaphoreW(saShm, 0, 1, wideShmSemName))) {
 				DWORD last_error = GetLastError();
 				fprintf(stderr, "semaphore initialization error: %d\n", GetLastError());
 			}
@@ -975,6 +1137,10 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 			#endif
         }
     }
+	
+	#ifdef _WIN32
+	daoDestroyWindowsSecurityAttrs(saShm);
+	#endif
 
     free(nameCopy);
     return(0);
@@ -1066,12 +1232,18 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 		// TODO - security attribute
 		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
 		
-		if (!(image->semlog = CreateSemaphoreW(NULL, 0, 1, wideShmSemName))) {
+		SECURITY_ATTRIBUTES *saSem = daoCreateWindowsSecurityAttrs(0600);
+		if (!saSem) {
+			daoError("Error creating security attributes for semaphore\n");
+		}
+		
+		if (!(image->semlog = CreateSemaphoreW(saSem, 0, 1, wideShmSemName))) {
 			// error, semaphore initialization - TODO
 			DWORD last_error = GetLastError();
 			fprintf(stderr, "semaphore initialization error: %d\n", GetLastError());
 		}
 		ReleaseSemaphore(image->semlog, 1, NULL);
+		daoDestroyWindowsSecurityAttrs(saSem);
 		
 		#else
         daoInfo("Creation %s_semlog\n", semFName);
@@ -1148,9 +1320,15 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 		// create file mapping
 		// map view of file
 		
+		SECURITY_ATTRIBUTES *saFile = daoCreateWindowsSecurityAttrs(0600);
+		if (!saFile) {
+			daoError("Error creating security attributes for file\n");
+			exit(0);
+		}
+		
 		shmFd = CreateFileW(wideShmName, GENERIC_READ | GENERIC_WRITE,
 							FILE_SHARE_READ | FILE_SHARE_WRITE,
-							NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+							saFile, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
 
 		if (shmFd == INVALID_HANDLE_VALUE)
 		{
@@ -1224,6 +1402,10 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         image->md[0].shared = 1;
         image->md[0].sem = 0;
         free(nameCopy);
+		
+		#ifdef _WIN32
+		daoDestroyWindowsSecurityAttrs(saFile);
+		#endif
     }
     else
     {
