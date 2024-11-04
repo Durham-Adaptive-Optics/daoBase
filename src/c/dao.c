@@ -2075,7 +2075,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
         if (zmq_msg_recv(&message, socket, 0) == -1)
         {
             // Timeout or error; reset sync if timeout occurs
-            daoError("Receive timed out or failed, attempting to resynchronize\n");
+            //daoError("Receive timed out or failed, attempting to resynchronize\n");
             expectedFrameId = -1;
             expectedSequenceNumber = 0;
             zmq_msg_close(&message);
