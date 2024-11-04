@@ -46,16 +46,18 @@ def configure(conf):
 
 
 	# set required libs 
-	conf.check_cfg( package='libzmq',
-					args='--cflags --libs',
-					uselib_store='ZMQ'
-					)
+	if platform.system() != "Windows":
+		conf.check_cfg( package='libzmq',
+						args='--cflags --libs',
+						uselib_store='ZMQ'
+						)
 
 	conf.check_cfg( package='protobuf',
 					args='--cflags --libs',
 					uselib_store='PROTOBUF'
 					)
- 
+
+
 	# add some custom locations
 	conf.env.PYTHONDIR		= f'{conf.env.PREFIX}/python'
 	conf.env.DATADIR		= f'{conf.env.PREFIX}/data'
