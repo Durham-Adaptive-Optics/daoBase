@@ -2064,6 +2064,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     int receivedSequenceNumber;
     size_t chunk_size;
     double elapsed_time;
+    size_t total_size = 0;
 
 
     while (offset < buffer_size && !isLastPacket) 
@@ -2086,6 +2087,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     
 
         chunk_size = zmq_msg_size(&message);
+        total_size += chunk_size;
         const char *data = (const char *)zmq_msg_data(&message);
 
         memcpy(&receivedFrameId, data, sizeof(receivedFrameId));
@@ -2142,7 +2144,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     clock_gettime(CLOCK_MONOTONIC, &end);
     // Calculate the elapsed time in microseconds
     elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
-    daoInfo("Total receive time: %.3f microseconds\n", elapsed_time);
+    daoInfo("Total receive = %ld in time: %.3f microseconds\n", total_size, elapsed_time);
 
     return result == 0 ? DAO_SUCCESS : DAO_ERROR;  // Check deserialization success
 }
