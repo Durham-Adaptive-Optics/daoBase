@@ -2075,10 +2075,10 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     clock_gettime(CLOCK_MONOTONIC, &startTime);
     while (offset < buffer_size && !isLastPacket) 
     {
+    clock_gettime(CLOCK_MONOTONIC, &recvStart);
         zmq_msg_t message;
         zmq_msg_init(&message);
 
-    clock_gettime(CLOCK_MONOTONIC, &recvStart);
         //zmq_msg_set_group(&message, group);  // Group name 
         // Receive a chunk of data from the ZMQ_DISH socket
         if (zmq_msg_recv(&message, socket, 0) == -1)
@@ -2088,8 +2088,6 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
             free(buffer);
             return DAO_ERROR;
         }
-    clock_gettime(CLOCK_MONOTONIC, &recvEnd);
-    elapsed_time = (recvEnd.tv_sec - recvStart.tv_sec) * 1e6 + (recvEnd.tv_nsec - recvStart.tv_nsec) / 1e3;
     
 
         chunk_size = zmq_msg_size(&message);
@@ -2138,6 +2136,8 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
         
         offset += data_size;  // Update the offset to track the total received data
         expectedSequenceNumber++;
+    clock_gettime(CLOCK_MONOTONIC, &recvEnd);
+    elapsed_time = (recvEnd.tv_sec - recvStart.tv_sec) * 1e6 + (recvEnd.tv_nsec - recvStart.tv_nsec) / 1e3;
     }
     // End time measurement
     clock_gettime(CLOCK_MONOTONIC, &endTime);
