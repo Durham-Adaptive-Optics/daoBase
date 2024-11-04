@@ -1966,7 +1966,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
     size_t total_size = 0;
     int sequenceNumber = 0; // Reset at the beginning of each frame
     double elapsed_time;
-    double total_time;
+    double total_time = 0;
     // Start time measurement
     struct timespec sendStart, sendEnd;
 
