@@ -2049,7 +2049,6 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     // Start time measurement
     struct timespec start, end;
     struct timespec recvStart, recvEnd;
-    clock_gettime(CLOCK_MONOTONIC, &start);
 
     size_t buffer_size = calculateBufferSize(image);  // Determine total size for reassembled data
 
@@ -2072,6 +2071,7 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     size_t total_size = 0;
 
 
+    clock_gettime(CLOCK_MONOTONIC, &start);
     while (offset < buffer_size && !isLastPacket) 
     {
         zmq_msg_t message;
