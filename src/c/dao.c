@@ -2049,8 +2049,6 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     struct timespec startTime, endTime;
     struct timespec recvStart, recvEnd;
 
-    // Start time measurement
-    clock_gettime(CLOCK_MONOTONIC, &startTime);
 
     size_t buffer_size = calculateBufferSize(image);  // Determine total size for reassembled data
 
@@ -2073,6 +2071,8 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     size_t total_size = 0;
 
 
+    // Start time measurement
+    clock_gettime(CLOCK_MONOTONIC, &startTime);
     while (offset < buffer_size && !isLastPacket) 
     {
         zmq_msg_t message;
@@ -2139,6 +2139,8 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
         offset += data_size;  // Update the offset to track the total received data
         expectedSequenceNumber++;
     }
+    // End time measurement
+    clock_gettime(CLOCK_MONOTONIC, &endTime);
 
     // Deserialize the full image from the buffer
     int result = deserializeImage(buffer, image);
@@ -2146,8 +2148,6 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
     // Free the reassembly buffer after deserialization
     free(buffer);
 
-    // End time measurement
-    clock_gettime(CLOCK_MONOTONIC, &endTime);
 
     // Calculate the elapsed time in microseconds
     elapsed_time = (endTime.tv_sec - startTime.tv_sec) * 1e6 + (endTime.tv_nsec - startTime.tv_nsec) / 1e3;
