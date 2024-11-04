@@ -2128,7 +2128,6 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
 
         clock_gettime(CLOCK_MONOTONIC, &recvEnd);
         elapsed_time = (recvEnd.tv_sec - recvStart.tv_sec) * 1e6 + (recvEnd.tv_nsec - recvStart.tv_nsec) / 1e3;
-        total_time += elapsed_time;
         // skip the first time measurment since it wil have the whole wait for the first packet
         if (receivedSequenceNumber > 1)
         {
