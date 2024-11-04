@@ -1958,6 +1958,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
 
     // Start time measurement
     struct timespec start, end;
+    struct timespec sendStart, sendEnd;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
     size_t buffer_size = calculateBufferSize(image);
@@ -1986,7 +1987,8 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
     size_t chunk_size;
     size_t total_size = 0;
     int sequenceNumber = 0; // Reset at the beginning of each frame
-
+    int packetCount = 0;
+    
     while (remaining > 0) 
     {
         // Determine if this is the last packet before sending
@@ -2009,6 +2011,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
         // Copy the chunk data to the message
         memcpy((char *)zmq_msg_data(&message) + sizeof(frameId) + sizeof(isLastPacket) + sizeof(sequenceNumber), buffer + offset, chunk_size);
 
+    clock_gettime(CLOCK_MONOTONIC, &sendStart);
         // Set the group for the message
         zmq_msg_set_group(&message, group);  // Group name ≤ 13 characters
         // Send the chunk
@@ -2019,7 +2022,10 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
             free(buffer);
             return DAO_ERROR;
         }
+    clock_gettime(CLOCK_MONOTONIC, &sendEnd);
+    elapsed_time = (sendEnd.tv_sec - sendStart.tv_sec) * 1e6 + (recvEnd.tv_nsec - recvStart.tv_nsec) / 1e3;
         sequenceNumber++; // Increment sequence number for each packet in the frame
+        daoInfo("Sent packet %d of size %ld for frame %d in %lf usec\n", sequenceNumber, nessage_size, frameId, elapsed_time);
 
         zmq_msg_close(&message);
         offset += chunk_size;
