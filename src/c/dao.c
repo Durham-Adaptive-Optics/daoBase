@@ -2029,11 +2029,6 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
         remaining -= chunk_size;
         clock_gettime(CLOCK_MONOTONIC, &sendEnd);
         elapsed_time = (sendEnd.tv_sec - sendStart.tv_sec) * 1e6 + (sendEnd.tv_nsec - sendStart.tv_nsec) / 1e3;
-        // skip the first time measurment since it wil have the whole wait for the first packet
-        if (sequenceNumber > 1)
-        {
-            total_time += elapsed_time;
-        }
         daoInfo("Sent packet %d of size %ld for frame %d in %lf usec\n", sequenceNumber, message_size, frameId, elapsed_time);
     }
 
@@ -2134,6 +2129,11 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
         clock_gettime(CLOCK_MONOTONIC, &recvEnd);
         elapsed_time = (recvEnd.tv_sec - recvStart.tv_sec) * 1e6 + (recvEnd.tv_nsec - recvStart.tv_nsec) / 1e3;
         total_time += elapsed_time;
+        // skip the first time measurment since it wil have the whole wait for the first packet
+        if (sequenceNumber > 1)
+        {
+            total_time += elapsed_time;
+        }
         daoInfo("Received packet %d of size %ld for frame %d in %lf usec\n", receivedSequenceNumber, chunk_size, receivedFrameId, elapsed_time);
     }
 
