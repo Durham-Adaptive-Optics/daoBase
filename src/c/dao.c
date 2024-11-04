@@ -1987,8 +1987,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
     size_t chunk_size;
     size_t total_size = 0;
     int sequenceNumber = 0; // Reset at the beginning of each frame
-    int packetCount = 0;
-    
+    double elapsed_time;
     while (remaining > 0) 
     {
         // Determine if this is the last packet before sending
@@ -2023,9 +2022,9 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
             return DAO_ERROR;
         }
     clock_gettime(CLOCK_MONOTONIC, &sendEnd);
-    elapsed_time = (sendEnd.tv_sec - sendStart.tv_sec) * 1e6 + (recvEnd.tv_nsec - recvStart.tv_nsec) / 1e3;
+    elapsed_time = (sendEnd.tv_sec - sendStart.tv_sec) * 1e6 + (sendEnd.tv_nsec - sendStart.tv_nsec) / 1e3;
         sequenceNumber++; // Increment sequence number for each packet in the frame
-        daoInfo("Sent packet %d of size %ld for frame %d in %lf usec\n", sequenceNumber, nessage_size, frameId, elapsed_time);
+        daoInfo("Sent packet %d of size %ld for frame %d in %lf usec\n", sequenceNumber, message_size, frameId, elapsed_time);
 
         zmq_msg_close(&message);
         offset += chunk_size;
@@ -2037,7 +2036,7 @@ int_fast8_t zmqSendImageUDP(IMAGE *image, void *socket, const char *group,
          // End time measurement
     clock_gettime(CLOCK_MONOTONIC, &end);
     // Calculate the elapsed time in microseconds
-    double elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
+    elapsed_time = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
     daoInfo("Total send = %ld in time: %.3f microseconds\n", total_size ,elapsed_time);
     return DAO_SUCCESS;
 }
@@ -2049,9 +2048,8 @@ int_fast8_t zmqReceiveImageUDP(IMAGE *image, void *socket)
 
     // Start time measurement
     struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
-
     struct timespec recvStart, recvEnd;
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     size_t buffer_size = calculateBufferSize(image);  // Determine total size for reassembled data
 
