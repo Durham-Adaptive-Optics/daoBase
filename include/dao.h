@@ -334,7 +334,6 @@ typedef struct          		/**< structure used to store data arrays              
     char name[80]; 				/**< local name (can be different from name in shared memory) */
     // mem offset = 80
      
-	// TODO: Fix mem offset comments
     /** @brief Image usage flag
      * 
      * 1 if image is used, 0 otherwise. \n
@@ -358,7 +357,7 @@ typedef struct          		/**< structure used to store data arrays              
 	// mem offset = 93
 
 #ifdef _WIN32
-    DWORD *semlog;						/**< pointer to semaphore for logging  (8 bytes on 64-bit system) */
+    HANDLE semlog;						/**< pointer to semaphore for logging  (8 bytes on 64-bit system) */
 	// mem offset = 101
 #else
 	sem_t *semlog; 				        /**< pointer to semaphore for logging  (8 bytes on 64-bit system) */
@@ -440,6 +439,7 @@ typedef struct          		/**< structure used to store data arrays              
 #endif
     
     // total size is 152 byte = 1216 bit
+    // (on Windows,  160 byte = 1280 bit)
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE;
 #else

@@ -356,7 +356,6 @@ SECURITY_ATTRIBUTES* daoCreateWindowsSecurityAttrs(int mode)
 		memset(&ea, 0, 2 * sizeof(EXPLICIT_ACCESSA));
 		ZeroMemory(&ea, 2 * sizeof(EXPLICIT_ACCESSA));
 		
-		// TODO - mode set up here
 		ea[0].grfAccessPermissions = ACCESS_SYSTEM_SECURITY | READ_CONTROL | WRITE_DAC | GENERIC_ALL | SYNCHRONIZE;
 		ea[0].grfAccessMode = GRANT_ACCESS;
 		ea[0].grfInheritance = NO_INHERITANCE;
@@ -436,7 +435,6 @@ SECURITY_ATTRIBUTES* daoCreateWindowsSecurityAttrs(int mode)
 
 void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa)
 {
-	//free(sa->lpSecurityDescriptor->Dacl);
 	free(sa->lpSecurityDescriptor);
 	free(sa);
 }
@@ -501,7 +499,6 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
     {
         rval = DAO_SUCCESS; // we assume by default success
 
-		// TODO - security descriptor
 		#ifdef _WIN32
 		DWORD fileSizeHigh, fileSizeLow;
 		fileSizeLow = GetFileSize(shmFd, &fileSizeHigh);
@@ -1007,7 +1004,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 {
     daoTrace("\n");
     char shmSemName[256];
-    long s, s1;
+    long s;
 //    int r;
 //    char command[256];
 //    int semfile[100];
@@ -1016,6 +1013,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 	WCHAR wideShmSemName[256];
 #else
 	char fname[256];
+    long s1;
 #endif
 
 	//printf("%p\n", image);
@@ -1028,7 +1026,6 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
     char * nameCopy = (char *)malloc((strlen(image->md[0].name)+1)*sizeof(char));
     strcpy(nameCopy, image->md[0].name);
 	
-	// TODO - rework this part
     char *token = strtok(nameCopy, PATH_SEPARATOR);
 
     char *semFName = NULL;
@@ -1129,7 +1126,6 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
         {
 			#ifdef _WIN32
             sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, s);
-			// TODO - security attribute
 			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
 			
 			if (!(image->semptr[s] = CreateSemaphoreW(saShm, 0, 1, wideShmSemName))) {
@@ -1244,7 +1240,6 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         sprintf(shmSemName, "Local\\DAO_%s_semlog", semFName);
         image->semlog = NULL;
 		
-		// TODO - security attribute
 		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
 		
 		SECURITY_ATTRIBUTES *saSem = daoCreateWindowsSecurityAttrs(0600);
@@ -1253,7 +1248,6 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 		}
 		
 		if (!(image->semlog = CreateSemaphoreW(saSem, 0, 1, wideShmSemName))) {
-			// error, semaphore initialization - TODO
 			DWORD last_error = GetLastError();
 			fprintf(stderr, "semaphore initialization error: %d\n", GetLastError());
 		}
@@ -1331,16 +1325,14 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 		#ifdef _WIN32
         sprintf(shmName, "%s", name);
 		MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, 256);
-		// create file with size required
-		// create file mapping
-		// map view of file
 		
 		SECURITY_ATTRIBUTES *saFile = daoCreateWindowsSecurityAttrs(0600);
 		if (!saFile) {
 			daoError("Error creating security attributes for file\n");
 			exit(0);
 		}
-		
+
+		// Create file with size required
 		shmFd = CreateFileW(wideShmName, GENERIC_READ | GENERIC_WRITE,
 							FILE_SHARE_READ | FILE_SHARE_WRITE,
 							saFile, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
@@ -1352,6 +1344,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 			exit(0);
 		}
 		
+		// Create file mapping handle
 		shmFm = CreateFileMapping(shmFd, NULL, PAGE_READWRITE,
 								  (DWORD)(sharedsize >> 32), (DWORD)sharedsize, NULL);
 		if (shmFm == NULL) {
@@ -1364,6 +1357,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 		image->shmfm = shmFm;
 		image->memsize = sharedsize;
 		
+		// Now map file into memory - "map" will be our pointer
 		map = (IMAGE_METADATA*) MapViewOfFile(shmFm, FILE_MAP_ALL_ACCESS, 0, 0, sharedsize);
 		if (map == NULL) {
 			CloseHandle(shmFd);
@@ -2103,13 +2097,14 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 int_fast8_t daoShmWaitForCounter(IMAGE *image)
 {
     daoTrace("\n");
-    uint_fast64_t counter = image->md[0].cnt0;
 	#ifdef _WIN32
+	volatile uint_fast64_t counter = image->md[0].cnt0;
 	while (image->md[0].cnt0 <= counter)
 	{
 		// Spin
 	}
 	#else
+	uint_fast64_t counter = image->md[0].cnt0;
     struct timespec req, rem;
     req.tv_sec = 0;          // Seconds
     req.tv_nsec = 0; // Nanoseconds
