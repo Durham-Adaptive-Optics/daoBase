@@ -26,6 +26,8 @@
 #define CLOCK_REALTIME 0
 #define CLOCK_MONOTONIC 0
 
+#define PATH_SEPARATOR "/\\"
+
 // number of seconds between January 1st 1601 (Windows epoch) and January 1st 1970 (Unix epoch)
 #define WIN_UNIX_EPOCH_GAP 11644473600
 
@@ -52,6 +54,9 @@ static int clock_gettime(int clk_id, struct timespec *t)
 #include <sys/time.h>
 #include <gsl/gsl_blas.h>
 #include <omp.h>
+
+#define PATH_SEPARATOR "/"
+
 #endif
 
 #ifdef __MACH__
@@ -669,7 +674,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         // to get rid off warning
         char * nameCopy = (char *)malloc((strlen(name)+1)*sizeof(char));
         strcpy(nameCopy, name);
-        char *token = strtok(nameCopy, "/\\");
+        char *token = strtok(nameCopy, PATH_SEPARATOR);
 
         char *semFName = NULL;
         char *localName = NULL;
@@ -677,7 +682,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         while (token != NULL)
         {
             semFName = token;
-            token = strtok(NULL, "/\\");
+            token = strtok(NULL, PATH_SEPARATOR);
         }
 
         if (semFName != NULL)
@@ -1024,7 +1029,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
     strcpy(nameCopy, image->md[0].name);
 	
 	// TODO - rework this part
-    char *token = strtok(nameCopy, "/\\");
+    char *token = strtok(nameCopy, PATH_SEPARATOR);
 
     char *semFName = NULL;
     char *localName = NULL; 
@@ -1032,7 +1037,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
     while (token != NULL) 
     {
         semFName = token;
-        token = strtok(NULL, "/\\");
+        token = strtok(NULL, PATH_SEPARATOR);
     }
     if (semFName != NULL)
     {
@@ -1200,7 +1205,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         char * nameCopy = (char *)malloc((strlen(name)+1)*sizeof(char));
         strcpy(nameCopy, name);
-        char *token = strtok(nameCopy, "/\\");
+        char *token = strtok(nameCopy, PATH_SEPARATOR);
 
         char *semFName = NULL;
         char *localName = NULL;
@@ -1208,7 +1213,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         while (token != NULL)
         {
             semFName = token;
-            token = strtok(NULL, "/\\");
+            token = strtok(NULL, PATH_SEPARATOR);
         }
 
         if (semFName != NULL)
