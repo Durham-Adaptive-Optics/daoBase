@@ -28,7 +28,8 @@ import daoLog
 
 if isWindows:
     # TODO - Add proper path
-    daoLib = ctypes.WinDLL('../c/dao.dll')
+    daoLibPath = os.path.join(os.getenv('DAOROOT'), 'lib', 'dao-0.dll')
+    daoLib = ctypes.WinDLL(daoLibPath)
 else:
     daoLib = ctypes.CDLL('libdao.so')
 
