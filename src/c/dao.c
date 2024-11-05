@@ -439,40 +439,6 @@ void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa)
 #endif
 
 /**
- * Init 1D array in shared memory
- */
-int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
-{
-    daoTrace("\n");
-    int naxis = 2;
-    char fullName[64];
-    sprintf(fullName, "%s", name);
-
-    daoDebug("daoInit1D(%s, %i)\n", fullName, nbVal);
-    uint32_t imsize[2];
-    imsize[0] = nbVal;
-    imsize[1] = 1;
-
-    daoDebug("\tdaoInit1D, imsize set\n");
-    daoDebug("sizeof(image) = %lld\n", sizeof(IMAGE));
-    *image = (IMAGE*)malloc(sizeof(IMAGE)*NBIMAGES);
-
-    if(*image == NULL)
-    {
-        daoError("   OS Declined to allocate requested memory\n");
-        exit(-1);
-    }
-    daoInfo("Alloc ok\n");
-
-    memset(*image, 0, sizeof(IMAGE)*NBIMAGES);
-    daoDebug("ECHO %i, %i\n", imsize[0], NBIMAGES);
-
-    daoShmImageCreate(*image, fullName, naxis, imsize, _DATATYPE_FLOAT, 1, 0);
-
-    return DAO_SUCCESS;
-}
-
-/**
  * Extract image from a shared memory
  */
 //int_fast8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image)
@@ -687,7 +653,11 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         for(kw=0; kw<image->md[0].NBkw; kw++)
         {
             if(image->kw[kw].type == 'L')
+				#ifdef _WIN32
                 daoDebug("%d  %s %lld %s\n", kw, image->kw[kw].name, image->kw[kw].value.numl, image->kw[kw].comment);
+				#else
+                daoDebug("%d  %s %ld %s\n", kw, image->kw[kw].name, image->kw[kw].value.numl, image->kw[kw].comment);
+				#endif
             if(image->kw[kw].type == 'D')
                 daoDebug("%d  %s %lf %s\n", kw, image->kw[kw].name, image->kw[kw].value.numf, image->kw[kw].comment);
             if(image->kw[kw].type == 'S')
@@ -821,13 +791,51 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         {
             daoWarning("could not open semaphore %s\n", shmSemName);
         }
-		#endif
-        free(nameCopy);
-		
 		if (saShm)
 			daoDestroyWindowsSecurityAttrs(saShm);
+		
+		#endif
+        free(nameCopy);
     }
     return(rval);
+}
+
+/**
+ * Init 1D array in shared memory
+ */
+int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
+{
+    daoTrace("\n");
+    int naxis = 2;
+    char fullName[64];
+    sprintf(fullName, "%s", name);
+
+    daoDebug("daoInit1D(%s, %i)\n", fullName, nbVal);
+    uint32_t imsize[2];
+    imsize[0] = nbVal;
+    imsize[1] = 1;
+
+    daoDebug("\tdaoInit1D, imsize set\n");
+#ifdef _WIN32
+    daoDebug("sizeof(image) = %lld\n", sizeof(IMAGE));
+#else
+    daoDebug("sizeof(image) = %ld\n", sizeof(IMAGE));
+#endif
+    *image = (IMAGE*)malloc(sizeof(IMAGE)*NBIMAGES);
+
+    if(*image == NULL)
+    {
+        daoError("   OS Declined to allocate requested memory\n");
+        exit(-1);
+    }
+    daoInfo("Alloc ok\n");
+
+    memset(*image, 0, sizeof(IMAGE)*NBIMAGES);
+    daoDebug("ECHO %i, %i\n", imsize[0], NBIMAGES);
+
+    daoShmImageCreate(*image, fullName, naxis, imsize, _DATATYPE_FLOAT, 1, 0);
+
+    return DAO_SUCCESS;
 }
 
 /*
