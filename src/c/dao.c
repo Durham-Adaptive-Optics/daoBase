@@ -286,6 +286,8 @@ int NBIMAGES = 10;
 //	return 0;
 //}
 
+#ifdef _WIN32
+
 /**
  * Create a security descriptor equivalent to the provided UNIX mode.
  */
@@ -433,6 +435,8 @@ void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa)
 	free(sa->lpSecurityDescriptor);
 	free(sa);
 }
+
+#endif
 
 /**
  * Init 1D array in shared memory
