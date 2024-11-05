@@ -1,6 +1,8 @@
 # daoBase
 basic tools for dao
 
+(for build instructions on Windows, see windows-build.md)
+
 # Prerequiries
 ## Linux package
 Package for Redhat based distribution... to be adapted for other Linux distrib
