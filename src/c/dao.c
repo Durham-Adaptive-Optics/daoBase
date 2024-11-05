@@ -755,6 +755,8 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         {
             daoWarning("could not open semaphore %s\n", shmSemName);
         }
+		if (saShm)
+			daoDestroyWindowsSecurityAttrs(saShm);
 		#else
         // looking for semaphores
 
@@ -790,10 +792,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         if ((image->semlog = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) 
         {
             daoWarning("could not open semaphore %s\n", shmSemName);
-        }
-		if (saShm)
-			daoDestroyWindowsSecurityAttrs(saShm);
-		
+        }		
 		#endif
         free(nameCopy);
     }
