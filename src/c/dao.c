@@ -297,7 +297,7 @@ int NBIMAGES = 10;
  * Create a security descriptor equivalent to the provided UNIX mode.
  */
 
-SECURITY_ATTRIBUTES* daoCreateWindowsSecurityAttrs(int mode)
+SECURITY_ATTRIBUTES* daoCreateWindowsSecurityAttrs(int mode, PACL *dacl)
 {
 	PACL newDacl = NULL;
 	PSID currentUser = NULL;
@@ -426,6 +426,8 @@ SECURITY_ATTRIBUTES* daoCreateWindowsSecurityAttrs(int mode)
 			free(sd);
 	}
 
+	*dacl = newDacl;
+
 	return sa;
 }
 
@@ -433,8 +435,9 @@ SECURITY_ATTRIBUTES* daoCreateWindowsSecurityAttrs(int mode)
  * Free the allocated security descriptor
  */
 
-void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa)
+void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa, PACL dacl)
 {
+	free(dacl);
 	free(sa->lpSecurityDescriptor);
 	free(sa);
 }
@@ -706,7 +709,8 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         
 		#ifdef _WIN32
 		// create semaphores one-by-one, and stop when we get one that does NOT exist
-		SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644);
+		PACL dacl;
+		SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644, &dacl);
 		if (!saShm)
 			daoDebug("Could not create security descriptor - using default\n");
 		
@@ -758,7 +762,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
             daoWarning("could not open semaphore %s\n", shmSemName);
         }
 		if (saShm)
-			daoDestroyWindowsSecurityAttrs(saShm);
+			daoDestroyWindowsSecurityAttrs(saShm, dacl);
 		#else
         // looking for semaphores
 
@@ -1011,6 +1015,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 
 #ifdef _WIN32
 	WCHAR wideShmSemName[256];
+	PACL dacl;
 #else
 	char fname[256];
     long s1;
@@ -1061,7 +1066,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 
     // Remove pre-existing semaphores if any
 	#ifdef _WIN32
-	SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644);
+	SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644, &dacl);
 	if (!saShm) {
 		daoError("Could not create semaphore security attributes\n");
 		free(nameCopy);
@@ -1150,7 +1155,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
     }
 	
 	#ifdef _WIN32
-	daoDestroyWindowsSecurityAttrs(saShm);
+	daoDestroyWindowsSecurityAttrs(saShm, dacl);
 	#endif
 
     free(nameCopy);
@@ -1242,7 +1247,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 		
 		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
 		
-		SECURITY_ATTRIBUTES *saSem = daoCreateWindowsSecurityAttrs(0600);
+		PACL daclSem;
+		SECURITY_ATTRIBUTES *saSem = daoCreateWindowsSecurityAttrs(0600, &daclSem);
 		if (!saSem) {
 			daoError("Error creating security attributes for semaphore\n");
 		}
@@ -1252,7 +1258,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 			fprintf(stderr, "semaphore initialization error: %d\n", GetLastError());
 		}
 		ReleaseSemaphore(image->semlog, 1, NULL);
-		daoDestroyWindowsSecurityAttrs(saSem);
+		if (saSem)
+			daoDestroyWindowsSecurityAttrs(saSem, daclSem);
 		
 		#else
         daoInfo("Creation %s_semlog\n", semFName);
@@ -1326,7 +1333,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         sprintf(shmName, "%s", name);
 		MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, 256);
 		
-		SECURITY_ATTRIBUTES *saFile = daoCreateWindowsSecurityAttrs(0600);
+		PACL daclFile;
+		SECURITY_ATTRIBUTES *saFile = daoCreateWindowsSecurityAttrs(0600, &daclFile);
 		if (!saFile) {
 			daoError("Error creating security attributes for file\n");
 			exit(0);
@@ -1413,7 +1421,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         free(nameCopy);
 		
 		#ifdef _WIN32
-		daoDestroyWindowsSecurityAttrs(saFile);
+		if (saFile)
+			daoDestroyWindowsSecurityAttrs(saFile, daclFile);
 		#endif
     }
     else
