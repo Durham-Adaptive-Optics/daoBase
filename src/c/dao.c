@@ -903,7 +903,7 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 //	#ifdef _WIN32
 	image->md[0].atime.tsfixed.secondlong = (int64_t)(1e9 * t.tv_sec + t.tv_nsec);
 //	#else
-//    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 //	#endif
 
     return DAO_SUCCESS;
@@ -992,7 +992,7 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 //	#ifdef _WIN32
 	image->md[0].atime.tsfixed.secondlong = (int64_t)(1e9 * t.tv_sec + t.tv_nsec);
 //	#else
-//    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 //	#endif
     image->md[0].cnt0++;
     return DAO_SUCCESS;
@@ -1002,7 +1002,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 {
     daoTrace("\n");
     char shmSemName[256];
-    long s;
+    long s, s1;
 //    int r;
 //    char command[256];
 //    int semfile[100];
@@ -1010,7 +1010,6 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 #ifdef _WIN32
 	WCHAR wideShmSemName[256];
 #else
-	long s1;
 	char fname[256];
 #endif
 
@@ -2059,7 +2058,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
 //	#ifdef _WIN32
 	image->md[0].atime.tsfixed.secondlong = (int64_t)(1e9 * t.tv_sec + t.tv_nsec);
 //	#else
-//    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
 //	#endif
 
     return DAO_SUCCESS;
