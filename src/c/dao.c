@@ -906,11 +906,7 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
     image->md[0].cnt0++;
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-//	#ifdef _WIN32
-	image->md[0].atime.tsfixed.secondlong = (int64_t)(1e9 * t.tv_sec + t.tv_nsec);
-//	#else
-    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
-//	#endif
+	image->md[0].atime.tsfixed.secondlong = (1e9 * (int64_t)t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }
@@ -995,12 +991,7 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 	
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-//	#ifdef _WIN32
-	image->md[0].atime.tsfixed.secondlong = (int64_t)(1e9 * t.tv_sec + t.tv_nsec);
-//	#else
-    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
-//	#endif
-    image->md[0].cnt0++;
+	image->md[0].atime.tsfixed.secondlong = (1e9 * (int64_t)t.tv_sec + t.tv_nsec);
     return DAO_SUCCESS;
 }
 
@@ -2063,11 +2054,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
     image->md[0].cnt0++;
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-//	#ifdef _WIN32
-	image->md[0].atime.tsfixed.secondlong = (int64_t)(1e9 * t.tv_sec + t.tv_nsec);
-//	#else
-    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
-//	#endif
+	image->md[0].atime.tsfixed.secondlong = (1e9 * (int64_t)t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }
