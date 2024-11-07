@@ -21,6 +21,7 @@ mkdir ~/bin
 cd ~/bin
 wget https://waf.io/waf-2.0.26
 ln -s waf-2.0.26 waf
+chmod u+x *
 ```
 and add $HOME/bin in your path
 ## Python
@@ -45,7 +46,7 @@ export DAOROOT=$HOME/DAOROOT
 export DAODATA=$HOME/DAODATA
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$DAOROOT/lib:$DAOROOT/lib64
 export PATH=$PATH:$HOME/bin:$HOME/DAOROOT/bin
-export PYTHONPATH=$DAOROOT/python
+export PYTHONPATH=$PYTHONPATH:$DAOROOT/python
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$DAOROOT/lib/pkgconfig
 
 ```
