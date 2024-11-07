@@ -16,9 +16,25 @@ You must ensure the following software is installed prior to building daoBase.
 
 *ZeroMQ*: on Windows, it must be downloaded as a source package (from the [GitHub page](https://github.com/zeromq/libzmq)) and built.
 
-*Protocol Buffers compiler*: we use v3.20.0 - download the Win64 binaries from [here](https://github.com/protocolbuffers/protobuf/releases/tag/v3.20.0).
+*Protocol Buffers*: We use v3.20.0 of Protocol Buffers, download the "protobuf-cpp-3.20.0" source code from [here](https://github.com/protocolbuffers/protobuf/releases/tag/v3.20.0).
 
 *pkg-config*: In this case, any Windows-compatible build of pkg-config should work. We used pkg-config-lite 0.28-1, which can be downloaded from [SourceForge](https://sourceforge.net/projects/pkgconfiglite/files/).
+
+## Protocol Buffers
+
+Extract the source code archive, and open the Visual Studio "x64 Native Tools" command prompt in this directory.
+
+Run the following commands:
+
+```
+cd cmake
+mkdir build
+cd build
+cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=C:\Users\nwnw17\Documents\daoExperiments\protobuf-3.20.0_install ..
+nmake
+```
+
+Following this, you should have a Windows build of Protocol Buffers.
 
 ## pkg-config
 
@@ -26,17 +42,19 @@ Pkg-config is used by the Waf build script to identify the location of the depen
 
 Examples for the Protocol Buffers and ZeroMQ package files are provided - substitute the prefix path here with the suitable path on your system.
 
-Beware that the backslash character *\* must be used twice to be recognised correctly. For example, the path *C:\Windows\* must instead be written as *C:\\Windowa\\* for the intended effect. It may just be easier to use a forward slash character */* instead.
+Beware that the backslash character *\\* must be used twice to be recognised correctly. For example, the path *C:\\Windows\\* must instead be written as *C:\\\\Windows\\\\* for the intended effect. It may just be easier to substitute with a forward slash character */* instead.
 
 ```
 prefix=(your path to Protocol Buffers, e.g. C:/protoc-3.20.0-win64)
-exec_prefix=${prefix}/bin
-includedir=${prefix}/include
+exec_prefix=${prefix}/cmake/build
+libdir=${prefix}/cmake/build
+includedir=${prefix}/src
 
 Name: protobuf
-Description: Protocol Buffer compiler
+Description: Protocol Buffers
 Version: 3.20.0
 Cflags: -I${includedir}
+Libs: -L${libdir} -llibprotobuf
 ```
 
 ```
