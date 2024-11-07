@@ -113,7 +113,10 @@ def build(bld):
 	files = glob.glob('scripts/*')
 	for file in files:
 		bld.install_files(bld.env.BINDIR, file, chmod=0o0755, relative_trick=False)
-  
+	# logo
+	files = glob.glob('logo/*.png')
+	for file in files:
+		bld.install_files(bld.env.DATADIR, file, relative_trick=False)
 	
 	# uncommment to run tests
 #	bld(features='test', source='test/daoBaseTestEvent.py', target='daoBaseTestEvent', 
