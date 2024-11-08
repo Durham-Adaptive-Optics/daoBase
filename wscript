@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # encoding: utf-8
 # Sylvain Cetre and David Barr
-import os,glob
+import os,glob,platform
 # the following two variables are used by the target "waf dist"
 VERSION='0.0.1'
 APPNAME='daoBase'
@@ -55,7 +55,7 @@ def configure(conf):
 					args='--cflags --libs',
 					uselib_store='PROTOBUF'
 					)
- 
+
 	# add some custom locations
 	conf.env.PYTHONDIR		= f'{conf.env.PREFIX}/python'
 	conf.env.DATADIR		= f'{conf.env.PREFIX}/data'

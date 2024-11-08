@@ -11,6 +11,9 @@ if platform.system() == "Darwin":
     add_ld_flags += ['-L/opt/homebrew/lib']
     add_cxx_flags += ['-std=c++17']
     add_c_flags += ['']
+elif platform.system() == "Windows":
+	add_cxx_flags += ['-lrt']
+	add_c_flags +=  ['']
 else:
 	add_ld_flags += ['-lnuma']
 	add_cxx_flags += ['']
@@ -26,24 +29,37 @@ if bld.options.sanitizer_flag:
     add_cxx_flags+=['-g']
     add_ld_flags+=['-fsanitize=address']
     
+if platform.system() != "Windows":
+	bld.shlib(
+		source 		= 'cpp/daoNuma.cpp',
+		includes 	= '../include',
+		ldflags		= "-lnuma",
+		cxxflags 	= ['-Ofast', '-Wall', '-Wextra',  '-march=core-avx2', '-mavx2'],
+		target 		= 'daoNuma',
+		name   		= 'daoNuma',
+		features	= 'pkg_build',
+		vnum   		= '0.0.1')
+	
+	bld.shlib(
+		source = 'c/dao.c',
+		includes = '../include',
+		#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
+		cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
+		ldflags = [''] + add_ld_flags,
+		target = 'dao',
+		name   = 'dao',
+		features	= 'pkg_build',
+		vnum   = '0.0.1')
 
-bld.shlib(
-	source 		= 'cpp/daoNuma.cpp',
-	includes 	= '../include',
-	ldflags		= "-lnuma",
-	cxxflags 	= ['-Ofast', '-Wall', '-Wextra',  '-march=core-avx2', '-mavx2'],
-	target 		= 'daoNuma',
-	name   		= 'daoNuma',
-	features	= 'pkg_build',
-	vnum   		= '0.0.1')
-
-bld.shlib(
-	source = 'c/dao.c',
-	includes = '../include',
-	#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
-	cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
-	ldflags = [''] + add_ld_flags,
-	target = 'dao',
-	name   = 'dao',
-	features	= 'pkg_build',
-	vnum   = '0.0.1')
+else:
+	bld.shlib(
+		source = 'c/dao.c',
+		includes = '../include',
+		#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
+		#cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
+		cflags = ['/W3', '/D_CRT_SECURE_NO_WARNINGS'],
+		ldflags = ['advapi32.lib'] + add_ld_flags,
+		target = 'dao',
+		name   = 'dao',
+		features	= 'pkg_build',
+		vnum   = '0.0.1')

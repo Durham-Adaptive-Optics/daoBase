@@ -5,29 +5,59 @@
  *****************************************************************************/
 
 /*==========================================================================*/
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <math.h>
-#include <semaphore.h>
-#include <sched.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <ctype.h>
+#include <limits.h>
+#include <stdint.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <aclapi.h>
+#include <time.h>
+
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 0
+
+#define PATH_SEPARATOR "/\\"
+
+// number of seconds between January 1st 1601 (Windows epoch) and January 1st 1970 (Unix epoch)
+#define WIN_UNIX_EPOCH_GAP 11644473600
+
+static int clock_gettime(int clk_id, struct timespec *t)
+{
+	FILETIME currentTime; // stores time in 100-nanosecond intervals
+	GetSystemTimePreciseAsFileTime(&currentTime);
+	int64_t hundredNanos = (int64_t)currentTime.dwLowDateTime
+						 | (int64_t)currentTime.dwHighDateTime << 32;
+	hundredNanos -= (WIN_UNIX_EPOCH_GAP * 10000000);
+	t->tv_sec = hundredNanos / 10000000;
+	t->tv_nsec = (hundredNanos % 10000000) * 100;
+	return 0;
+}
+
+#else
+#include <unistd.h>
+#include <semaphore.h>
+#include <sched.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <limits.h>
 #include <sys/file.h>
-#include <errno.h>
 #include <sys/mman.h>
-#include <sched.h>
-#include <semaphore.h>
 #include <sys/time.h>
 #include <gsl/gsl_blas.h>
 #include <omp.h>
+
+#define PATH_SEPARATOR "/"
+
+#endif
 
 #ifdef __MACH__
 #include <mach/mach_time.h>
@@ -253,6 +283,167 @@ void daoSetLogLevel(int logLevel)
 // SHM
 int NBIMAGES = 10;
 
+//int daoFormatTest(int test1, int test2, char* teststr) {
+//	daoTrace("\n");
+//	daoInfo("This is info for %d", test1);
+//	daoError("This is an error with the string %s", teststr);
+//	daoWarning("This is a warning with test2 - %d", test2);
+//	return 0;
+//}
+
+#ifdef _WIN32
+
+/**
+ * Create a security descriptor equivalent to the provided UNIX mode.
+ */
+
+SECURITY_ATTRIBUTES* daoCreateWindowsSecurityAttrs(int mode, PACL *dacl)
+{
+	PACL newDacl = NULL;
+	PSID currentUser = NULL;
+	SECURITY_ATTRIBUTES *sa = NULL;
+	SID everyoneSid;
+	PSECURITY_DESCRIPTOR sd = NULL;
+	PTOKEN_USER user = NULL;
+	DWORD sidSize = SECURITY_MAX_SID_SIZE;
+	DWORD result;
+	EXPLICIT_ACCESS_ ea[2];
+	DWORD size = 0;
+	HANDLE token = NULL;
+	TOKEN_INFORMATION_CLASS tokenClass = TokenUser;
+	
+	int success = 0;
+	
+	do {
+		// First, get the SID for "Everyone"
+		if (CreateWellKnownSid(WinWorldSid, NULL, &everyoneSid, &sidSize) == FALSE) {
+			daoDebug("Could not create SID for 'Everyone'.\n");
+			break;
+		}
+		
+		// Now get the token for the current user
+		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_READ | TOKEN_QUERY, &token)) {
+			daoDebug("Could not get handle to access token.\n");
+			break;
+		} else
+			daoDebug("Got handle to access token.\n");
+		
+		if (!GetTokenInformation(token, tokenClass, NULL, 0, &size)) {
+			if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+				daoDebug("Error in GetTokenInformation1. %d\n", GetLastError());
+				break;
+			}
+		} else
+			daoDebug("Buffer for token group is OK.\n");
+		
+		user = (PTOKEN_USER)malloc((size_t)size);
+		if (!user) {
+			daoDebug("Malloc error for user token\n");
+			break;
+		}
+		
+		if (!GetTokenInformation(token, tokenClass, user, size, &size)) {
+			daoDebug("Error in GetTokenInformation.\n");
+			break;
+		} else
+			daoDebug("Got token information for TokenUser.\n");
+
+		DWORD sidLen = GetLengthSid(user->User.Sid);
+		currentUser = malloc((size_t)sidLen);
+		CopySid(sidLen, currentUser, user->User.Sid);
+		
+		// Now set up "explicit access" details
+		memset(&ea, 0, 2 * sizeof(EXPLICIT_ACCESSA));
+		ZeroMemory(&ea, 2 * sizeof(EXPLICIT_ACCESSA));
+		
+		ea[0].grfAccessPermissions = ACCESS_SYSTEM_SECURITY | READ_CONTROL | WRITE_DAC | GENERIC_ALL | SYNCHRONIZE;
+		ea[0].grfAccessMode = GRANT_ACCESS;
+		ea[0].grfInheritance = NO_INHERITANCE;
+		ea[0].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+		ea[0].Trustee.ptstrName = (LPTSTR)(currentUser);
+
+		ea[1].grfAccessPermissions = ACCESS_SYSTEM_SECURITY | READ_CONTROL;
+		ea[1].grfAccessMode = GRANT_ACCESS;
+		ea[1].grfInheritance = NO_INHERITANCE;
+		ea[1].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+		ea[1].Trustee.ptstrName = (LPTSTR)(&everyoneSid);
+		
+		int numAclEntries = 1;
+		
+		if (mode == 0644) {
+			numAclEntries = 2;
+		} else if (mode == 0600) {
+			numAclEntries = 1;
+		} else {
+			daoDebug("Unsupported mode: %o", mode);
+			break;
+		}
+		
+		result = SetEntriesInAcl(numAclEntries, ea, NULL, &newDacl);
+		if (ERROR_SUCCESS != result) {
+			daoDebug("Error in SetEntriesInAcl: %u", result);
+			break;
+		}
+		
+		sd = (PSECURITY_DESCRIPTOR*)malloc(SECURITY_DESCRIPTOR_MIN_LENGTH);
+		if (sd == NULL) {
+			daoDebug("Malloc error for security descriptor\n");
+			break;
+		}
+		
+		if (!InitializeSecurityDescriptor(sd, SECURITY_DESCRIPTOR_REVISION)) {
+			daoDebug("Could not initialize security descriptor\n");
+			break;
+		}
+		
+		if (!SetSecurityDescriptorDacl(sd, TRUE, newDacl, FALSE)) {
+			daoDebug("Error in SetSecurityDescriptorDacl\n");
+			break;
+		}
+		
+		sa = (SECURITY_ATTRIBUTES*)malloc(sizeof(SECURITY_ATTRIBUTES));
+		if (sa == NULL) {
+			daoDebug("Malloc error for security attributes.\n");
+			break;
+		}
+		
+		sa->nLength = sizeof(SECURITY_ATTRIBUTES);
+		sa->lpSecurityDescriptor = sd;
+		sa->bInheritHandle = FALSE;
+		success = 1;
+	} while (0);
+
+	if (!token)
+		CloseHandle(token);
+	
+	if (!user)
+		free(user);
+
+	if (!sa) {
+		if (!newDacl)
+			free(newDacl);
+		if (!sd)
+			free(sd);
+	}
+
+	*dacl = newDacl;
+
+	return sa;
+}
+
+/**
+ * Free the allocated security descriptor
+ */
+
+void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa, PACL dacl)
+{
+	free(dacl);
+	free(sa->lpSecurityDescriptor);
+	free(sa);
+}
+
+#endif
+
 /**
  * Extract image from a shared memory
  */
@@ -260,23 +451,45 @@ int NBIMAGES = 10;
 int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 {
     daoTrace("\n");
-    int shmFd;
-    struct stat file_stat;
+
     char shmName[256];
     IMAGE_METADATA *map;
     char *mapv;
     uint8_t atype;
     int kw;
     char shmSemName[256];
-    sem_t *stest;
     int sOK;
     long snb;
     long s;
+
+	#ifdef _WIN32
+	HANDLE shmFd; // shared memory file handle
+	HANDLE shmFm; // shared memory file mapping object
+	HANDLE stest;
+	WCHAR wideShmName[256];
+	WCHAR wideShmSemName[256];
+	#else
+    int shmFd;
+    struct stat file_stat;
+    sem_t *stest;
+	#endif
 
     int rval = DAO_ERROR;
     sprintf(shmName, "%s", name);
     //sprintf(shmName, "%s/%s%s.im.shm", SHAREDMEMDIR, prefix, name);
 
+	#ifdef _WIN32	
+	MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, 256);
+	shmFd = CreateFileW(wideShmName, GENERIC_READ | GENERIC_WRITE,
+						FILE_SHARE_READ | FILE_SHARE_WRITE,
+						NULL, OPEN_EXISTING, FILE_ATTRIBUTE_TEMPORARY, NULL);
+	if (shmFd == INVALID_HANDLE_VALUE)
+	{
+		image->used = 0;
+		daoError("Cannot import shared memory file %s \n", name);
+		rval = DAO_ERROR;
+	}
+	#else
     shmFd = open(shmName, O_RDWR);
     if(shmFd==-1)
     {
@@ -284,10 +497,40 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         daoError("Cannot import shared memory file %s \n", name);
         rval = DAO_ERROR;
     }
+	#endif
     else
     {
         rval = DAO_SUCCESS; // we assume by default success
 
+		#ifdef _WIN32
+		DWORD fileSizeHigh, fileSizeLow;
+		fileSizeLow = GetFileSize(shmFd, &fileSizeHigh);
+		
+		// passing 0 for size means "use file's current size"
+		shmFm = CreateFileMapping(shmFd, NULL, PAGE_READWRITE, 0, 0, NULL);
+		if (shmFm == NULL) {
+			CloseHandle(shmFd);
+			daoError("Error creating file mapping (%s)\n", shmName);
+            rval = DAO_ERROR;
+            exit(0);
+		}
+		
+		map = (IMAGE_METADATA*) MapViewOfFile(shmFm, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+		if (map == NULL) {
+			CloseHandle(shmFd);
+			CloseHandle(shmFm);
+			daoError("Error creating view of file mapping (%s)\n", shmName);
+            rval = DAO_ERROR;
+            exit(0);
+		}
+		
+		image->memsize = (int64_t)fileSizeLow | ((int64_t)fileSizeHigh << 32);
+		image->shmfd = shmFd;
+		image->shmfm = shmFm;
+		image->md = map;
+		
+		#else
+		
         fstat(shmFd, &file_stat);
         daoDebug("File %s size: %zd\n", shmName, file_stat.st_size);
         map = (IMAGE_METADATA*) mmap(0, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
@@ -303,6 +546,8 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         image->shmfd = shmFd;
         image->md = map;
         //        image->md[0].sem = 0;
+		
+		#endif
         atype = image->md[0].atype;
         image->md[0].shared = 1;
 
@@ -413,7 +658,11 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         for(kw=0; kw<image->md[0].NBkw; kw++)
         {
             if(image->kw[kw].type == 'L')
+				#ifdef _WIN32
+                daoDebug("%d  %s %lld %s\n", kw, image->kw[kw].name, image->kw[kw].value.numl, image->kw[kw].comment);
+				#else
                 daoDebug("%d  %s %ld %s\n", kw, image->kw[kw].name, image->kw[kw].value.numl, image->kw[kw].comment);
+				#endif
             if(image->kw[kw].type == 'D')
                 daoDebug("%d  %s %lf %s\n", kw, image->kw[kw].name, image->kw[kw].value.numf, image->kw[kw].comment);
             if(image->kw[kw].type == 'S')
@@ -425,7 +674,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         // to get rid off warning
         char * nameCopy = (char *)malloc((strlen(name)+1)*sizeof(char));
         strcpy(nameCopy, name);
-        char *token = strtok(nameCopy, "/");
+        char *token = strtok(nameCopy, PATH_SEPARATOR);
 
         char *semFName = NULL;
         char *localName = NULL;
@@ -433,7 +682,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         while (token != NULL)
         {
             semFName = token;
-            token = strtok(NULL, "/");
+            token = strtok(NULL, PATH_SEPARATOR);
         }
 
         if (semFName != NULL)
@@ -457,8 +706,70 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
             free(nameCopy);
             return DAO_ERROR;
         }
+        
+		#ifdef _WIN32
+		// create semaphores one-by-one, and stop when we get one that does NOT exist
+		PACL dacl;
+		SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644, &dacl);
+		if (!saShm) {
+			daoError("Could not create security descriptor - using default\n");
+			free(nameCopy);
+			return DAO_ERROR;
+		}
+		
+		snb = 0;
+		sOK = 1;
+		while(sOK==1)
+		{
+            sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, snb);
+			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+            daoDebug("semaphore %s\n", shmSemName);
+			stest = CreateSemaphoreW(saShm, 0, 1, wideShmSemName);
+            if(stest == NULL)
+            {
+				daoDebug("no handle returned %d\n", snb);
+                sOK = 0;
+            }
+			else if (GetLastError() != ERROR_ALREADY_EXISTS)
+			{
+				daoDebug("ERROR              %d\n", snb);
+				CloseHandle(stest);
+				sOK = 0;
+			}
+            else
+            {
+				daoDebug("exists             %d\n", snb);
+                CloseHandle(stest);
+                snb++;
+            }
+		}
+        daoDebug("%ld semaphores detected  (image->md[0].sem = %d)\n", snb, (int) image->md[0].sem);
+        //        image->md[0].sem = snb;
+        image->semptr = (HANDLE*) malloc(sizeof(HANDLE) * image->md[0].sem);
+        for(s=0; s<snb; s++)
+        {
+            sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, s);
+			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+            if ((image->semptr[s] = CreateSemaphoreW(saShm, 0, 1, wideShmSemName)) == NULL) 
+            {
+                daoError("could not open semaphore %s\n", shmSemName);
+            }
+			daoDebug("Handle %p %d\n", image->semptr[s], snb);
+        }
+		daoDebug("%d found\n", snb);
+		
+        sprintf(shmSemName, "Local\\DAO_%s_semlog", localName);
+		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+        if ((image->semlog = CreateSemaphoreW(saShm, 0, 1, wideShmSemName)) == NULL) 
+        {
+            daoWarning("could not open semaphore %s\n", shmSemName);
+        }
+
+		daoDestroyWindowsSecurityAttrs(saShm, dacl);
+		#else
         // looking for semaphores
-        snb = 0;
+
+		snb = 0;
         sOK = 1;
         while(sOK==1)
         {
@@ -490,7 +801,8 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         if ((image->semlog = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) 
         {
             daoWarning("could not open semaphore %s\n", shmSemName);
-        }
+        }		
+		#endif
         free(nameCopy);
     }
     return(rval);
@@ -512,7 +824,11 @@ int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
     imsize[1] = 1;
 
     daoDebug("\tdaoInit1D, imsize set\n");
+#ifdef _WIN32
+    daoDebug("sizeof(image) = %lld\n", sizeof(IMAGE));
+#else
     daoDebug("sizeof(image) = %ld\n", sizeof(IMAGE));
+#endif
     *image = (IMAGE*)malloc(sizeof(IMAGE)*NBIMAGES);
 
     if(*image == NULL)
@@ -567,25 +883,33 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 
     for(ss = 0; ss < image->md[0].sem; ss++)
     {
+		#ifdef _WIN32
+		ReleaseSemaphore(image->semptr[ss], 1, NULL);
+		#else
         sem_getvalue(image->semptr[ss], &semval);
         if(semval < SEMAPHORE_MAXVAL )
             sem_post(image->semptr[ss]);
+		#endif
     }
 
     if(image->semlog != NULL)
     {
+		#ifdef _WIN32
+		ReleaseSemaphore(image->semlog, 1, NULL);
+		#else
         sem_getvalue(image->semlog, &semval);
         if(semval < SEMAPHORE_MAXVAL)
         {
             sem_post(image->semlog);
         }
+		#endif
     }
 
     image->md[0].write = 0;
     image->md[0].cnt0++;
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+	image->md[0].atime.tsfixed.secondlong = (1e9 * (int64_t)t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }
@@ -646,23 +970,31 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
     int ss;
     for(ss = 0; ss < image->md[0].sem; ss++)
     {
+		#ifdef _WIN32
+		ReleaseSemaphore(image->semptr[ss], 1, NULL);
+		#else
         sem_getvalue(image->semptr[ss], &semval);
         if(semval < SEMAPHORE_MAXVAL )
             sem_post(image->semptr[ss]);
+		#endif
     }
 
     if(image->semlog != NULL)
     {
+		#ifdef _WIN32
+		ReleaseSemaphore(image->semlog, 1, NULL);
+		#else
         sem_getvalue(image->semlog, &semval);
         if(semval < SEMAPHORE_MAXVAL)
         {
             sem_post(image->semlog);
         }
+		#endif
     }
+	
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
-    image->md[0].cnt0++;
+	image->md[0].atime.tsfixed.secondlong = (1e9 * (int64_t)t.tv_sec + t.tv_nsec);
     return DAO_SUCCESS;
 }
 
@@ -670,16 +1002,30 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 {
     daoTrace("\n");
     char shmSemName[256];
-    long s, s1;
+    long s;
 //    int r;
 //    char command[256];
-    char fname[256];
 //    int semfile[100];
+
+#ifdef _WIN32
+	WCHAR wideShmSemName[256];
+	PACL dacl;
+#else
+	char fname[256];
+    long s1;
+#endif
+
+	//printf("%p\n", image);
+	//printf("%p\n", &(image->md[0]));
+	//printf("%p\n", &(image->md[0].name));
+	//printf("%s\n", image->md[0].name);
+	//printf("%p\n", &strlen);
 
     // to get rid off warning
     char * nameCopy = (char *)malloc((strlen(image->md[0].name)+1)*sizeof(char));
     strcpy(nameCopy, image->md[0].name);
-    char *token = strtok(nameCopy, "/");
+	
+    char *token = strtok(nameCopy, PATH_SEPARATOR);
 
     char *semFName = NULL;
     char *localName = NULL; 
@@ -687,7 +1033,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
     while (token != NULL) 
     {
         semFName = token;
-        token = strtok(NULL, "/");
+        token = strtok(NULL, PATH_SEPARATOR);
     }
     if (semFName != NULL)
     {
@@ -712,8 +1058,30 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
         return DAO_ERROR;
     }
 
+    // Remove pre-existing semaphores if any
+	#ifdef _WIN32
+	SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644, &dacl);
+	if (!saShm) {
+		daoError("Could not create semaphore security attributes\n");
+		free(nameCopy);
+		return DAO_ERROR;
+	}
 	
-	// Remove pre-existing semaphores if any
+    if(image->md[0].sem != NBsem)
+    {
+        // Close existing semaphores ...
+        daoInfo("Closing semaphore\n");
+        for(s=0; s < image->md[0].sem; s++)
+        {
+            CloseHandle(image->semptr[s]);
+        }
+        image->md[0].sem = 0;
+
+        daoInfo("Done\n");
+        //free(image->semptr);
+        image->semptr = NULL;
+    }
+	#else
     if(image->md[0].sem != NBsem)
     {
         // Close existing semaphores ...
@@ -736,20 +1104,36 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
         //free(image->semptr);
         image->semptr = NULL;
     }
+	#endif
 
-   
+
     if(image->md[0].sem == 0)
     {
         if(image->semptr!=NULL)
             free(image->semptr);
 
-        image->md[0].sem = NBsem;
+        image->md[0].sem = (uint16_t)NBsem;
         daoInfo("malloc semptr %d entries\n", image->md[0].sem);
+		
+		#ifdef _WIN32
+		image->semptr = (HANDLE*) malloc(sizeof(HANDLE*)*image->md[0].sem);
+		#else
         image->semptr = (sem_t**) malloc(sizeof(sem_t**)*image->md[0].sem);
-
+		#endif
 
         for(s=0; s<NBsem; s++)
         {
+			#ifdef _WIN32
+            sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, s);
+			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+			
+			if (!(image->semptr[s] = CreateSemaphoreW(saShm, 0, 1, wideShmSemName))) {
+				DWORD last_error = GetLastError();
+				fprintf(stderr, "semaphore initialization error: %d\n", GetLastError());
+			}
+			ReleaseSemaphore(image->semptr[s], 1, NULL);
+			
+			#else
             sprintf(shmSemName, "%s_sem%02ld", localName, s);
             if ((image->semptr[s] = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) {
                 if ((image->semptr[s] = sem_open(shmSemName, O_CREAT, 0644, 1)) == SEM_FAILED) {
@@ -760,8 +1144,14 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
                     sem_init(image->semptr[s], 1, 0);
                 }
             }
+			#endif
         }
     }
+	
+	#ifdef _WIN32
+	daoDestroyWindowsSecurityAttrs(saShm, dacl);
+	#endif
+
     free(nameCopy);
     return(0);
 }
@@ -781,15 +1171,24 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     struct timespec timenow;
     char shmSemName[256];
     size_t sharedsize = 0; // shared memory size in bytes
-    int shmFd; // shared memory file descriptor
     char shmName[256];
-    int result;
     IMAGE_METADATA *map=NULL;
     char *mapv; // pointed cast in bytes
     int kw;
 //    char comment[80];
 //    char kname[16];
     nelement = 1;
+	
+	#ifdef _WIN32
+	WCHAR wideShmSemName[256];
+	WCHAR wideShmName[256];
+	HANDLE shmFd; // shared memory file handle
+	HANDLE shmFm; // shared memory file mapping object
+	#else
+    int shmFd; // shared memory file descriptor
+    int result;
+	#endif
+	
     for(i=0; i<naxis; i++)
     {
         nelement*=size[i];
@@ -801,7 +1200,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     {
         char * nameCopy = (char *)malloc((strlen(name)+1)*sizeof(char));
         strcpy(nameCopy, name);
-        char *token = strtok(nameCopy, "/");
+        char *token = strtok(nameCopy, PATH_SEPARATOR);
 
         char *semFName = NULL;
         char *localName = NULL;
@@ -809,7 +1208,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         while (token != NULL)
         {
             semFName = token;
-            token = strtok(NULL, "/");
+            token = strtok(NULL, PATH_SEPARATOR);
         }
 
         if (semFName != NULL)
@@ -835,6 +1234,29 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
 
         // create semlog
+		#ifdef _WIN32
+        daoInfo("Creation Local\\DAO_%s_semlog\n", semFName);
+        sprintf(shmSemName, "Local\\DAO_%s_semlog", semFName);
+        image->semlog = NULL;
+		
+		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+		
+		PACL daclSem;
+		SECURITY_ATTRIBUTES *saSem = daoCreateWindowsSecurityAttrs(0600, &daclSem);
+		if (!saSem) {
+			daoError("Error creating security attributes for semaphore\n");
+			free(nameCopy);
+			return DAO_ERROR;
+		}
+		
+		if (!(image->semlog = CreateSemaphoreW(saSem, 0, 1, wideShmSemName))) {
+			DWORD last_error = GetLastError();
+			fprintf(stderr, "semaphore initialization error: %d\n", GetLastError());
+		}
+		ReleaseSemaphore(image->semlog, 1, NULL);
+		daoDestroyWindowsSecurityAttrs(saSem, daclSem);
+		
+		#else
         daoInfo("Creation %s_semlog\n", semFName);
         sprintf(shmSemName, "%s_semlog", semFName);
         remove(shmSemName);
@@ -847,6 +1269,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         {
             sem_init(image->semlog, 1, 0);
         }
+		#endif
 
         sharedsize = sizeof(IMAGE_METADATA);
 
@@ -901,7 +1324,51 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 
         sharedsize += NBkw*sizeof(IMAGE_KEYWORD);
 
+		#ifdef _WIN32
+        sprintf(shmName, "%s", name);
+		MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, 256);
+		
+		PACL daclFile;
+		SECURITY_ATTRIBUTES *saFile = daoCreateWindowsSecurityAttrs(0600, &daclFile);
+		if (!saFile) {
+			daoError("Error creating security attributes for file\n");
+			exit(0);
+		}
 
+		// Create file with size required
+		shmFd = CreateFileW(wideShmName, GENERIC_READ | GENERIC_WRITE,
+							FILE_SHARE_READ | FILE_SHARE_WRITE,
+							saFile, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+
+		if (shmFd == INVALID_HANDLE_VALUE)
+		{
+			DWORD error_num = GetLastError();
+			daoError("Error opening file (%s) for writing, error %d\n", shmName, error_num);
+			exit(0);
+		}
+		
+		// Create file mapping handle
+		shmFm = CreateFileMapping(shmFd, NULL, PAGE_READWRITE,
+								  (DWORD)(sharedsize >> 32), (DWORD)sharedsize, NULL);
+		if (shmFm == NULL) {
+			CloseHandle(shmFd);
+			daoError("Error creating file mapping (%s)\n", shmName);
+			exit(0);
+		}
+		
+		image->shmfd = shmFd;
+		image->shmfm = shmFm;
+		image->memsize = sharedsize;
+		
+		// Now map file into memory - "map" will be our pointer
+		map = (IMAGE_METADATA*) MapViewOfFile(shmFm, FILE_MAP_ALL_ACCESS, 0, 0, sharedsize);
+		if (map == NULL) {
+			CloseHandle(shmFd);
+			CloseHandle(shmFm);
+			daoError("Error creating view of file mapping (%s)\n", shmName);
+		}
+
+		#else
         //sprintf(shmName, "%s/%s.im.shm", SHAREDMEMDIR, name);
         sprintf(shmName, "%s", name);
         shmFd = open(shmName, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
@@ -941,11 +1408,16 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
             perror("Error mmapping the file");
             exit(0);
         }
-
+		#endif
+	
         image->md = (IMAGE_METADATA*) map;
         image->md[0].shared = 1;
         image->md[0].sem = 0;
         free(nameCopy);
+		
+		#ifdef _WIN32
+		daoDestroyWindowsSecurityAttrs(saFile, daclFile);
+		#endif
     }
     else
     {
@@ -962,7 +1434,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     }
 
     image->md[0].atype = atype;
-    image->md[0].naxis = naxis;
+    image->md[0].naxis = (uint8_t)naxis;
 
     strcpy(image->name, name); // local name
     strcpy(image->md[0].name, name);
@@ -1556,28 +2028,36 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             }
         }
     }
-
+	
     for(ss = 0; ss < image->md[0].sem; ss++)
     {
+		#ifdef _WIN32
+		ReleaseSemaphore(image->semptr[ss], 1, NULL);
+		#else
         sem_getvalue(image->semptr[ss], &semval);
         if(semval < SEMAPHORE_MAXVAL )
             sem_post(image->semptr[ss]);
+		#endif
     }
 
     if(image->semlog != NULL)
     {
+		#ifdef _WIN32
+		ReleaseSemaphore(image->semlog, 1, NULL);
+		#else
         sem_getvalue(image->semlog, &semval);
         if(semval < SEMAPHORE_MAXVAL)
         {
             sem_post(image->semlog);
         }
+		#endif
     }
 
     image->md[0].write = 0;
     image->md[0].cnt0++;
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-    image->md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+	image->md[0].atime.tsfixed.secondlong = (1e9 * (int64_t)t.tv_sec + t.tv_nsec);
 
     return DAO_SUCCESS;
 }
@@ -1592,7 +2072,18 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 {
     daoTrace("\n");
     // Wait for new image
+	#ifdef _WIN32
+	DWORD dWaitResult = WaitForSingleObject(image->semptr[semNb], INFINITE);
+	switch (dWaitResult) {
+		case WAIT_OBJECT_0:
+			break;
+		default:
+			daoError("Unexpected result from WaitForSingleObject (Windows system error no. %d).\n", GetLastError());
+			return DAO_ERROR;
+	}
+	#else
     sem_wait(image->semptr[semNb]);
+	#endif
     return DAO_SUCCESS;
 }
 
@@ -1605,7 +2096,14 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 int_fast8_t daoShmWaitForCounter(IMAGE *image)
 {
     daoTrace("\n");
-    uint_fast64_t counter = image->md[0].cnt0; 
+	#ifdef _WIN32
+	volatile uint_fast64_t counter = image->md[0].cnt0;
+	while (image->md[0].cnt0 <= counter)
+	{
+		// Spin
+	}
+	#else
+	uint_fast64_t counter = image->md[0].cnt0;
     struct timespec req, rem;
     req.tv_sec = 0;          // Seconds
     req.tv_nsec = 0; // Nanoseconds
@@ -1618,6 +2116,7 @@ int_fast8_t daoShmWaitForCounter(IMAGE *image)
             return 1;
         }
     }
+	#endif
     return DAO_SUCCESS;
 }
 
@@ -1632,6 +2131,7 @@ uint_fast64_t daoShmGetCounter(IMAGE *image)
     daoTrace("\n");
     return image->md[0].cnt0;
 }
+
 
 /**
  * @brief Read current SHM content
