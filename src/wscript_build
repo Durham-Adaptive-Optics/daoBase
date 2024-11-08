@@ -15,7 +15,7 @@ elif platform.system() == "Windows":
 	add_cxx_flags += ['-lrt']
 	add_c_flags +=  ['']
 else:
-	add_ld_flags += ['-lnuma']
+	add_ld_flags += ['-lnuma', '-lzmq']
 	add_cxx_flags += ['']
 	add_c_flags +=  ['-lrt']
 
