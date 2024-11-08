@@ -24,7 +24,7 @@ foreach(pbFile IN LISTS pbSrcFiles)
     list(APPEND bindings ${binding})
 
     add_custom_command(
-        OUTPUT ${binding} "${BUILD_DIR}/${pbFile}.pb.h" "${BUILD_DIR}/${pbFile}.py"
+        OUTPUT ${binding} "${BUILD_DIR}/${pbFile}.pb.h" "${BUILD_DIR}/${pbFile}_pb2.py"
         DEPENDS "${SRCPROTO_DIR}/${pbFile}.proto"
         COMMAND ${pbcompiler}
         ARGS -I${SRCPROTO_DIR} --cpp_out=${BUILD_DIR} --python_out=${BUILD_DIR} "${pbFile}.proto"
