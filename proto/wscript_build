@@ -30,22 +30,26 @@ def build_proto_list(bld, list, proto_path='../../proto/', build_path='../'):
     bld.execute_build()
     return bld
 
-bld = build_proto_list(bld, ['daoCommand.proto', 'daoLogging.proto', 'daoEvent.proto'])
+def build(bld):
+    # List of .proto files
+    proto_files = ['daoCommand.proto', 'daoLogging.proto', 'daoEvent.proto']
+    
+    # Compile Protobuf files
+    build_proto_list(bld, proto_files)
 
-if platform.system() == "Windows":
-    bld.shlib(
-        target='daoProto',
-        source= ["../build/daoCommand.pb.cc", "../build/daoLogging.pb.cc", "../build/daoEvent.pb.cc"],
-        cppflags=['/std:c++14','/DDLL_EXPORT=__declspec(dllexport)'],
-        #ldflags=['/LIBPATH:C:/Users/nwnw17/Documents/daoExperiments/protobuf-3.20.0/cmake/release','libprotobuf.lib'],
-        use=['PROTOBUF'],
-        features    = 'pkg_build',
-    )
-else:
-    bld.shlib(
-        target='daoProto',
-        source= ["../build/daoCommand.pb.cc", "../build/daoLogging.pb.cc", "../build/daoEvent.pb.cc"],
-        cppflags=['-std=c++11'],
-        use=['PROTOBUF'],
-        features    = 'pkg_build',
-    )
+    if platform.system() == "Windows":
+        bld.shlib(
+            target='daoProto',
+            source=[f"{bld.path.find_or_declare('../build/' + proto.replace('.proto', '.pb.cc')).abspath()}" for proto in proto_files],
+            libs=['libprotobuf'],  # Adjust if Protobuf has a different library name on your system
+            cppflags=['/std:c++14', '/DDLL_EXPORT=__declspec(dllexport)'],
+            features='cxx cxxshlib',
+        )
+    else:
+        bld.shlib(
+            target='daoProto',
+            source=[f"{bld.path.find_or_declare('../build/' + proto.replace('.proto', '.pb.cc')).abspath()}" for proto in proto_files],
+            libs=['protobuf'],  # Common name for Protobuf on Unix systems
+            cppflags=['-std=c++11'],
+            features='cxx cxxshlib',
+        )
