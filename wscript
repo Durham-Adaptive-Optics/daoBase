@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # encoding: utf-8
 # Sylvain Cetre and David Barr
-import os,glob
+import os,glob,platform
 # the following two variables are used by the target "waf dist"
 VERSION='0.0.1'
 APPNAME='daoBase'
@@ -58,7 +58,7 @@ def configure(conf):
 					args='--cflags --libs',
 					uselib_store='PROTOBUF'
 					)
- 
+
 	# add some custom locations
 	conf.env.PYTHONDIR		= f'{conf.env.PREFIX}/python'
 	conf.env.DATADIR		= f'{conf.env.PREFIX}/data'
@@ -116,7 +116,10 @@ def build(bld):
 	files = glob.glob('scripts/*')
 	for file in files:
 		bld.install_files(bld.env.BINDIR, file, chmod=0o0755, relative_trick=False)
-  
+	# logo
+	files = glob.glob('logo/*.png')
+	for file in files:
+		bld.install_files(bld.env.DATADIR, file, relative_trick=False)
 	
 	# uncommment to run tests
 #	bld(features='test', source='test/daoBaseTestEvent.py', target='daoBaseTestEvent', 

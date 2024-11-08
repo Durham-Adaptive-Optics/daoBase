@@ -1,6 +1,8 @@
 # daoBase
 basic tools for dao
 
+(for build instructions on Windows, see windows-build.md)
+
 # Prerequiries
 ## Linux package
 Package for Redhat based distribution... to be adapted for other Linux distrib
@@ -21,6 +23,7 @@ mkdir ~/bin
 cd ~/bin
 wget https://waf.io/waf-2.0.26
 ln -s waf-2.0.26 waf
+chmod u+x *
 ```
 and add $HOME/bin in your path
 ## Python

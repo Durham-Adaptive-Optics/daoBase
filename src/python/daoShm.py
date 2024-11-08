@@ -5,11 +5,14 @@ Read/Write access to SHM. Tjhe old interface is still available as shmOld object
 '''
 
 import os, sys, mmap, struct
+isWindows = True if (sys.platform == 'win32') else False
+
 import numpy as np
 import astropy.io.fits as pf
 import time
 #import pdb
-import posix_ipc
+if not isWindows:
+    import posix_ipc
 from threading import Thread
 from threading import Event
 import zmq
@@ -29,12 +32,23 @@ import ctypes
 import logging
 import daoLog
 # Load the shared library
-daoLib = ctypes.CDLL('libdao.so')
+
+if isWindows:
+    # TODO - Add proper path
+    daoLibPath = os.path.join(os.getenv('DAOROOT'), 'lib', 'dao-0.dll')
+    daoLib = ctypes.WinDLL(daoLibPath)
+else:
+    daoLib = ctypes.CDLL('libdao.so')
 
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, "TRACE")
 
-logFile = "/tmp/daolog.txt"
+if isWindows:
+    # TODO - Add proper temporary path
+    logFile = "daolog.txt"
+else:
+    logFile = "/tmp/daolog.txt"
+
 ip = '127.0.0.1'
 port = 5558
 addr=f"tcp://{ip}:{port}"
@@ -138,14 +152,14 @@ def daoType2CtypesType(daoType):
 # Define the struct timespec structure
 class timespec(ctypes.Structure):
     _fields_ = [
-        ('tv_sec', ctypes.c_long),
-        ('tv_nsec', ctypes.c_long)
+        ('tv_sec', ctypes.c_int64),
+        ('tv_nsec', ctypes.c_int64)
     ]
 
 class TIMESPECFIXED(ctypes.Structure):
     _fields_ = [
-        ('firstlong', ctypes.c_long),
-        ('secondlong', ctypes.c_long)
+        ('firstlong', ctypes.c_int64),
+        ('secondlong', ctypes.c_int64)
     ]
 
 class IMAGE_KEYWORD(ctypes.Structure):
@@ -189,38 +203,73 @@ class IMAGE_METADATA(ctypes.Structure):
         ("lastNbArray", ctypes.c_uint64 * 512)
     ]
 
-# Define the IMAGE structure
-class IMAGE(ctypes.Structure):
-#    # Define the nested structure for the 'array' union
-#    class ArrayUnion(ctypes.Union):
-#        _fields_ = [
-#            ('UI8', ctypes.POINTER(ctypes.c_uint8)),
-#            ('SI8', ctypes.POINTER(ctypes.c_int8)),
-#            ('UI16', ctypes.POINTER(ctypes.c_uint16)),
-#            ('SI16', ctypes.POINTER(ctypes.c_int16)),
-#            ('UI32', ctypes.POINTER(ctypes.c_uint32)),
-#            ('SI32', ctypes.POINTER(ctypes.c_int32)),
-#            ('UI64', ctypes.POINTER(ctypes.c_uint64)),
-#            ('SI64', ctypes.POINTER(ctypes.c_int64)),
-#            ('F', ctypes.POINTER(ctypes.c_float)),
-#            ('D', ctypes.POINTER(ctypes.c_double)),
-#            # Add more fields for other data types if needed
-#        ]
-        
-    _fields_ = [
-        ('name', ctypes.c_char * 80),
-        ('used', ctypes.c_uint8),
-        ('shmfd', ctypes.c_int32),
-        ('memsize', ctypes.c_uint64),
-        ('semlog', ctypes.POINTER(ctypes.c_void_p)),
-        ('md', ctypes.POINTER(IMAGE_METADATA)),
-#        ('_pad', ctypes.c_uint64),  # Pad to align to 8-byte boundary
-        ('array', ctypes.c_void_p),
-        ('semptr', ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))),
-        ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
-        ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
-        ('semWritePID', ctypes.POINTER(ctypes.c_int32))
-    ]
+if isWindows:
+    # Define the IMAGE structure
+    class IMAGE(ctypes.Structure):
+    #    # Define the nested structure for the 'array' union
+    #    class ArrayUnion(ctypes.Union):
+    #        _fields_ = [
+    #            ('UI8', ctypes.POINTER(ctypes.c_uint8)),
+    #            ('SI8', ctypes.POINTER(ctypes.c_int8)),
+    #            ('UI16', ctypes.POINTER(ctypes.c_uint16)),
+    #            ('SI16', ctypes.POINTER(ctypes.c_int16)),
+    #            ('UI32', ctypes.POINTER(ctypes.c_uint32)),
+    #            ('SI32', ctypes.POINTER(ctypes.c_int32)),
+    #            ('UI64', ctypes.POINTER(ctypes.c_uint64)),
+    #            ('SI64', ctypes.POINTER(ctypes.c_int64)),
+    #            ('F', ctypes.POINTER(ctypes.c_float)),
+    #            ('D', ctypes.POINTER(ctypes.c_double)),
+    #            # Add more fields for other data types if needed
+    #        ]
+            
+        _fields_ = [
+            ('name', ctypes.c_char * 80),
+            ('used', ctypes.c_uint8),
+            ('shmfd', ctypes.POINTER(ctypes.c_void_p)),
+            ('memsize', ctypes.c_uint64),
+            ('semlog', ctypes.POINTER(ctypes.c_void_p)),
+            ('md', ctypes.POINTER(IMAGE_METADATA)),
+    #        ('_pad', ctypes.c_uint64),  # Pad to align to 8-byte boundary
+            ('array', ctypes.c_void_p),
+            ('semptr', ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))),
+            ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
+            ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
+            ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
+            ('shmfm', ctypes.POINTER(ctypes.c_void_p))
+        ]
+else:
+    # Define the IMAGE structure
+    class IMAGE(ctypes.Structure):
+    #    # Define the nested structure for the 'array' union
+    #    class ArrayUnion(ctypes.Union):
+    #        _fields_ = [
+    #            ('UI8', ctypes.POINTER(ctypes.c_uint8)),
+    #            ('SI8', ctypes.POINTER(ctypes.c_int8)),
+    #            ('UI16', ctypes.POINTER(ctypes.c_uint16)),
+    #            ('SI16', ctypes.POINTER(ctypes.c_int16)),
+    #            ('UI32', ctypes.POINTER(ctypes.c_uint32)),
+    #            ('SI32', ctypes.POINTER(ctypes.c_int32)),
+    #            ('UI64', ctypes.POINTER(ctypes.c_uint64)),
+    #            ('SI64', ctypes.POINTER(ctypes.c_int64)),
+    #            ('F', ctypes.POINTER(ctypes.c_float)),
+    #            ('D', ctypes.POINTER(ctypes.c_double)),
+    #            # Add more fields for other data types if needed
+    #        ]
+            
+        _fields_ = [
+            ('name', ctypes.c_char * 80),
+            ('used', ctypes.c_uint8),
+            ('shmfd', ctypes.c_int32),
+            ('memsize', ctypes.c_uint64),
+            ('semlog', ctypes.POINTER(ctypes.c_void_p)),
+            ('md', ctypes.POINTER(IMAGE_METADATA)),
+    #        ('_pad', ctypes.c_uint64),  # Pad to align to 8-byte boundary
+            ('array', ctypes.c_void_p),
+            ('semptr', ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))),
+            ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
+            ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
+            ('semWritePID', ctypes.POINTER(ctypes.c_int32))
+        ]
 
 def serialize_numpy_to_marshal(arr):
     # Convert numpy array to a marshal serializable format
