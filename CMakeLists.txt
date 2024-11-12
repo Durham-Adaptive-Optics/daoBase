@@ -4,68 +4,52 @@
 #  @date   November 2024
 # ======================================
 
-# ================================================= 
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.13)
+
+# =============================== #
+#      Generate Build System
+# =============================== #
 project(DAO)
-# ================================================= 
 
-# ================================================= 
-# Ensure the user has specified where DAO should 
-# be installed.
-# ================================================= 
-if(NOT DEFINED InstallDir)
-    message(FATAL_ERROR "Please specify the DAO installation directory via the cmake switch -DInstallDir=<path>")
-endif()
-# ================================================= 
+# DAO sub-directory paths.
+set(DAOIncludes "${CMAKE_SOURCE_DIR}/include")
+set(ProtobuffDir "${CMAKE_SOURCE_DIR}/proto")
+set(BuildDir "${CMAKE_BINARY_DIR}")
 
-# ================================================= 
-#               Required Directories
-# ================================================= 
-set(BUILD_DIR "${CMAKE_SOURCE_DIR}/build") # Where build files are generated.
-set(SRC_DIR "${CMAKE_SOURCE_DIR}/src") # Location of source code.
-set(SRCINCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
-set(SRCPROTO_DIR "${CMAKE_SOURCE_DIR}/proto")
+# Declare installation destinations.
+set(INCLUDE "include")
+set(PYTHON "python")
+set(JULIA "julia")
+set(LIB64 "lib64")
+set(DATA "data")
+set(BIN "bin")
 
-set(INCLUDE_DIR "${InstallDir}/include")
-set(PYTHON_DIR "${InstallDir}/python")
-set(JULIA_DIR "${InstallDir}/julia")
-set(BIN_DIR "${InstallDir}/bin")
-set(LIB64_DIR "${InstallDir}/lib64")
+# Ensure installation destinations exist.
+file(MAKE_DIRECTORY ${INCLUDE})
+file(MAKE_DIRECTORY ${PYTHON})
+file(MAKE_DIRECTORY ${JULIA})
+file(MAKE_DIRECTORY ${LIB64})
+file(MAKE_DIRECTORY ${DATA})
+file(MAKE_DIRECTORY ${BIN})
 
-file(MAKE_DIRECTORY ${INCLUDE_DIR})
-file(MAKE_DIRECTORY ${PYTHON_DIR})
-file(MAKE_DIRECTORY ${JULIA_DIR})
-file(MAKE_DIRECTORY ${BIN_DIR})
-file(MAKE_DIRECTORY ${LIB64_DIR})
-# ================================================= 
-
-# ================================================= 
-#                      BUILD
-# ================================================= 
-include_directories(${SRCINCLUDE_DIR}) # Tell compiler where (protobuff, dao) includes are.
+# Invoke subdirectory cmake scripts.
 add_subdirectory("src")
 add_subdirectory("proto")
 
-# ================================================= 
+# Install pre-existing DAO project files.
+file(GLOB daoHeaders "include/*.h" "include/*.hpp")
+install(FILES ${daoHeaders} DESTINATION ${INCLUDE})
 
+file(GLOB daoPy "src/python/*.py")
+install(FILES ${daoPy} DESTINATION ${PYTHON})
 
-# ================================================= 
-#                   INSTALLATION
-# ================================================= 
-file(GLOB pbHxx "*.pb.h") # protobuff
-file(GLOB pbPy "*.py") # protobuff
-file(GLOB daoHxx "include/*.h" "include/*.hpp")
-file(GLOB pyScr "src/python/*.py") # python scripts
-file(GLOB julScr "src/julia/*.jl") # julia scripts
-file(GLOB scr "scripts/*") # Misc scripts
-install(FILES ${pbHxx} DESTINATION ${INCLUDE_DIR})
-install(FILES ${daoHxx} DESTINATION ${INCLUDE_DIR})
-install(FILES ${pyScr} DESTINATION ${PYTHON_DIR})
-install(FILES ${scr} DESTINATION ${PYTHON_DIR})
-install(FILES ${julScr} DESTINATION ${JULIA_DIR})
-install(FILES ${pbPy} DESTINATION ${BIN_DIR})
-install(TARGETS daoProto DESTINATION ${LIB64_DIR})
-install(TARGETS daoNuma DESTINATION ${LIB64_DIR})
-install(TARGETS dao DESTINATION ${LIB64_DIR})
+file(GLOB daoJl "src/julia/*.jl")
+install(FILES ${daoJl} DESTINATION ${JULIA})
 
-# ================================================= 
+file(GLOB daoScr "scripts/*")
+install(FILES ${daoScr} DESTINATION ${BIN})
+
+file(GLOB daoLogo "logo/*.png")
+install(FILES ${daoLogo} DESTINATION ${DATA})
+# =============================== #
+

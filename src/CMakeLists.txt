@@ -1,63 +1,80 @@
-# ================================================= 
-#              daoNuma Shared Library
-# ================================================= 
-set(sources "${SRC_DIR}/cpp/daoNuma.cpp")
+# ======================================
+#  @brief  DAO Build Script
+#  @author Thomas Davies
+#  @date   November 2024
+# ======================================
 
-set(compileFlags
-    -Ofast
-    -Wall
-    -Wextra
-    -march=core-avx2
-    -mavx2
-)
+function(daoNuma)
+    if(NOT WIN32)
+        set(compilerFlags
+            -Ofast
+            -Wall
+            -Wextra
+            -march=core-avx2
+            -mavx2
 
-set(linkFlags
-    -lnuma
-    -Bstatic
-    -Bdynamic
-)
+            $<$<CONFIG:DEBUG>: -O0>
+            $<$<CONFIG:ASAN>: -g -fsanitize=address>
+        )
 
-add_library(daoNuma SHARED ${sources})
-set_target_properties(daoNuma PROPERTIES SOVERSION 0)
-target_compile_options(daoNuma PRIVATE ${compileFlags})
-target_link_options(daoNuma PRIVATE ${linkFlags})
-# ================================================= 
+        set(linkerFlags -lnuma)
 
-# ================================================= 
-#             dao Shared Library
-# ================================================= 
-set(sources "${SRC_DIR}/c/dao.c")
+        set(sources "cpp/daoNuma.cpp")
 
-set(compileFlags
-    # Common flags
-    -Ofast
-    -Wall
-    -Wextra
-    -pipe
-    -fdiagnostics-color=auto
-    -fstack-protector
+        add_library(daoNuma SHARED ${sources})
+        target_include_directories(daoNuma PRIVATE ${DAOIncludes})
+        target_compile_options(daoNuma PRIVATE ${compilerFlags})
+        target_link_options(daoNuma PRIVATE ${linkerFlags})
+        install(TARGETS daoNuma DESTINATION ${LIB64})
+    endif()
+endfunction(daoNuma)
 
-    # Platform-specific flags
-    $<$<PLATFORM_ID:Darwin>: -std=c++17>
-    $<$<OR:$<PLATFORM_ID:Windows>,$<PLATFORM_ID:Linux>>: -lrt>
+function(dao)
+    set(sources "c/dao.c")
 
-    # Build-specific flags
-    $<$<CONFIG:ADDSAN>: -g -sanitize=address>
-    $<$<CONFIG:DEBUG>: -g>
-)
+    add_library(dao SHARED ${sources})
+    target_include_directories(dao PRIVATE ${DAOIncludes})
 
-set(linkFlags
-    # Common flags
+    set(compilerFlags "")
+    set(linkerFlags "")
 
-    # Platform-specific flags
-    $<$<PLATFORM_ID:Darwin>: -L/opt/homebrew/lib>
-    $<$<OR:$<PLATFORM_ID:Windows>,$<PLATFORM_ID:Linux>>: -lnuma>
+    if(WIN32)
+        list(APPEND compilerFlags -D_CRT_SECURE_NO_WARNINGS)
+        list(APPEND compilerFlags -W3)
+        list(APPEND compilerFlags $<$<CONFIG:DEBUG>: -Od>)
+        list(APPEND compilerFlags $<$<CONFIG:ASAN>: -Zi -GS -analyze>)
+        list(APPEND linkerFlags advapi32.lib)
+    elseif(UNIX)
+        list(APPEND compilerFlags -Ofast)
+        list(APPEND compilerFlags -Wall)
+        list(APPEND compilerFlags -Wextra)
+        list(APPEND compilerFlags -pipe)
+        list(APPEND compilerFlags -fdiagnostics-color=auto)
+        list(APPEND compilerFlags -fstack-protector)
+        list(APPEND compilerFlags -lrt)
+        list(APPEND compilerFlags $<$<CONFIG:DEBUG>: -O0>)
+        list(APPEND compilerFlags $<$<CONFIG:ASAN>: -g -fsanitize=address>)
+        list(APPEND linkerFlags -lnuma)
+    elseif(APPLE)
+        list(APPEND compilerFlags -Ofast)
+        list(APPEND compilerFlags -Wall)
+        list(APPEND compilerFlags -Wextra)
+        list(APPEND compilerFlags -pipe)
+        list(APPEND compilerFlags -fdiagnostics-color=auto)
+        list(APPEND compilerFlags -fstack-protector)
+        list(APPEND compilerFlags $<$<CONFIG:DEBUG>: -O0>)
+        list(APPEND compilerFlags $<$<CONFIG:ASAN>: -g -fsanitize=address)
+        list(APPEND linkerFlags -L/opt/homebrew/lib)
+    endif()
 
-    # Build-specific flags
-    $<$<CONFIG:ADDSAN>: -sanitize=address>
-)
+    target_compile_options(dao PRIVATE ${compilerFlags})
+    target_link_options(dao PRIVATE ${linkerFlags})
+    install(TARGETS dao DESTINATION ${LIB64})
 
-add_library(dao SHARED ${sources})
-target_compile_options(dao PRIVATE ${compileFlags})
-target_link_options(dao PRIVATE ${linkFlags})
-# ================================================= 
+endfunction(dao)
+
+# =============================== #
+
+daoNuma()
+dao()
+

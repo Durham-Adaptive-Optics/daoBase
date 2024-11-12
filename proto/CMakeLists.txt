@@ -1,39 +1,54 @@
-# ================================================= 
-#             daoProto Shared Library
-# ================================================= 
+# ======================================
+#  @brief  DAO Build Script
+#  @author Thomas Davies
+#  @date   November 2024
+# ======================================
 
-set(pbSrcFiles # Base names of source Google Protobuf files.
-    "daoCommand"
-    "daoEvent"
-    "daoLogging"
-)
-
-set(compileFlags -std=c++11)
-set(linkFlags)
-
-# ---
-
-find_program(pbcompiler NAMES protoc REQUIRED)
-
-# Tell CMake to regenerate the output bindings whenever the
-# source .proto files change.
-set(bindings)
-foreach(pbFile IN LISTS pbSrcFiles)
-    # Requires absolute paths for CMake file tracking ..
-    set(binding "${BUILD_DIR}/${pbFile}.pb.cc")
-    list(APPEND bindings ${binding})
-
-    add_custom_command(
-        OUTPUT ${binding} "${BUILD_DIR}/${pbFile}.pb.h" "${BUILD_DIR}/${pbFile}_pb2.py"
-        DEPENDS "${SRCPROTO_DIR}/${pbFile}.proto"
-        COMMAND ${pbcompiler}
-        ARGS -I${SRCPROTO_DIR} --cpp_out=${BUILD_DIR} --python_out=${BUILD_DIR} "${pbFile}.proto"
+function(daoProto)
+    set(sources
+        "daoCommand"
+        "daoEvent"
+        "daoLogging"
     )
-endforeach()
 
-# ---
+    set(compileFlags
+        $<$<CONFIG:DEBUG>: -O0>
+        $<$<CONFIG:ASAN>: -g -fsanitize=address>
+        -std=c++11
+    )
 
-add_library(daoProto SHARED ${bindings})
-target_compile_options(daoProto PRIVATE ${compileFlags})
-target_link_options(daoProto PRIVATE ${linkFlags})
-# ================================================= 
+    set(linkFlags
+        # put linker flags here
+    )
+
+    find_program(protobuffCompiler NAMES protoc REQUIRED)
+
+    set(cxxFiles)
+    foreach(file IN LISTS sources)
+        set(cxx "${BuildDir}/${file}.pb.cc")
+        set(hpp "${BuildDir}/${file}.pb.h")
+        set(py "${BuildDir}/${file}_pb2.py")
+        list(APPEND cxxFiles ${cxx})
+
+        add_custom_command(
+            OUTPUT ${cxx} ${hpp} ${py}
+            DEPENDS "${ProtobuffDir}/${file}.proto"
+            COMMAND ${protobuffCompiler}
+            ARGS -I${ProtobuffDir} --cpp_out=${BuildDir} --python_out=${BuildDir} "${file}.proto"
+            COMMENT "Generating C++/Python bindings for ${file}.proto"
+        )
+
+        install(FILES ${hpp} DESTINATION ${INCLUDE})
+        install(FILES ${py} DESTINATION ${PYTHON})
+    endforeach()
+
+    add_library(daoProto SHARED ${cxxFiles})
+    target_compile_options(daoProto PRIVATE ${compileFlags})
+    target_link_options(daoProto PRIVATE ${linkFlags})
+    install(TARGETS daoProto DESTINATION ${LIB64})
+endfunction(daoProto)
+
+# =============================== #
+
+daoProto()
+
