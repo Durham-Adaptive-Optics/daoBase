@@ -17,6 +17,7 @@
 #include <ctype.h>
 #include <limits.h>
 #include <stdint.h>
+#include <zmq.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -54,7 +55,6 @@ static int clock_gettime(int clk_id, struct timespec *t)
 #include <sys/time.h>
 #include <gsl/gsl_blas.h>
 #include <omp.h>
-#include <zmq.h>
 #include <errno.h>
 
 #define PATH_SEPARATOR "/"

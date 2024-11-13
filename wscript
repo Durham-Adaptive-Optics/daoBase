@@ -53,6 +53,10 @@ def configure(conf):
 	# Enable draft API support
 	conf.env.CFLAGS += ['-DZMQ_BUILD_DRAFT_API']
 	conf.env.CXXFLAGS += ['-DZMQ_BUILD_DRAFT_API']
+	
+	print("ZeroMQ Include Path:", conf.env.CFLAGS_ZMQ)
+	print("ZeroMQ Library Path:", conf.env.LIBPATH_ZMQ)
+	print("ZeroMQ Libraries:", conf.env.LIB_ZMQ)
 
 	conf.check_cfg( package='protobuf',
 					args='--cflags --libs',
