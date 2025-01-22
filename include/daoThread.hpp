@@ -24,8 +24,8 @@ namespace Dao
     class Thread: public ThreadBase, public ThreadIfce
     {
         public:
-            Thread(std::string name, Log::Logger& logger, int core=-1, int thread_number=-1)
-            : ThreadBase(name, logger, core, thread_number)
+            Thread(std::string name, Log::Logger& logger, int core=-1, int thread_number=-1, bool rt_enabled=true)
+            : ThreadBase(name, logger, core, thread_number, rt_enabled)
             {
 
             }
