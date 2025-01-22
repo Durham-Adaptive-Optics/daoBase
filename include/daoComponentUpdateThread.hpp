@@ -91,8 +91,8 @@ namespace Dao
     class ComponentUpdateThread : public Thread
     {
         public:
-            ComponentUpdateThread(std::string name, Log::Logger& logger, int core=-1, int handle=-1)
-            : Thread("Up_"+ name, logger, core, handle)
+            ComponentUpdateThread(std::string name, Log::Logger& logger, int core=-1, int handle=-1, bool rt_enabled=true)
+            : Thread("Up_"+ name, logger, core, handle, rt_enabled)
             {
 
             }

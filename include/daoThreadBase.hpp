@@ -33,12 +33,13 @@ namespace Dao
              * @brief Default constructor.
              * @param
              */
-            ThreadBase(std::string thread_name, Log::Logger& logger, int core=-1, int thread_number=-1)
+            ThreadBase(std::string thread_name, Log::Logger& logger, int core=-1, int thread_number=-1, bool rt_enabled=true)
             : m_thread_name(thread_name)
             , m_log(logger)
             , m_core(core)
             , m_node(-1)
             , m_thread_number(thread_number)
+            , m_rt_enabled(rt_enabled)
             , m_start(false)
             , m_running(false)
             , m_spawned(false)
@@ -188,8 +189,8 @@ namespace Dao
                     if(rc != 0)
                         std::cout << "Return : " << rc << std::endl;
                 }
-                // setting 
-                if(getuid() == 0)
+                // realtime threads - set RT priority and FIFO scheduling
+                if(getuid() == 0 && m_rt_enabled)
                 {
                     struct sched_param param;
                     param.sched_priority = 95;
@@ -292,6 +293,8 @@ namespace Dao
             volatile bool m_spawned;
             volatile bool m_stop;
             volatile bool m_start_waiting;
+
+            bool m_rt_enabled;
 
             std::thread m_thread;
 
