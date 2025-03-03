@@ -32,7 +32,11 @@ namespace Dao
             virtual void OnFailure()= 0;
             virtual void Recover()  = 0;
             virtual std::string GetStateText() = 0;
+            
+            std::string GetDiagnosticMessage() const { return m_diagnostic_msg; }
 
+        private:
+            std::string m_diagnostic_msg = "";
     };            
 }; // namespace DAO
 

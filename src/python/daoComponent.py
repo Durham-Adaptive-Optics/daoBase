@@ -15,6 +15,8 @@ class daoComponent(daoComponentStateMachine):
         super(daoComponentStateMachine, self).__init__(self, name)
         self.name = name
 
+        self.diagnostic_msg = ""
+
         self.log = logging.getLogger(name)
         self.log.info("Created")
         if config is not None:
@@ -184,6 +186,9 @@ class daoComponent(daoComponentStateMachine):
     
     def process_STATE(self):
         payload = self.current_state_value
+        if (self.current_state_value == "Error" and self.diagnostic_msg):
+            payload += f":{self.diagnostic_msg}";
+        
         status  = daoCommand_pb2.ReplyMessage.RETURN.Value('SUCCESS')
         self.log.trace(f"STATE: {payload}")
         return status, payload

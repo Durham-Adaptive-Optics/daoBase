@@ -285,7 +285,15 @@ namespace Dao
             void process_STATE()
             {
                 m_log.Trace("Proces_STATE()");
-                m_payload << "STATE: " << m_ifce->GetStateText();
+             
+                std::string payload = m_ifce->GetStateText();
+                const std::string diagnostic_msg = m_ifce->GetDiagnosticMessage();
+                if (m_ifce->GetStateText() == "Error" && diagnostic_msg.size())
+                {
+                    payload += ":" + diagnostic_msg;
+                }
+
+                m_payload << payload;
             }
 
             void process_SET_LOG_LEVEL(std::string Payload)
