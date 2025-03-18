@@ -71,7 +71,9 @@ def configure(conf):
  
 def build(bld):
 	bld.env.DEFINES=['WAF=1']
+	Logs.info("Recursing into proto...")
 	bld.recurse('proto')
+	Logs.info("Recursing into src...")
 	bld.recurse('src')# test')
  
 	# install header files

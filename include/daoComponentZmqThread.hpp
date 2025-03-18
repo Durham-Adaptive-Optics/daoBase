@@ -32,8 +32,8 @@ namespace Dao
     class ComponentZmqThread : public Thread
     {
         public:
-            ComponentZmqThread(std::string name, Log::Logger& logger, int core=-1, int handle=-1)
-            : Thread("ZMQ_"+ name, logger, core, handle)
+            ComponentZmqThread(std::string name, Log::Logger& logger, int core=-1, int handle=-1, bool rt_enabled=true)
+            : Thread("ZMQ_"+ name, logger, core, handle, rt_enabled)
             , m_configured(false)
             , m_ip("")
             , m_port(0)

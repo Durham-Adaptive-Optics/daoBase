@@ -32,7 +32,7 @@ namespace Dao
     class ComponentBase : public StateMachine
     {
         public:
-            ComponentBase(std::string name, Dao::Log::Logger& logger, std::string ip, int port, int core=-1)
+            ComponentBase(std::string name, Dao::Log::Logger& logger, std::string ip, int port, int zmq_core=-1, int update_core=-1)
             : StateMachine(logger)
             , m_name(name)
             , m_ip(ip)
@@ -40,8 +40,8 @@ namespace Dao
             , m_log(logger)
             {
                 // create templete message
-                m_zmq_thread = std::make_unique<ComponentZmqThread>(m_name, logger, core, 0);
-                m_update_thread = std::make_unique<ComponentUpdateThread>(m_name, logger);
+                m_zmq_thread = std::make_unique<ComponentZmqThread>(m_name, logger, zmq_core, 0, false);
+                m_update_thread = std::make_unique<ComponentUpdateThread>(m_name, logger, update_core, 0, false);
             }
 
             virtual ~ComponentBase()
