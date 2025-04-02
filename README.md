@@ -15,6 +15,20 @@ for ubuntu distribution:
 sudo apt install -y libtool pkg-config build-essential autoconf automake python3 python-is-python3 libssl-dev libncurses5-dev libncursesw5-dev redis libgtest-dev libgsl-dev libzmq3-dev protobuf-compiler numactl libnuma-dev
 ```
 
+## MAC
+
+You need homebrew for the packages.
+```
+brew install pkg-config zeromq protobuf gsl
+
+```
+
+if you use anaconda there could be a conflict between protobuf versions so uninstall using
+
+```
+conda uninstall libprotobuf
+```
+
 ## Waf
 waf needs to be installed and in the path: see https://waf.io/book/.  
 Our typical install
