@@ -43,8 +43,7 @@ if platform.system() != "Windows":
 	bld.shlib(
 		source = 'c/dao.c',
 		includes = '../include',
-		#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
-		cflags = ['-Ofast', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags, # '-Wall', '-Wextra'
+		cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
 		ldflags = [''] + add_ld_flags,
 		target = 'dao',
 		name   = 'dao',
