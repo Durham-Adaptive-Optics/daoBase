@@ -12,13 +12,12 @@ if platform.system() == "Darwin":
     add_cxx_flags += ['-std=c++17']
     add_c_flags += ['']
 elif platform.system() == "Windows":
-	add_cxx_flags += ['']
-	add_c_flags +=  ['']
+    add_cxx_flags += ['']
+    add_c_flags +=  ['']
 else:
-	add_ld_flags += ['']
-	add_cxx_flags += ['']
-	add_c_flags +=  ['']
-
+    add_ld_flags += ['']
+    add_cxx_flags += ['']
+    add_c_flags +=  ['']
 
 class proto_cpp(Task):
     name =  'proto_cpp'
