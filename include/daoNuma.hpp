@@ -9,8 +9,11 @@
  ***********************************************/
 
 
+#if defined(__linux__)
 #include <numa.h>
 #include <numaif.h>
+#endif 
+
 #include <sched.h>
 #include <cassert>
 #include <stdlib.h> // for size_t

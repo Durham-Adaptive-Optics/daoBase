@@ -5,13 +5,11 @@ Read/Write access to SHM. Tjhe old interface is still available as shmOld object
 '''
 
 import os, sys, mmap, struct
-isWindows = True if (sys.platform == 'win32') else False
-
 import numpy as np
 import astropy.io.fits as pf
 import time
 #import pdb
-if not isWindows:
+if sys.platform not in ["win32"]:
     import posix_ipc
 from threading import Thread
 from threading import Event
@@ -26,21 +24,23 @@ import logging
 import daoLog
 # Load the shared library
 
-if isWindows:
+logFile = "/tmp/daolog.txt"
+if sys.platform == "linux" or sys.platform == "linux2":
+    daoLib = ctypes.CDLL('libdao.so')
+elif sys.platform == "darwin":
+    daoLib = ctypes.CDLL('libdao.dylib')
+elif sys.platform == "win32":
     # TODO - Add proper path
     daoLibPath = os.path.join(os.getenv('DAOROOT'), 'lib', 'dao-0.dll')
     daoLib = ctypes.WinDLL(daoLibPath)
+    logFile = "daolog.txt"
 else:
-    daoLib = ctypes.CDLL('libdao.so')
+    raise Exception("Unsupported platform")
+    
 
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, "TRACE")
 
-if isWindows:
-    # TODO - Add proper temporary path
-    logFile = "daolog.txt"
-else:
-    logFile = "/tmp/daolog.txt"
 
 ip = '127.0.0.1'
 port = 5558
@@ -196,7 +196,7 @@ class IMAGE_METADATA(ctypes.Structure):
         ("lastNbArray", ctypes.c_uint64 * 512)
     ]
 
-if isWindows:
+if sys.platform == "win32":
     # Define the IMAGE structure
     class IMAGE(ctypes.Structure):
     #    # Define the nested structure for the 'array' union
