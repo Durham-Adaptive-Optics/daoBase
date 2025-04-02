@@ -9,14 +9,14 @@ add_cxx_flags= ['']
 
 if platform.system() == "Darwin":
     add_ld_flags += ['-L/opt/homebrew/lib']
-    add_cxx_flags += ['-std=c++17']
+    add_cxx_flags += ['-std=c++17'],
     add_c_flags += ['']
 elif platform.system() == "Windows":
 	add_cxx_flags += ['-lrt']
 	add_c_flags +=  ['']
 else:
 	add_ld_flags += ['-lnuma']
-	add_cxx_flags += ['']
+	add_cxx_flags += ['-march=core-native']
 	add_c_flags +=  ['-lrt']
 
 
@@ -33,8 +33,8 @@ if platform.system() != "Windows":
 	bld.shlib(
 		source 		= 'cpp/daoNuma.cpp',
 		includes 	= '../include',
-		ldflags		= "-lnuma",
-		cxxflags 	= ['-Ofast', '-Wall', '-Wextra',  '-march=core-avx2', '-mavx2'],
+		ldflags		= [''] + add_ld_flags,
+		cxxflags 	= ['-Ofast', '-Wall', '-Wextra'] + add_cxx_flags,
 		target 		= 'daoNuma',
 		name   		= 'daoNuma',
 		features	= 'pkg_build',
@@ -44,7 +44,7 @@ if platform.system() != "Windows":
 		source = 'c/dao.c',
 		includes = '../include',
 		#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
-		cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
+		cflags = ['-Ofast', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags, # '-Wall', '-Wextra'
 		ldflags = [''] + add_ld_flags,
 		target = 'dao',
 		name   = 'dao',

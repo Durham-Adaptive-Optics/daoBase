@@ -2,6 +2,23 @@
 import os, platform
 from waflib.Task import Task
 
+# additional_flags
+add_ld_flags = ['']
+add_c_flags  = ['']
+add_cxx_flags= ['']
+
+if platform.system() == "Darwin":
+    add_ld_flags += ['-L/opt/homebrew/lib']
+    add_cxx_flags += ['-std=c++17']
+    add_c_flags += ['']
+elif platform.system() == "Windows":
+	add_cxx_flags += ['']
+	add_c_flags +=  ['']
+else:
+	add_ld_flags += ['']
+	add_cxx_flags += ['']
+	add_c_flags +=  ['']
+
 
 class proto_cpp(Task):
     name =  'proto_cpp'
@@ -59,7 +76,7 @@ if platform.system() != "Windows":
     bld.shlib(
         target='daoProto',
         source= ["../build/daoCommand.pb.cc", "../build/daoLogging.pb.cc", "../build/daoEvent.pb.cc"],
-        cppflags=['-std=c++11'],
+        cppflags=[''] + add_cxx_flags,
         use=['PROTOBUF'],
         features    = 'pkg_build',
     )

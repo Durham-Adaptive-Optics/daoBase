@@ -17,11 +17,11 @@
 #include <ctype.h>
 #include <limits.h>
 #include <stdint.h>
+#include <time.h>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <aclapi.h>
-#include <time.h>
 
 #define CLOCK_REALTIME 0
 #define CLOCK_MONOTONIC 0
@@ -53,31 +53,32 @@ static int clock_gettime(int clk_id, struct timespec *t)
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <gsl/gsl_blas.h>
-#include <omp.h>
-
 #define PATH_SEPARATOR "/"
-
 #endif
 
-#ifdef __MACH__
-#include <mach/mach_time.h>
-#define CLOCK_REALTIME 0
-#define CLOCK_MONOTONIC 0
-static int clock_gettime(int clk_id, struct mach_timespec *t)
-{
-    mach_timebase_info_data_t timebase;
-    mach_timebase_info(&timebase);
-    uint64_t time;
-    time = mach_absolute_time();
-    double nseconds = ((double)time * (double)timebase.numer)/((double)timebase.denom);
-    double seconds = ((double)time * (double)timebase.numer)/((double)timebase.denom * 1e9);
-    t->tv_sec = seconds;
-    t->tv_nsec = nseconds;
-    return 0;
-}
-#else
-#include <time.h>
+#if defined(__linux__)
+#include <omp.h>
 #endif
+
+// #ifdef __MACH__
+// #include <mach/mach_time.h>
+// #define CLOCK_REALTIME 0
+// #define CLOCK_MONOTONIC 0
+// static int clock_gettime(int clk_id, struct mach_timespec *t)
+// {
+//     mach_timebase_info_data_t timebase;
+//     mach_timebase_info(&timebase);
+//     uint64_t time;
+//     time = mach_absolute_time();
+//     double nseconds = ((double)time * (double)timebase.numer)/((double)timebase.denom);
+//     double seconds = ((double)time * (double)timebase.numer)/((double)timebase.denom * 1e9);
+//     t->tv_sec = seconds;
+//     t->tv_nsec = nseconds;
+//     return 0;
+// }
+// #else
+
+// #endif
 
 #include "dao.h"
 static int current_log_level = DEFAULT_LOG_LEVEL;
