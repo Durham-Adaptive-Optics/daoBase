@@ -16,7 +16,7 @@ elif platform.system() == "Windows":
 	add_c_flags +=  ['']
 else:
 	add_ld_flags += ['-lnuma']
-	add_cxx_flags += ['-march=core-native']
+	add_cxx_flags += ['-march=native']
 	add_c_flags +=  ['-lrt']
 
 
