@@ -64,7 +64,15 @@ The following package should be installed
 ```
 pip install posix_ipc zmq protobuf==3.20.0 astropy python-statemachine statemachine redis sphinx screeninfo
 ```
-
+For MACOS, check the version of your protoc
+```
+protoc --version
+libprotoc 29.3
+```
+Corresponding protobuf is 
+```
+pip install protobuf==5.29.3
+```
 # Environment
 ```
 export DAOROOT=$HOME/DAOROOT
