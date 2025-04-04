@@ -376,7 +376,11 @@ namespace Dao
                     {
                         std::string tmp_name = "Log_" + m_name;
                         tmp_name.resize(15);
-                        pthread_setname_np(pthread_self(), tmp_name.c_str() );
+#ifdef __APPLE__
+                        pthread_setname_np(tmp_name.c_str());
+#else
+                        pthread_setname_np(pthread_self(), tmp_name.c_str());
+#endif
                     }
                     while(m_alive)
                     {

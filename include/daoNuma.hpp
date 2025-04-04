@@ -12,6 +12,8 @@
 #if defined(__linux__)
 #include <numa.h>
 #include <numaif.h>
+#elif defined(__APPLE__)
+#include <unistd.h>
 #endif 
 
 #include <sched.h>

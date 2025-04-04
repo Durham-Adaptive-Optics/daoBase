@@ -26,10 +26,28 @@ namespace Dao
     class Component : public ComponentBase, public ComponentIfce
     {
         public:
-            Component(std::string name, Dao::Log::Logger& logger, std::string ip, int port, int core=-1)
+            /**
+             * @brief Component constructor
+             * @param name Unique name for this component
+             * @param logger Logger instance for component logging
+             * @param ip IP address for ZMQ communication
+             * @param port Port number for ZMQ communication
+             * @param autoRun If true, component will automatically advance to Running state
+             * @param core CPU core to bind component threads to (-1 for no affinity)
+             */
+            Component(std::string name, Dao::Log::Logger& logger, std::string ip, int port, bool autoRun = false, int core=-1)
             : ComponentBase(name, logger, ip, port, core)
+            , m_autoRun(autoRun)
             {
                ComponentBase::PostConstructor(static_cast<Dao::ComponentIfce*>(this));
+               
+               // If autoRun is enabled, advance the state machine to Running state
+               if (m_autoRun) {
+                   logger.Info("Auto-running component %s", name.c_str());
+                   Init();
+                   Enable();
+                   Run();
+               }
             }
                
             virtual ~Component()
@@ -88,6 +106,7 @@ namespace Dao
         protected:
 
         private:
+            bool m_autoRun; // Keeps track of whether component is in auto-run mode
     };            
 }; // namespace DAO
 

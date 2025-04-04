@@ -110,26 +110,32 @@ namespace Dao
              * @param
              */
             void Spawn()
-            {
-                size_t core = Numa::GetProcAffinity();
-                m_log.Trace("%s: running on core: %zu", m_thread_name.c_str(), core);
-                if(m_core >= 0)
+            {   
+                if(!m_spawned)
                 {
-                    m_node = Numa::Core2Node(m_core);
-                    m_log.Trace("%s: Moving to core : %zu", m_thread_name.c_str(), m_core);
-                    Numa::SetProcAffinity(m_core);
+                    m_spawned = true;
+                    m_thread = std::thread{&ThreadBase::threadEntryPoint, this};
+                    m_thread_id = pthread_self();
+
+                    // add the Thread name to the system.
+                    if(m_thread_name.length() > 0)
+                    {
+                        // Linux has a 16 byte name limit for threads
+                        int maxLen = std::min(m_thread_name.length(), (size_t)15);
+                        m_thread_name.resize(maxLen);
+#ifdef __APPLE__
+                        int rc = pthread_setname_np(m_thread_name.c_str());
+#else
+                        int rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
+#endif
+                        // check error code?
+                    }
+                    m_log.Debug("Thread %s Spawned...", m_thread_name.c_str());
                 }
-                m_log.Trace("%s: spawning", m_thread_name.c_str());
-                m_thread = std::thread{&ThreadBase::threadEntryPoint, this};
-                if(m_core >=0)
+                else
                 {
-                    m_log.Trace("%s: reverting to core %zu to wait for signal", m_thread_name.c_str(), core);
-                    Numa::SetProcAffinity(core);
+                    m_log.Error("Thread %s already Spawned", m_thread_name.c_str());
                 }
-                usleep(200);
-                // wait for signal to say spawn has completed.
-                m_signal_table->SignalReceiveSpin(SIGNAL_THREAD_READY);
-                m_spawned = true;
             };
 
 
@@ -185,7 +191,11 @@ namespace Dao
                 {
                     m_log.Trace("Setting thread name to: %s", m_thread_name.c_str() );
                 
-                    int rc = pthread_setname_np( pthread_self(), m_thread_name.c_str());
+#ifdef __APPLE__
+                    int rc = pthread_setname_np(m_thread_name.c_str());
+#else
+                    int rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
+#endif
                     if(rc != 0)
                         std::cout << "Return : " << rc << std::endl;
                 }
@@ -297,6 +307,7 @@ namespace Dao
             bool m_rt_enabled;
 
             std::thread m_thread;
+            pthread_t m_thread_id;
 
             // threading stuff
             std::mutex m_start_mutex;

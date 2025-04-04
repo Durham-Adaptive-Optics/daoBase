@@ -14,8 +14,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/mman.h>
-#include <numa.h>
-#include <numaif.h>
+#ifndef __APPLE__
+    #include <numa.h>
+    #include <numaif.h>
+#endif
 
 // C++ verison of some of the stuff
 #include <iostream>
@@ -104,13 +106,13 @@ namespace Dao
                     m_map = (IMAGE_METADATA*) mmap(0, m_shm_filesize, PROT_READ | PROT_WRITE, MAP_SHARED, m_shm_file, 0);
                     if(node >= 0)
                     {
-                        int numa_node = -1;
-                        get_mempolicy(&numa_node, NULL, 0, (void*)m_map, MPOL_F_NODE | MPOL_F_ADDR);
-                        m_log.Debug("Memory currently on numa node: %d", numa_node);
-                        m_log.Debug("Moving memory to node %d", node);
-                        numa_tonode_memory((void*) m_map, m_shm_filesize, node);
-                        get_mempolicy(&numa_node, NULL, 0, (void*)m_map, MPOL_F_NODE | MPOL_F_ADDR);
-                        m_log.Debug("Memory now on numa node: %d", numa_node);
+                        // int numa_node = -1;
+                        // get_mempolicy(&numa_node, NULL, 0, (void*)m_map, MPOL_F_NODE | MPOL_F_ADDR);
+                        // m_log.Debug("Memory currently on numa node: %d", numa_node);
+                        // m_log.Debug("Moving memory to node %d", node);
+                        // numa_tonode_memory((void*) m_map, m_shm_filesize, node);
+                        // get_mempolicy(&numa_node, NULL, 0, (void*)m_map, MPOL_F_NODE | MPOL_F_ADDR);
+                        // m_log.Debug("Memory now on numa node: %d", numa_node);
                     }
                     else
                     {
