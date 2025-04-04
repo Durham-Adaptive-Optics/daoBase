@@ -348,6 +348,11 @@ class shm:
         self.daoShmWaitForCounter = daoLib.daoShmWaitForCounter
         self.daoShmWaitForCounter.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmWaitForCounter.restype = ctypes.c_int8
+        
+        # int8_t daoShmCloseShm(IMAGE *image);
+        self.daoShmCloseShm = daoLib.daoShmCloseShm
+        self.daoShmCloseShm.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmCloseShm.restype = ctypes.c_int8
 
         self.image=IMAGE()
         if fname == '':
@@ -370,7 +375,7 @@ class shm:
             result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
         # Publisher
         self.pubPort = pubPort
-        self.pubContext = zmq.Context()
+        self.pubContext = 0# zmq.Context()
         
         self.pubEvent = Event()
         self.pubThread = Thread(target = self.publish)
@@ -379,7 +384,7 @@ class shm:
         # Subscriber
         self.subPort = subPort
         self.subHost = subHost
-        self.subContext = zmq.Context()
+        self.subContext = 0 # zmq.Context()
         self.subEvent = Event()
         self.subThread = Thread(target = self.subscribe)
         self.subEnable = False
@@ -492,6 +497,7 @@ class shm:
         return datetime.datetime.fromtimestamp(tv_sec) + datetime.timedelta(microseconds=tv_nsec/1000)
 
     def publish(self):
+        self.pubContext = zmq.Context()
         self.pubSocket = self.pubContext.socket(zmq.PUB)
         self.pubSocket.bind("tcp://*:%d"%(self.pubPort))
         self.pubThreadCounter = 0
@@ -505,6 +511,7 @@ class shm:
                 break
     
     def subscribe(self):
+        self.subContext = zmq.Context()
         self.subSocket = self.subContext.socket(zmq.SUB)
         self.subSocket.connect("tcp://%s:%d"%(self.subHost, self.subPort))
         self.subSocket.setsockopt(zmq.SUBSCRIBE, b'frameData')
@@ -518,38 +525,26 @@ class shm:
             if self.subEvent.is_set():
                 break
 
-# =================================================================
-# =================================================================
+    def close(self):
+        ''' --------------------------------------------------------------
+        Close the SHM file.
 
-#class shmData:
-#    def __init__(self, shmObj):
-#        self.mtdata = shmObj.get_meta_data()
-#        self.data   = shmObj.get_data()
-#
-#from json import JSONEncoder
-#import json
-#
-## A class without JSON Serialization support
-#class Class_No_JSONSerialization:
-#        pass
-#
-## A specialised JSONEncoder that encodes Shared Memmory Object (shm)
-## objects as JSON
-#class shmEncoder(JSONEncoder):
-#
-#    def default(self, object):
-#
-#        if isinstance(object, shm):
-#
-#            return object.__dict__
-#
-#        else:
-#
-#            # call base class implementation which takes care of
-#
-#            # raising exceptions for unsupported types
-#
-#            return json.JSONEncoder.default(self, object)
-
-    
+        -------------------------------------------------------------- '''
+        result = self.daoShmCloseShm(ctypes.byref(self.image))
+        log.info("SHM closed - %s" % (self.fi,))
         
+    def __del__(self):
+        ''' --------------------------------------------------------------
+        Destructor to ensure proper resource cleanup.
+        
+        This method is automatically called when the object is garbage collected.
+        -------------------------------------------------------------- '''
+        try:
+            # Only call close if the image has been used/initialized
+            if hasattr(self, 'image') and self.image.used:
+                self.close()
+        except:
+            # Suppress errors during garbage collection
+            pass
+
+

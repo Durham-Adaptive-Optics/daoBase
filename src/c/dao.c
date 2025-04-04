@@ -2133,56 +2133,95 @@ uint_fast64_t daoShmGetCounter(IMAGE *image)
     return image->md[0].cnt0;
 }
 
-
 /**
- * @brief Read current SHM content
+ * Clean up shared memory resources
  * 
- * @param image 
- * @return uint_fast64_t 
+ * Properly closes file descriptors, unmaps memory, and releases semaphores
  */
-//void * daoShmGetData(IMAGE *image)
-//{
-//    daoTrace("\n");
-//    // check type and use proper array
-//    if (image->md[0].atype == _DATATYPE_UINT8)
-//    {
-//                image[0].array.UI8[pp] += imageCube[k][0].array.UI8[pp];
-//    }
-//    else if (image->md[0].atype == _DATATYPE_INT8)
-//    {
-//                image[0].array.SI8[pp] += imageCube[k][0].array.SI8[pp];
-//    }
-//    else if (image->md[0].atype == _DATATYPE_UINT16)
-//    {
-//                image[0].array.UI16[pp] += imageCube[k][0].array.UI16[pp];
-//    }
-//    else if (image->md[0].atype == _DATATYPE_INT16)
-//    {
-//                image[0].array.SI16[pp] += imageCube[k][0].array.SI16[pp];
-//    }
-//    else if (image->md[0].atype == _DATATYPE_UINT32)
-//    {
-//                image[0].array.UI32[pp] += imageCube[k][0].array.UI32[pp];
-//    }
-//    else if (image->md[0].atype == _DATATYPE_INT32)
-//    {
-//                image[0].array.SI32[pp] += imageCube[k][0].array.SI32[pp];
-//    }
-//    else if (image->md[0].atype == _DATATYPE_UINT64)
-//    {
-//                image[0].array.UI64[pp] += imageCube[k][0].array.UI64[pp];
-//    }
-//    else if (image->md[0].atype == _DATATYPE_INT64)
-//    {
-//                image[0].array.SI64[pp] += imageCube[k][0].array.SI64[pp];
-//    }
-//    else if (image->md[0].atype == _DATATYPE_FLOAT)
-//    {
-//                image[0].array.F[pp] += imageCube[k][0].array.F[pp];
-//    }
-//    else if (image->md[0].atype == _DATATYPE_DOUBLE)
-//    {
-//                image[0].array.D[pp] += imageCube[k][0].array.D[pp];
-//    }
-//    return DAO_SUCCESS;
-//}
+int_fast8_t daoShmCloseShm(IMAGE *image)
+{
+    daoTrace("\n");
+    int s;
+    
+    if (!image) {
+        daoWarning("Null image pointer passed to daoShmCloseShm\n");
+        return DAO_ERROR;
+    }
+
+    // Release all semaphores
+    if (image->semptr) {
+        for(s = 0; s < image->md[0].sem; s++) {
+#ifdef _WIN32
+            if (image->semptr[s]) {
+                CloseHandle(image->semptr[s]);
+                image->semptr[s] = NULL;
+            }
+#else
+            if (image->semptr[s]) {
+                sem_close(image->semptr[s]);
+                image->semptr[s] = NULL;
+            }
+#endif
+        }
+        free(image->semptr);
+        image->semptr = NULL;
+    }
+
+    // Close log semaphore if it exists
+#ifdef _WIN32
+    if (image->semlog) {
+        CloseHandle(image->semlog);
+        image->semlog = NULL;
+    }
+#else
+    if (image->semlog) {
+        sem_close(image->semlog);
+        image->semlog = NULL;
+    }
+#endif
+
+    // Free PID arrays if they exist
+    if (image->semReadPID) {
+        free(image->semReadPID);
+        image->semReadPID = NULL;
+    }
+    
+    if (image->semWritePID) {
+        free(image->semWritePID);
+        image->semWritePID = NULL;
+    }
+
+    // Unmap memory and close file descriptor if shared
+    if (image->md[0].shared) {
+#ifdef _WIN32
+        // Windows: Unmap the view and close handles
+        if (image->md) {
+            UnmapViewOfFile((LPVOID)image->md);
+            image->md = NULL;
+        }
+        if (image->shmfm) {
+            CloseHandle(image->shmfm);
+            image->shmfm = NULL;
+        }
+        if (image->shmfd) {
+            CloseHandle(image->shmfd);
+            image->shmfd = NULL;
+        }
+#else
+        // Unix: Unmap memory and close file descriptor
+        if (image->md) {
+            munmap(image->md, image->memsize);
+            image->md = NULL;
+        }
+        if (image->shmfd > 0) {
+            close(image->shmfd);
+            image->shmfd = -1;
+        }
+#endif
+    }
+
+    // Mark image as unused
+    image->used = 0;
+    
+    return DAO_SUCCESS;
+}

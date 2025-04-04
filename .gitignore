@@ -17,3 +17,6 @@ build_tools/__pycache__
 
 *.pyc
 *.pyo
+
+.DS_Store
+src/.DS_Store
