@@ -75,6 +75,15 @@ export PYTHONPATH=$PYTHONPATH:$DAOROOT/python
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$DAOROOT/lib/pkgconfig
 
 ```
+For MACOS, add the following variables in your environment
+```
+export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:/opt/homebrew/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/homebrew/lib
+ 
+export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/opt/homebrew/include
+export C_INCLUDE_PATH=$C_INCLUDE_PATH:/opt/homebrew/include
+export CPATH=$CPATH:$/opt/homebrew/include
+```
 !! BE SURE THE DAOROOT exists. In the example
 ```
 mkdir $HOME/DAOROOT
