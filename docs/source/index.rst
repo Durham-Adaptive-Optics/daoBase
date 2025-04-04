@@ -18,6 +18,10 @@ Welcome to Duraham Adaptive Optics's documentation!
    logging
    state_machine
    daoroot_daodata
+   daoComponent
+   DoubleBuffer
+   Numa
+   UpdateThread
    api_reference
 
 
