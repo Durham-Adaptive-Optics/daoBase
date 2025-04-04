@@ -3,6 +3,8 @@
 '''
 Read/Write access to SHM. Tjhe old interface is still available as shmOld object if needed
 '''
+import os
+
 
 import os, sys, mmap, struct
 import numpy as np
@@ -28,7 +30,8 @@ logFile = "/tmp/daolog.txt"
 if sys.platform == "linux" or sys.platform == "linux2":
     daoLib = ctypes.CDLL('libdao.so')
 elif sys.platform == "darwin":
-    daoLib = ctypes.CDLL('libdao.dylib')
+    daoroot = os.getenv('DAOROOT')
+    daoLib = ctypes.CDLL(daoroot +'/lib/libdao.dylib')
 elif sys.platform == "win32":
     # TODO - Add proper path
     daoLibPath = os.path.join(os.getenv('DAOROOT'), 'lib', 'dao-0.dll')
