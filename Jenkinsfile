@@ -66,16 +66,10 @@ pipeline {
                 state: 'FAILURE'
             )
         }
-        always {
-            cleanWs()
-        }
     }
 }
 
-def githubCommitStatus(Map args) {
-    step([
-        $class: 'GitHubCommitStatusSetter',
-        reposSource: [$class: 'ManuallyEnteredRepositorySource', url: args.repoUrl],
+def githubCommitStatus(lass: 'ManuallyEnteredRepositorySource', url: args.repoUrl],
         statusBackrefSource: [$class: 'BuildRefBackrefSource'],
         commitShaSource: [$class: 'BuildDataRevisionShaSource'],
         contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
