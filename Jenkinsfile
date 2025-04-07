@@ -63,6 +63,5 @@ pipeline {
                 statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build failed', state: 'FAILURE']]]
             ])
         }
-        }
     }
 }
