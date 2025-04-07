@@ -51,12 +51,12 @@ pipeline {
 
     post {
         always {
-            node {
+            node('any') {
                 cleanWs()
             }
         }
         success {
-            node {
+            node('any') {
                 echo 'Build completed successfully!'
                 step([
                     $class: 'GitHubCommitStatusSetter',
@@ -69,7 +69,7 @@ pipeline {
             }
         }
         failure {
-            node {
+            node('any') {
                 echo 'Build failed!'
                 step([
                     $class: 'GitHubCommitStatusSetter',
