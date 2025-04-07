@@ -1,6 +1,16 @@
 pipeline {
     agent any
 
+    options {
+        githubProjectProperty(
+            projectUrlStr: 'https://github.com/Durham-Adaptive-Optics/daoBase'
+        )
+    }
+
+    environment {
+        GITHUB_TOKEN = credentials('github-token')
+    }
+
     triggers {
         pollSCM('H/5 * * * *') // Check every 5 minutes
     }
@@ -47,20 +57,22 @@ pipeline {
             echo 'Build completed successfully!'
             step([
                 $class: 'GitHubCommitStatusSetter',
+                reposSource: [$class: 'ManuallyEnteredRepositorySource', url: 'https://github.com/Durham-Adaptive-Optics/daoBase'],
                 commitShaSource: [$class: 'BuildDataRevisionShaSource'],
                 contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
-                reposSource: [$class: 'SCMReposSource'],
-                statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build successful', state: 'SUCCESS']]]
+                statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build successful', state: 'SUCCESS']]],
+                errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']]
             ])
         }
         failure {
             echo 'Build failed!'
             step([
                 $class: 'GitHubCommitStatusSetter',
+                reposSource: [$class: 'ManuallyEnteredRepositorySource', url: 'https://github.com/Durham-Adaptive-Optics/daoBase'],
                 commitShaSource: [$class: 'BuildDataRevisionShaSource'],
                 contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
-                reposSource: [$class: 'SCMReposSource'],
-                statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build failed', state: 'FAILURE']]]
+                statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build failed', state: 'FAILURE']]],
+                errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']]
             ])
         }
     }
