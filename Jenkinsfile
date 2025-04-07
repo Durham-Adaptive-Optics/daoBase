@@ -47,9 +47,6 @@ pipeline {
     }
 
     post {
-        always {
-            cleanWs()
-        }
         success {
             echo 'Build completed successfully!'
             updateGithubStatus('success', 'The build succeeded!')
@@ -57,6 +54,9 @@ pipeline {
         failure {
             echo 'Build failed!'
             updateGithubStatus('failure', 'The build failed!')
+        }
+        always {
+            cleanWs()
         }
     }
 }
