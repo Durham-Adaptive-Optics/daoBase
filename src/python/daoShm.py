@@ -531,7 +531,6 @@ class shm:
 
         -------------------------------------------------------------- '''
         result = self.daoShmCloseShm(ctypes.byref(self.image))
-        log.info("SHM closed - %s" % (self.fi,))
         
     def __del__(self):
         ''' --------------------------------------------------------------
