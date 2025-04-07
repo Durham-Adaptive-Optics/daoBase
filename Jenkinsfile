@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        GITHUB_TOKEN = credentials('github-token')
+    }
+
     options {
         githubProjectProperty(
             projectUrlStr: 'https://github.com/Durham-Adaptive-Optics/daoBase'
@@ -68,14 +72,15 @@ pipeline {
     }
 }
 
-// Add this at the top level, outside the pipeline
 def githubCommitStatus(Map args) {
     step([
         $class: 'GitHubCommitStatusSetter',
         reposSource: [$class: 'ManuallyEnteredRepositorySource', url: args.repoUrl],
+        statusBackrefSource: [$class: 'BuildRefBackrefSource'],
         commitShaSource: [$class: 'BuildDataRevisionShaSource'],
         contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
         statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: args.message, state: args.state]]],
-        errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']]
+        errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']],
+        credentialsId: 'github-token'
     ])
 }
