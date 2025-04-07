@@ -1,16 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        GITHUB_TOKEN = credentials('github-token')
-    }
-
-    options {
-        githubProjectProperty(
-            projectUrlStr: 'https://github.com/Durham-Adaptive-Optics/daoBase'
-        )
-    }
-
     triggers {
         pollSCM('H/5 * * * *') // Check every 5 minutes
     }
@@ -19,6 +9,8 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+                // Set pending status
+                githubNotify context: 'CI/Build', description: 'Build in progress', status: 'PENDING'
             }
         }
         
@@ -50,31 +42,16 @@ pipeline {
     }
 
     post {
+        always {
+            cleanWs()
+        }
         success {
             echo 'Build completed successfully!'
-            githubCommitStatus(
-                repoUrl: 'https://github.com/Durham-Adaptive-Optics/daoBase',
-                message: 'Build successful',
-                state: 'SUCCESS'
-            )
+            githubNotify context: 'CI/Build', description: 'Build succeeded', status: 'SUCCESS'
         }
         failure {
             echo 'Build failed!'
-            githubCommitStatus(
-                repoUrl: 'https://github.com/Durham-Adaptive-Optics/daoBase',
-                message: 'Build failed',
-                state: 'FAILURE'
-            )
+            githubNotify context: 'CI/Build', description: 'Build failed', status: 'FAILURE'
         }
     }
-}
-
-def githubCommitStatus(lass: 'ManuallyEnteredRepositorySource', url: args.repoUrl],
-        statusBackrefSource: [$class: 'BuildRefBackrefSource'],
-        commitShaSource: [$class: 'BuildDataRevisionShaSource'],
-        contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
-        statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: args.message, state: args.state]]],
-        errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']],
-        credentialsId: 'github-token'
-    ])
 }
