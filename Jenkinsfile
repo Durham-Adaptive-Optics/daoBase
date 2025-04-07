@@ -21,6 +21,13 @@ pipeline {
             }
         }
 
+        stage('Debug') {
+            steps {
+                sh 'git rev-parse HEAD'
+                echo "Building commit: ${env.GIT_COMMIT}"
+            }
+        }
+
         stage('Build') {
             steps {
                 sh '''
@@ -40,13 +47,19 @@ pipeline {
             echo 'Build completed successfully!'
             step([
                 $class: 'GitHubCommitStatusSetter',
+                commitShaSource: [$class: 'BuildDataRevisionShaSource'],
                 contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
                 statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build successful', state: 'SUCCESS']]]
             ])
         }
         failure {
             echo 'Build failed!'
-            githubStatusUpdate status: 'FAILURE', context: 'jenkins/build', description: 'Build failed!'
+            step([
+                $class: 'GitHubCommitStatusSetter',
+                commitShaSource: [$class: 'BuildDataRevisionShaSource'],
+                contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
+                statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build failed', state: 'FAILURE']]]
+            ])
         }
     }
 }
