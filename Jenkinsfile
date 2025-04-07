@@ -51,29 +51,35 @@ pipeline {
 
     post {
         always {
-            cleanWs()
+            node {
+                cleanWs()
+            }
         }
         success {
-            echo 'Build completed successfully!'
-            step([
-                $class: 'GitHubCommitStatusSetter',
-                reposSource: [$class: 'ManuallyEnteredRepositorySource', url: 'https://github.com/Durham-Adaptive-Optics/daoBase'],
-                commitShaSource: [$class: 'BuildDataRevisionShaSource'],
-                contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
-                statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build successful', state: 'SUCCESS']]],
-                errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']]
-            ])
+            node {
+                echo 'Build completed successfully!'
+                step([
+                    $class: 'GitHubCommitStatusSetter',
+                    reposSource: [$class: 'ManuallyEnteredRepositorySource', url: 'https://github.com/Durham-Adaptive-Optics/daoBase'],
+                    commitShaSource: [$class: 'BuildDataRevisionShaSource'],
+                    contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
+                    statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build successful', state: 'SUCCESS']]],
+                    errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']]
+                ])
+            }
         }
         failure {
-            echo 'Build failed!'
-            step([
-                $class: 'GitHubCommitStatusSetter',
-                reposSource: [$class: 'ManuallyEnteredRepositorySource', url: 'https://github.com/Durham-Adaptive-Optics/daoBase'],
-                commitShaSource: [$class: 'BuildDataRevisionShaSource'],
-                contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
-                statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build failed', state: 'FAILURE']]],
-                errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']]
-            ])
+            node {
+                echo 'Build failed!'
+                step([
+                    $class: 'GitHubCommitStatusSetter',
+                    reposSource: [$class: 'ManuallyEnteredRepositorySource', url: 'https://github.com/Durham-Adaptive-Optics/daoBase'],
+                    commitShaSource: [$class: 'BuildDataRevisionShaSource'],
+                    contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
+                    statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build failed', state: 'FAILURE']]],
+                    errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']]
+                ])
+            }
         }
     }
 }
