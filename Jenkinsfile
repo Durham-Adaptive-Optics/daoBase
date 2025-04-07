@@ -38,7 +38,11 @@ pipeline {
         }
         success {
             echo 'Build completed successfully!'
-            githubStatusUpdate status: 'SUCCESS', context: 'jenkins/build', description: 'Build succeeded!'
+            step([
+                $class: 'GitHubCommitStatusSetter',
+                contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
+                statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build successful', state: 'SUCCESS']]]
+            ])
         }
         failure {
             echo 'Build failed!'
