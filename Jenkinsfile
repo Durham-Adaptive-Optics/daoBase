@@ -49,6 +49,7 @@ pipeline {
                 $class: 'GitHubCommitStatusSetter',
                 commitShaSource: [$class: 'BuildDataRevisionShaSource'],
                 contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
+                reposSource: [$class: 'SCMReposSource'],
                 statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build successful', state: 'SUCCESS']]]
             ])
         }
@@ -58,8 +59,10 @@ pipeline {
                 $class: 'GitHubCommitStatusSetter',
                 commitShaSource: [$class: 'BuildDataRevisionShaSource'],
                 contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
+                reposSource: [$class: 'SCMReposSource'],
                 statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build failed', state: 'FAILURE']]]
             ])
+        }
         }
     }
 }
