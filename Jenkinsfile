@@ -38,9 +38,11 @@ pipeline {
         }
         success {
             echo 'Build completed successfully!'
+            githubStatusUpdate status: 'SUCCESS', context: 'jenkins/build', description: 'Build succeeded!'
         }
         failure {
             echo 'Build failed!'
+            githubStatusUpdate status: 'FAILURE', context: 'jenkins/build', description: 'Build failed!'
         }
     }
 }
