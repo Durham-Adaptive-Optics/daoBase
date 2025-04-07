@@ -533,7 +533,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 		#else
 		
         fstat(shmFd, &file_stat);
-        daoDebug("File %s size: %zd\n", shmName, file_stat.st_size);
+        daoDebug("File %s size: %d\n", shmName, file_stat.st_size);
         map = (IMAGE_METADATA*) mmap(0, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
         if (map == MAP_FAILED) 
         {
@@ -853,7 +853,6 @@ int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
 int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image) 
 {
     daoTrace("\n");
-    int semval = 0;
     int ss;
     image->md[0].write = 1;
 
@@ -887,9 +886,7 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semptr[ss], 1, NULL);
 		#else
-        sem_getvalue(image->semptr[ss], &semval);
-        if(semval < SEMAPHORE_MAXVAL )
-            sem_post(image->semptr[ss]);
+        sem_post(image->semptr[ss]);
 		#endif
     }
 
@@ -898,11 +895,7 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semlog, 1, NULL);
 		#else
-        sem_getvalue(image->semlog, &semval);
-        if(semval < SEMAPHORE_MAXVAL)
-        {
-            sem_post(image->semlog);
-        }
+        sem_post(image->semlog);
 		#endif
     }
 
@@ -967,16 +960,13 @@ int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t
 int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image) 
 {
     daoTrace("\n");
-    int semval = 0;
     int ss;
     for(ss = 0; ss < image->md[0].sem; ss++)
     {
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semptr[ss], 1, NULL);
 		#else
-        sem_getvalue(image->semptr[ss], &semval);
-        if(semval < SEMAPHORE_MAXVAL )
-            sem_post(image->semptr[ss]);
+        sem_post(image->semptr[ss]);
 		#endif
     }
 
@@ -985,11 +975,7 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semlog, 1, NULL);
 		#else
-        sem_getvalue(image->semlog, &semval);
-        if(semval < SEMAPHORE_MAXVAL)
-        {
-            sem_post(image->semlog);
-        }
+        sem_post(image->semlog);
 		#endif
     }
 	
@@ -1140,10 +1126,6 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
                 if ((image->semptr[s] = sem_open(shmSemName, O_CREAT, 0644, 1)) == SEM_FAILED) {
                     perror("semaphore initilization\n");
                 }
-                else
-                {
-                    sem_init(image->semptr[s], 1, 0);
-                }
             }
 			#endif
         }
@@ -1265,10 +1247,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 
         if ((image->semlog = sem_open(shmSemName, O_CREAT, 0644, 1)) == SEM_FAILED)
         {
-            perror("semaphore creation / initilization");}
-        else
-        {
-            sem_init(image->semlog, 1, 0);
+            perror("semaphore creation / initilization");
         }
 		#endif
 
@@ -1886,7 +1865,6 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel, int nbVal)
 {
     daoTrace("\n");
-    int semval = 0;
     int ss;
     int pp;
     int k;
@@ -2035,10 +2013,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semptr[ss], 1, NULL);
 		#else
-        sem_getvalue(image->semptr[ss], &semval);
-        if(semval < SEMAPHORE_MAXVAL )
-            sem_post(image->semptr[ss]);
-		#endif
+        sem_post(image->semptr[ss]);
+        #endif
     }
 
     if(image->semlog != NULL)
@@ -2046,11 +2022,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semlog, 1, NULL);
 		#else
-        sem_getvalue(image->semlog, &semval);
-        if(semval < SEMAPHORE_MAXVAL)
-        {
-            sem_post(image->semlog);
-        }
+        sem_post(image->semlog);
 		#endif
     }
 
