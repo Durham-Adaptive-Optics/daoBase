@@ -7,10 +7,6 @@ pipeline {
         )
     }
 
-    environment {
-        GITHUB_TOKEN = credentials('github-token')
-    }
-
     triggers {
         pollSCM('H/5 * * * *') // Check every 5 minutes
     }
@@ -50,36 +46,36 @@ pipeline {
     }
 
     post {
-        always {
-            node('any') {
-                cleanWs()
-            }
-        }
         success {
-            node('any') {
-                echo 'Build completed successfully!'
-                step([
-                    $class: 'GitHubCommitStatusSetter',
-                    reposSource: [$class: 'ManuallyEnteredRepositorySource', url: 'https://github.com/Durham-Adaptive-Optics/daoBase'],
-                    commitShaSource: [$class: 'BuildDataRevisionShaSource'],
-                    contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
-                    statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build successful', state: 'SUCCESS']]],
-                    errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']]
-                ])
-            }
+            echo 'Build completed successfully!'
+            githubCommitStatus(
+                repoUrl: 'https://github.com/Durham-Adaptive-Optics/daoBase',
+                message: 'Build successful',
+                state: 'SUCCESS'
+            )
         }
         failure {
-            node('any') {
-                echo 'Build failed!'
-                step([
-                    $class: 'GitHubCommitStatusSetter',
-                    reposSource: [$class: 'ManuallyEnteredRepositorySource', url: 'https://github.com/Durham-Adaptive-Optics/daoBase'],
-                    commitShaSource: [$class: 'BuildDataRevisionShaSource'],
-                    contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
-                    statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: 'Build failed', state: 'FAILURE']]],
-                    errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']]
-                ])
-            }
+            echo 'Build failed!'
+            githubCommitStatus(
+                repoUrl: 'https://github.com/Durham-Adaptive-Optics/daoBase',
+                message: 'Build failed',
+                state: 'FAILURE'
+            )
+        }
+        always {
+            cleanWs()
         }
     }
+}
+
+// Add this at the top level, outside the pipeline
+def githubCommitStatus(Map args) {
+    step([
+        $class: 'GitHubCommitStatusSetter',
+        reposSource: [$class: 'ManuallyEnteredRepositorySource', url: args.repoUrl],
+        commitShaSource: [$class: 'BuildDataRevisionShaSource'],
+        contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'Jenkins build'],
+        statusResultSource: [$class: 'ConditionalStatusResultSource', results: [[$class: 'AnyBuildResult', message: args.message, state: args.state]]],
+        errorHandlers: [[$class: 'ChangingBuildStatusErrorHandler', result: 'UNSTABLE']]
+    ])
 }
