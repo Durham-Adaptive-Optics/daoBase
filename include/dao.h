@@ -453,6 +453,7 @@ typedef struct          		/**< structure used to store data arrays              
 
 // Function declaration
 DLL_EXPORT void daoSetLogLevel(int logLevel);
+DLL_EXPORT int daoGetLogLevel(); // Add this line
 DLL_EXPORT unsigned daoBaseIp2Int(const char * ip); 
 						   
 DLL_EXPORT int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image);

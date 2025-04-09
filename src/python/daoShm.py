@@ -33,7 +33,30 @@ elif sys.platform == "win32":
     logFile = "daolog.txt"
 else:
     raise Exception("Unsupported platform")
+
+# Add function prototype for daoSetLogLevel
+daoLib.daoSetLogLevel.argtypes = [ctypes.c_int]
+daoLib.daoSetLogLevel.restype = None
+
+# Add function prototype for daoGetLogLevel
+daoLib.daoGetLogLevel.argtypes = []
+daoLib.daoGetLogLevel.restype = ctypes.c_int
+
+def setLogLevel(logLevel):
+    """Set the log level for the DAO library.
     
+    Args:
+        logLevel (int): The log level to set (0-4)
+    """
+    daoLib.daoSetLogLevel(logLevel)
+
+def getLogLevel():
+    """Get the current log level for the DAO library.
+    
+    Returns:
+        int: The current log level (0-4)
+    """
+    return daoLib.daoGetLogLevel()
 
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, "TRACE")
@@ -262,7 +285,7 @@ else:
         ]
 
 class shm:
-    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost'):
+    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=1):
         # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
         self.daoShmInit1D = daoLib.daoShmInit1D
         self.daoShmInit1D.argtypes = [
@@ -272,6 +295,9 @@ class shm:
             ctypes.POINTER(ctypes.POINTER(IMAGE))
         ]
         self.daoShmInit1D.restype = ctypes.c_int8
+
+        # set the log level
+        setLogLevel(logLevel)
 
         # int8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image);
         self.daoShmShm2Img = daoLib.daoShmShm2Img
@@ -371,7 +397,7 @@ class shm:
             # Call the daoShmImage2Shm function to feel the SHM
             result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         else:
-            log.info("loading existing %s " % (fname))
+            # log.info("loading existing %s " % (fname))
             result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
         # Publisher
         self.pubPort = pubPort

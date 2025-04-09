@@ -281,6 +281,14 @@ void daoSetLogLevel(int logLevel)
     daoLogLevel = logLevel;
 }
 
+/*
+ * Get the current log level.
+ */
+int daoGetLogLevel() 
+{
+    return daoLogLevel;
+}
+
 // SHM
 int NBIMAGES = 10;
 
