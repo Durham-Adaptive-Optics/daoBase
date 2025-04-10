@@ -1,5 +1,5 @@
 DAO Component System
-==================
+====================
 
 Overview
 --------
@@ -12,7 +12,7 @@ The DAO Component system provides a framework for building modular, state-driven
    :align: center
 
 Component Architecture
----------------------
+----------------------
 
 The Component architecture consists of several layers:
 
@@ -24,7 +24,7 @@ The Component architecture consists of several layers:
 6. **ComponentZmqThread**: Thread for handling ZeroMQ messaging
 
 Class Hierarchy
---------------
+---------------
 
 .. code-block:: none
 
@@ -37,7 +37,7 @@ Class Hierarchy
                         +--> Component
 
 Component States
----------------
+----------------
 
 Components follow a state machine with the following states:
 
@@ -64,12 +64,12 @@ State transitions are triggered by events:
    :align: center
 
 Component Class
---------------
+---------------
 
 The Component class is the main entry point for users to create component instances. It inherits from ComponentBase and implements the ComponentIfce interface.
 
 Construction
-~~~~~~~~~~~
+~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -84,7 +84,7 @@ Parameters:
 - **core**: CPU core affinity (-1 means no specific core)
 
 Lifecycle Methods
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 Components expose the following lifecycle methods:
 
@@ -99,19 +99,20 @@ Components expose the following lifecycle methods:
 - **GetStateText()**: Get the current state as a string
 
 ComponentBase Class
-------------------
+-------------------
 
 The ComponentBase class provides the core implementation for components, handling thread management and state transitions.
 
 Key Methods
-~~~~~~~~~~
+~~~~~~~~~~~
 
 - **PostConstructor()**: Finalizes component setup after construction
 - **PostEnable()**: Additional actions during Enable
 - **PostDisable()**: Additional actions during Disable
 
 Thread Management
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+
 
 ComponentBase manages two threads:
 
@@ -119,7 +120,7 @@ ComponentBase manages two threads:
 - **UpdateThread**: Handles shared memory updates
 
 ComponentIfce Interface
-----------------------
+-----------------------
 
 This interface defines the required methods for component lifecycle management:
 
@@ -154,7 +155,7 @@ Key Features:
 - Thread-safe state changes
 
 ZeroMQ Communication
--------------------
+--------------------
 
 The ComponentZmqThread handles command and control messaging using ZeroMQ's request-response pattern.
 
@@ -183,7 +184,7 @@ Example Command Processing:
     }
 
 Shared Memory Updates
---------------------
+---------------------
 
 The ComponentUpdateThread manages updates from shared memory using the DAO shared memory system.
 
@@ -212,7 +213,7 @@ Example Item Update:
     };
 
 Creating a Custom Component
---------------------------
+---------------------------
 
 To create a custom component, inherit from the Component class:
 
@@ -249,7 +250,7 @@ To create a custom component, inherit from the Component class:
     };
 
 Usage Example
-------------
+-------------
 
 .. code-block:: cpp
 
@@ -289,7 +290,7 @@ Usage Example
     }
 
 Best Practices
--------------
+--------------
 
 1. **Lifecycle Management**: Always follow the proper sequence of state transitions
 2. **Error Handling**: Implement robust error handling in the OnFailure() method
@@ -298,10 +299,10 @@ Best Practices
 5. **Core Affinity**: Set appropriate core affinity for real-time applications
 
 Advanced Features
----------------
+-----------------
 
 Custom State Transitions
-~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Override the transition methods to implement custom behavior:
 
@@ -320,7 +321,7 @@ Override the transition methods to implement custom behavior:
     }
 
 Shared Memory Integration
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Add shared memory items to the update thread:
 
@@ -337,7 +338,8 @@ Add shared memory items to the update thread:
     });
 
 ZeroMQ Command Handling
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+
 
 To handle custom commands, extend the ZmqThread functionality:
 

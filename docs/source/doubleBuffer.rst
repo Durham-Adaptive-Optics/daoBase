@@ -1,5 +1,5 @@
 Double Buffer System
-==================
+====================
 
 Overview
 --------
@@ -14,7 +14,7 @@ This pattern is particularly useful in real-time applications where consistent a
    :align: center
 
 Key Features
------------
+------------
 
 - Thread-safe access to shared data
 - Zero-copy data transfer
@@ -24,7 +24,7 @@ Key Features
 - Low-latency access to current data
 
 DoubleBuffer Class
------------------
+------------------
 
 The ``DoubleBuffer`` class is a template class that can store any data type:
 
@@ -35,7 +35,10 @@ The ``DoubleBuffer`` class is a template class that can store any data type:
     };
 
 Construction
-~~~~~~~~~~~
+~~~~~~~~~~~~~
+The constructor initializes the double buffer with a specified number of elements and an optional initial value. It can also allocate memory on a specific NUMA node. The double buffer is templated, allowing it to store any data type. The constructor allocates memory for two buffers of the specified size and initializes them with the given fill value.
+
+The constructor signature is as follows:
 
 .. code-block:: cpp
 
@@ -45,10 +48,10 @@ Parameters:
 
 - **numberOfElements**: Number of elements the buffer will store
 - **alloc_now_node**: NUMA node to allocate memory on (-1 for default allocation)
-- **fillvalue**: Initial value for all elements in both buffers
+- **fillvalue**: Initial value for all elements in both buffers (default is 0)
 
 Buffer Management
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 The DoubleBuffer class maintains two internal buffers and tracks which one is currently active:
 
@@ -56,17 +59,18 @@ The DoubleBuffer class maintains two internal buffers and tracks which one is cu
 - **Passive Buffer**: Used for writing, represents future state
 
 Buffer States
-~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 - **Active Index**: Index of the currently active buffer (0 or 1)
 - **Dirty Flag**: Indicates if the passive buffer has been modified
 - **Target Frame**: Optional frame number for synchronized swapping
 
 Core Methods
-----------
+------------
+The DoubleBuffer class provides several core methods for managing the buffers:
 
 Buffer Access
-~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 - **Active()**: Get pointer to the active buffer for reading
 - **Passive()**: Get pointer to the passive buffer for writing
@@ -74,29 +78,31 @@ Buffer Access
 - **SwapBuffers()**: Switch the active and passive buffers
 
 Data Operations
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 - **CopyIn(T* data, uint64_t frame = 0)**: Copy data into the passive buffer
 - **CopyAndSwap(T* data)**: Copy data into passive buffer and immediately swap
 
+The CopyAndSwap is designed to be overloaded incase data manipulation is required on loading the data into the double buffer.
+
 NUMA Integration
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 - **AllocOnNode()**: Allocate buffer memory on a specific NUMA node
 - **GetNode()**: Get the NUMA node where buffers are allocated
 
 Frame Synchronization
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 - **Active(uint64_t &frame)**: Get active buffer, swap if target frame is reached
 - **SetDirty()**: Mark the passive buffer as modified
 - **GetDirty()**: Check if the passive buffer is modified
 
 Usage Patterns
--------------
+--------------
 
 Basic Usage
-~~~~~~~~~
+~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -114,7 +120,7 @@ Basic Usage
     buffer.CopyAndSwap(newData);
 
 NUMA-Aware Usage
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -125,7 +131,7 @@ NUMA-Aware Usage
     int node = buffer.GetNode();  // Should return 0
 
 Frame Synchronized Updates
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -137,7 +143,7 @@ Frame Synchronized Updates
     float* data = buffer.Active(currentFrame);  // Will swap if frameCounter >= target
 
 Low-Level Buffer Management
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -157,7 +163,7 @@ Low-Level Buffer Management
     buffer.SwapBuffers();
 
 Best Practices
--------------
+--------------
 
 1. **Memory Management**: Be aware of buffer allocation and deallocation, especially with NUMA
 2. **Thread Safety**: The double buffer itself is not thread-safe; external synchronization is required for multithreaded access
@@ -166,7 +172,7 @@ Best Practices
 5. **Error Handling**: Check for allocation failures when creating double buffers
 
 Integration with Component System
--------------------------------
+---------------------------------
 
 The DoubleBuffer class is designed to work seamlessly with the DAO Component system:
 
@@ -192,7 +198,7 @@ The DoubleBuffer class is designed to work seamlessly with the DAO Component sys
     processData(currentData);
 
 Example: Real-Time Data Processing
---------------------------------
+----------------------------------
 
 .. code-block:: cpp
 

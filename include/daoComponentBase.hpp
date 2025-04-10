@@ -54,6 +54,9 @@ namespace Dao
             void PostConstructor(Dao::ComponentIfce* ifce)
             {
                 m_zmq_thread->Configure(m_ip, m_port, ifce);
+                m_zmq_thread->setCallback([this](std::string payload) {
+                    this->PROCESS_OTHER(payload);
+                });
                 m_zmq_thread->Spawn();
                 m_zmq_thread->Start();
             }
@@ -89,6 +92,11 @@ namespace Dao
             void OnFailure(){};
             void Recover(){};
             void Log(std::string message){};
+
+            void PROCESS_OTHER(std::string Payload)
+            {
+                m_log.Trace("PROCESS_OTHER(%s)", Payload.c_str());
+            }
 
         protected:
             std::string m_name;

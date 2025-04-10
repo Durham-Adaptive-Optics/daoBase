@@ -88,6 +88,13 @@ namespace Dao
                 m_configured = true;
             }
 
+            void setCallback(std::function<void(std::string)> callback)
+            {
+                m_callback = callback;
+            }
+
+
+
         protected:
             // these can be used to reset and reconfigure the thread.
             void OnceOnSpawn() override
@@ -171,6 +178,7 @@ namespace Dao
 
             }
 
+
             std::string m_ip;
             int m_port;
             std::ostringstream m_connect;
@@ -182,6 +190,8 @@ namespace Dao
             size_t m_timeout_ms;
             
             Dao::ComponentIfce * m_ifce;
+
+
         private:
 
             void process_message(Dao::CommandMessage &command)
@@ -216,6 +226,10 @@ namespace Dao
                 case Dao::CommandMessage::SET_LOG_LEVEL:
                     std::cout << "SET_LOG_LEVEL " << std::endl;
                     process_SET_LOG_LEVEL(command.payload());
+                    break;
+                case Dao::CommandMessage::OTHER:
+                    std::cout << "OTHER " << std::endl;
+                    process_OTHER(command.payload());
                     break;
                 default:
                 std::cout << "Unkown function " << std::endl;
@@ -321,6 +335,20 @@ namespace Dao
                 }
             }
 
+            void process_OTHER(std::string Payload)
+            {
+                m_log.Trace("Proces_OTHER(%s)", Payload.c_str());
+
+                if (m_callback) {
+                    m_callback(Payload);
+                    m_payload << "OTHER command processed";
+                } else {
+                    m_log.Warning("No callback registered for OTHER command");
+                    m_payload << "No callback registered for OTHER command";
+                }
+                // do something else
+            }
+
             std::string construct_reply()
             {
 
@@ -341,6 +369,9 @@ namespace Dao
             // zero mq stuff
             void * m_context;
             void * m_responder;
+
+            // Function pointer for callback
+            std::function<void(std::string)> m_callback;
 
             // return things for reply
             // these should be part of statemachine

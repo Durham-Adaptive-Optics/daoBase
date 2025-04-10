@@ -12,6 +12,7 @@ Welcome to Duraham Adaptive Optics's documentation!
 
    installation_guide
    quick_start_guide
+   OSSpecifics
    shared_memory
    troubleshooting
    tuning_guide
@@ -19,9 +20,11 @@ Welcome to Duraham Adaptive Optics's documentation!
    state_machine
    daoroot_daodata
    daoComponent
-   DoubleBuffer
-   Numa
-   UpdateThread
+   doubleBuffer
+   numa
+   threads
+   daoHw
+   daoTools
    api_reference
 
 

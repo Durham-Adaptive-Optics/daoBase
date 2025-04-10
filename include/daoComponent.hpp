@@ -103,6 +103,13 @@ namespace Dao
                  return currentState();
             }
 
+
+            void PROCESS_OTHER(std::string payload) override
+            {
+                 // Process other messages
+                 m_log.Info("Processing other message: %s", payload.c_str());
+            }
+
         protected:
 
         private:

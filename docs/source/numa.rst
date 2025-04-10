@@ -18,7 +18,7 @@ On NUMA systems, memory access times are not uniform - each processor can access
 3. Providing mapping between cores and NUMA nodes
 
 Key Features
------------
+------------
 
 - CPU core affinity management
 - NUMA-aware memory allocation
@@ -26,12 +26,12 @@ Key Features
 - Cross-platform support (full functionality on Linux, compatibility layer on other platforms)
 
 Namespace and Functions
----------------------
+-----------------------
 
 The NUMA functions are contained within the ``Dao::Numa`` namespace:
 
 Core Affinity Functions
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -44,7 +44,7 @@ These functions control which CPU core a thread runs on:
 - **GetProcAffinity**: Get the current CPU core the thread is running on
 
 NUMA Node Mapping
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -57,7 +57,7 @@ These functions provide mapping between CPU cores and NUMA nodes:
 - **Node2FirstCore**: Get the first CPU core on a specific NUMA node
 
 NUMA Memory Allocation
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -79,7 +79,7 @@ These functions manage NUMA-aware memory allocation:
 - **FreeT<T>**: Free typed memory allocated with AllocOnNode<T>
 
 Utility Functions
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -92,7 +92,7 @@ These functions provide system information:
 - **GetMaxNode**: Get the maximum NUMA node number on the system
 
 Platform Support
---------------
+----------------
 
 The NUMA implementation varies by platform:
 
@@ -100,10 +100,10 @@ The NUMA implementation varies by platform:
 - **macOS/Windows**: Limited functionality, providing API compatibility
 
 Usage Patterns
--------------
+--------------
 
 Basic CPU Affinity
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -116,7 +116,7 @@ Basic CPU Affinity
     int currentCore = Dao::Numa::GetProcAffinity();
 
 NUMA-Aware Memory Allocation
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -138,7 +138,7 @@ NUMA-Aware Memory Allocation
     Dao::Numa::Free(data, 1024 * sizeof(float));
 
 Typed Memory Allocation with Fill Value
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -149,7 +149,7 @@ Typed Memory Allocation with Fill Value
     Dao::Numa::FreeT<float>(data, 1024);
 
 Integration with Thread System
----------------------------
+------------------------------
 
 The NUMA system is designed to work with the DAO Thread system:
 
@@ -190,7 +190,7 @@ The NUMA system is designed to work with the DAO Thread system:
     };
 
 Best Practices
--------------
+--------------
 
 1. **Thread Placement**: Place threads performing related work on the same NUMA node
 2. **Memory Allocation**: Allocate memory on the same node as the thread that will use it most
@@ -199,7 +199,7 @@ Best Practices
 5. **Core Affinity**: Use core affinity to ensure threads stay on their assigned cores
 
 Performance Considerations
-------------------------
+--------------------------
 
 - **Memory Bandwidth**: Each NUMA node has its own memory bandwidth
 - **Cache Coherency**: Cache coherency operations across NUMA nodes can be expensive
@@ -208,7 +208,7 @@ Performance Considerations
 - **Core Mapping**: Core to node mapping is system-specific
 
 Example: Data Processing on Multiple NUMA Nodes
----------------------------------------------
+-----------------------------------------------
 
 .. code-block:: cpp
 
