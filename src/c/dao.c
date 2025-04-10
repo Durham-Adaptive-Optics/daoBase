@@ -541,7 +541,11 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 		#else
 		
         fstat(shmFd, &file_stat);
-        daoDebug("File %s size: %ld\n", shmName, file_stat.st_size);
+        #ifdef __APPLE__
+            daoDebug("File %s size: %lld\n", shmName, file_stat.st_size);
+        #else
+            daoDebug("File %s size: %ld\n", shmName, file_stat.st_size);
+        #endif
         map = (IMAGE_METADATA*) mmap(0, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
         if (map == MAP_FAILED) 
         {
@@ -667,7 +671,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         for(kw=0; kw<image->md[0].NBkw; kw++)
         {
             if(image->kw[kw].type == 'L')
-				#ifdef _WIN32
+                #if defined(_WIN32) || defined(__APPLE__)
                 daoDebug("%d  %s %lld %s\n", kw, image->kw[kw].name, image->kw[kw].value.numl, image->kw[kw].comment);
 				#else
                 daoDebug("%d  %s %ld %s\n", kw, image->kw[kw].name, image->kw[kw].value.numl, image->kw[kw].comment);
