@@ -861,6 +861,7 @@ int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
 int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image) 
 {
     daoTrace("\n");
+    int semval = 0;
     int ss;
     image->md[0].write = 1;
 
@@ -894,7 +895,9 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semptr[ss], 1, NULL);
 		#else
-        sem_post(image->semptr[ss]);
+        sem_getvalue(image->semptr[ss], &semval);
+        if(semval < SEMAPHORE_MAXVAL )
+            sem_post(image->semptr[ss]);
 		#endif
     }
 
@@ -903,7 +906,11 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semlog, 1, NULL);
 		#else
-        sem_post(image->semlog);
+        sem_getvalue(image->semlog, &semval);
+        if(semval < SEMAPHORE_MAXVAL)
+        {
+            sem_post(image->semlog);
+        }
 		#endif
     }
 
@@ -968,13 +975,16 @@ int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t
 int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image) 
 {
     daoTrace("\n");
+    int semval = 0;
     int ss;
     for(ss = 0; ss < image->md[0].sem; ss++)
     {
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semptr[ss], 1, NULL);
 		#else
-        sem_post(image->semptr[ss]);
+        sem_getvalue(image->semptr[ss], &semval);
+        if(semval < SEMAPHORE_MAXVAL )
+            sem_post(image->semptr[ss]);
 		#endif
     }
 
@@ -983,7 +993,11 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semlog, 1, NULL);
 		#else
-        sem_post(image->semlog);
+        sem_getvalue(image->semlog, &semval);
+        if(semval < SEMAPHORE_MAXVAL)
+        {
+            sem_post(image->semlog);
+        }
 		#endif
     }
 	
@@ -1135,6 +1149,10 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
                 if ((image->semptr[s] = sem_open(shmSemName, O_CREAT, 0644, 1)) == SEM_FAILED) {
                     perror("semaphore initilization\n");
                 }
+                else
+                {
+                    sem_init(image->semptr[s], 1, 0);
+                }
             }
 			#endif
         }
@@ -1256,7 +1274,10 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 
         if ((image->semlog = sem_open(shmSemName, O_CREAT, 0644, 1)) == SEM_FAILED)
         {
-            perror("semaphore creation / initilization");
+            perror("semaphore creation / initilization");}
+        else
+        {
+            sem_init(image->semlog, 1, 0);
         }
 		#endif
 
@@ -1874,6 +1895,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel, int nbVal)
 {
     daoTrace("\n");
+    int semval = 0;
     int ss;
     int pp;
     int k;
@@ -2022,8 +2044,10 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semptr[ss], 1, NULL);
 		#else
-        sem_post(image->semptr[ss]);
-        #endif
+        sem_getvalue(image->semptr[ss], &semval);
+        if(semval < SEMAPHORE_MAXVAL )
+            sem_post(image->semptr[ss]);
+               #endif
     }
 
     if(image->semlog != NULL)
@@ -2031,7 +2055,11 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
 		#ifdef _WIN32
 		ReleaseSemaphore(image->semlog, 1, NULL);
 		#else
-        sem_post(image->semlog);
+        sem_getvalue(image->semlog, &semval);
+        if(semval < SEMAPHORE_MAXVAL)
+        {
+            sem_post(image->semlog);
+        }
 		#endif
     }
 
