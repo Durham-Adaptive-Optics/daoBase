@@ -897,7 +897,9 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 		#else
         sem_getvalue(image->semptr[ss], &semval);
         if(semval < SEMAPHORE_MAXVAL )
+        {
             sem_post(image->semptr[ss]);
+        }
 		#endif
     }
 
@@ -984,7 +986,9 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 		#else
         sem_getvalue(image->semptr[ss], &semval);
         if(semval < SEMAPHORE_MAXVAL )
+        {
             sem_post(image->semptr[ss]);
+        }
 		#endif
     }
 
@@ -2046,8 +2050,10 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
 		#else
         sem_getvalue(image->semptr[ss], &semval);
         if(semval < SEMAPHORE_MAXVAL )
+        {
             sem_post(image->semptr[ss]);
-               #endif
+        }
+        #endif
     }
 
     if(image->semlog != NULL)

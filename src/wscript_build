@@ -10,7 +10,7 @@ add_cxx_flags= ['']
 if platform.system() == "Darwin":
     add_ld_flags += ['-L/opt/homebrew/lib']
     add_cxx_flags += ['-std=c++17']
-    add_c_flags += ['-O3', '-ffast-math']
+    add_c_flags += ['-O3', '-ffast-math', '-pthread']
 
 elif platform.system() == "Windows":
 	add_cxx_flags += ['-lrt']
@@ -18,7 +18,7 @@ elif platform.system() == "Windows":
 else:
 	add_ld_flags += ['-lnuma']
 	add_cxx_flags += ['-march=native']
-	add_c_flags +=  ['-lrt', '-Ofast']
+	add_c_flags +=  ['-lrt', '-Ofast', '-pthread']
 
 
 if bld.options.debug_flag:
