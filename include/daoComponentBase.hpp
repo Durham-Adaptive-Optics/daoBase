@@ -93,7 +93,7 @@ namespace Dao
             void Recover(){};
             void Log(std::string message){};
 
-            void PROCESS_OTHER(std::string Payload)
+            virtual void PROCESS_OTHER(std::string Payload)
             {
                 m_log.Trace("PROCESS_OTHER(%s)", Payload.c_str());
             }
