@@ -541,7 +541,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 		#else
 		
         fstat(shmFd, &file_stat);
-        daoDebug("File %s size: %lld\n", shmName, file_stat.st_size);
+        daoDebug("File %s size: %ld\n", shmName, file_stat.st_size);
         map = (IMAGE_METADATA*) mmap(0, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
         if (map == MAP_FAILED) 
         {
@@ -670,7 +670,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 				#ifdef _WIN32
                 daoDebug("%d  %s %lld %s\n", kw, image->kw[kw].name, image->kw[kw].value.numl, image->kw[kw].comment);
 				#else
-                daoDebug("%d  %s %lld %s\n", kw, image->kw[kw].name, image->kw[kw].value.numl, image->kw[kw].comment);
+                daoDebug("%d  %s %ld %s\n", kw, image->kw[kw].name, image->kw[kw].value.numl, image->kw[kw].comment);
 				#endif
             if(image->kw[kw].type == 'D')
                 daoDebug("%d  %s %lf %s\n", kw, image->kw[kw].name, image->kw[kw].value.numf, image->kw[kw].comment);
