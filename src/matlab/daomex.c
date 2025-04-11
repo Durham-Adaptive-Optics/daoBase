@@ -117,7 +117,7 @@ void shm_init(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 // Function to access and work with a selected IMAGE structure
 void get_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-    if (nrhs < 1 || nrhs > 3 || nlhs != 1)
+    if (nrhs < 1 || nrhs > 4 || nlhs != 1)
     {
         mexErrMsgIdAndTxt("MATLAB:get_data:invalidNumArgs",
                           "Invalid number of input or output arguments.");
@@ -140,6 +140,9 @@ void get_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     // Initialize the integer parameter with a default value (1)
     int semNb = 1;
 
+    // Initialize the double parameter with a default value (0)
+    unsigned long timeout_sec = 0;
+
     // Check if an optional boolean parameter is provided
     if (nrhs >= 2 && !mxIsEmpty(prhs[1]) && mxIsLogicalScalar(prhs[1]))
     {
@@ -154,15 +157,29 @@ void get_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         semNb = (int)numericArray[0]; // Convert the numeric value to an integer
     }
 
+    // Check if an optional integer parameter is provided
+    if (nrhs >= 4 && !mxIsEmpty(prhs[3]) && mxIsNumeric(prhs[3]) && mxIsScalar(prhs[3]))
+    {
+        double *ulongArray = mxGetPr(prhs[3]);
+        timeout_sec = (unsigned long)ulongArray[0]; // Convert the numeric value to an integer
+    }
+
     if (waitForSemaphore == true)
     {
-        struct timespec timeout;
-        clock_gettime(CLOCK_REALTIME, &timeout);
-        timeout.tv_sec += 1; // 1 second timeout
-        if (sem_timedwait(selectedImage[0].semptr[semNb], &timeout) == -1)
-        {
-            daoInfo("Time out (1s) waiting for new data in the SHM, using what is currently in it\n");
-        }
+	if (timeout_sec == 0)
+	{
+            sem_wait(selectedImage[0].semptr[semNb]);
+	}
+	else
+	{
+            struct timespec timeout;
+            clock_gettime(CLOCK_REALTIME, &timeout);
+            timeout.tv_sec += 1; // 1 second timeout
+            if (sem_timedwait(selectedImage[0].semptr[semNb], &timeout) == -1)
+            {
+                daoInfo("Time out (1s) waiting for new data in the SHM, using what is currently in it\n");
+            }
+	}
     }
     // Determine the size of the UI8 array
     uint32_t numRows = selectedImage[0].md[0].size[0];
