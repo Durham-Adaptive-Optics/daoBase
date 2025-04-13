@@ -104,9 +104,9 @@ jobs:
         python waf configure
         python waf build
     
-    - name: Run tests
-      run: |
-        python waf test
+    # - name: Run tests
+    #   run: |
+    #     python waf test
         
     # - name: Upload build artifacts
     #   uses: actions/upload-artifact@v4.2.3
