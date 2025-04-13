@@ -31,7 +31,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install posix_ipc zmq protobuf==3.20.0 astropy python-statemachine statemachine redis sphinx screeninfo
-        
+
+    - name: Download waf
+      run: |
+        curl -o waf https://waf.io/waf-2.0.24
+        chmod +x waf
+          
     - name: Configure and build with waf
       run: |
         python waf configure
