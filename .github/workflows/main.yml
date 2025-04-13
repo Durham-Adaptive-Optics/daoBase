@@ -108,13 +108,13 @@ jobs:
       run: |
         python waf test
         
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4.2.3
-      with:
-        name: build-output-${{ matrix.os }}
-        path: build/
-        if-no-files-found: warn
-        retention-days: 14
-        compression-level: 6
-        overwrite: true
-        include-hidden-files: false
+    # - name: Upload build artifacts
+    #   uses: actions/upload-artifact@v4.2.3
+    #   with:
+    #     name: build-output-${{ matrix.os }}
+    #     path: build/
+    #     if-no-files-found: warn
+    #     retention-days: 14
+    #     compression-level: 6
+    #     overwrite: true
+    #     include-hidden-files: false
