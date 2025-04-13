@@ -36,9 +36,3 @@ jobs:
       run: |
         python waf configure
         python waf build
-        
-    - name: Archive build artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: build-artifacts
-        path: build/  # Adjust this path to where waf places your build output
