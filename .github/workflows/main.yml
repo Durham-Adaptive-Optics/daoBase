@@ -1,0 +1,44 @@
+name: Build Project
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y libtool pkg-config build-essential autoconf automake python3 python-is-python3 \
+          libssl-dev libncurses5-dev libncursesw5-dev redis libgtest-dev libgsl-dev libzmq3-dev \
+          protobuf-compiler numactl libnuma-dev
+          
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install posix_ipc zmq protobuf==3.20.0 astropy python-statemachine statemachine redis sphinx screeninfo
+        
+    - name: Configure and build with waf
+      run: |
+        python waf configure
+        python waf build
+        
+    - name: Archive build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: build/  # Adjust this path to where waf places your build output
