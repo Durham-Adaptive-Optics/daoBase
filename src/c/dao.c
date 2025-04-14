@@ -2188,7 +2188,9 @@ int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
 
     #ifdef _WIN32
     ReleaseSemaphore(image->semptr[ss], 1, NULL);
-    #else
+    #elif defined(__APPLE__)
+    sem_post(image->semptr[semNb]); 
+    #else // Linux
     int semval = 0;
     sem_getvalue(image->semptr[semNb], &semval);
     if(semval < SEMAPHORE_MAXVAL )
@@ -2227,6 +2229,8 @@ int_fast8_t daoSemLogPost(IMAGE *image)
 
     #ifdef _WIN32
     ReleaseSemaphore(image->semlog, 1, NULL);
+    #elif defined(__APPLE__)
+    sem_post(image->semlog); 
     #else
     int semval = 0;
     sem_getvalue(image->semlog, &semval);
