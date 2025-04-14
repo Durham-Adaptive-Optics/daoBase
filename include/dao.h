@@ -54,8 +54,9 @@ void daoLogTrace(const char *format, ...);
 void daoLogSetLevel(int log_level);
 
 // original Log System
-#define DAO_SUCCESS 0
-#define DAO_ERROR   1
+#define DAO_SUCCESS     0
+#define DAO_ERROR       1
+#define DAO_TIMEOUT     -1
 
 #define DAO_WARNING 0
 #define DAO_INFO 1
@@ -470,5 +471,9 @@ DLL_EXPORT int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
 DLL_EXPORT int_fast8_t daoShmWaitForCounter(IMAGE *image);
 DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmCloseShm(IMAGE *image); // New function to properly clean up SHM resources
+DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE *image);
 
+DLL_EXPORT int_fast8_t daoSemPost(IMAGE *image, int32_t semNb);
+DLL_EXPORT int_fast8_t daoSemPostAll(IMAGE *image);
+DLL_EXPORT int_fast8_t daoSemLogPost(IMAGE *image);
 #endif

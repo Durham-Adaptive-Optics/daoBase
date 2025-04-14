@@ -865,8 +865,6 @@ int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
 int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image) 
 {
     daoTrace("\n");
-    int semval = 0;
-    int ss;
     image->md[0].write = 1;
 
     if (image->md[0].atype == _DATATYPE_UINT8)
@@ -894,37 +892,7 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
     else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
         memcpy(image->array.CD, (complex_double *)im, nbVal*sizeof(complex_double));
 
-    for(ss = 0; ss < image->md[0].sem; ss++)
-    {
-		#ifdef _WIN32
-		ReleaseSemaphore(image->semptr[ss], 1, NULL);
-		#else
-        sem_getvalue(image->semptr[ss], &semval);
-        if(semval < SEMAPHORE_MAXVAL )
-        {
-            sem_post(image->semptr[ss]);
-        }
-		#endif
-    }
-
-    if(image->semlog != NULL)
-    {
-		#ifdef _WIN32
-		ReleaseSemaphore(image->semlog, 1, NULL);
-		#else
-        sem_getvalue(image->semlog, &semval);
-        if(semval < SEMAPHORE_MAXVAL)
-        {
-            sem_post(image->semlog);
-        }
-		#endif
-    }
-
-    image->md[0].write = 0;
-    image->md[0].cnt0++;
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-	image->md[0].atime.tsfixed.secondlong = ((int64_t)(1e9 * t.tv_sec) + t.tv_nsec);
+    daoShmImagePart2ShmFinalize(image);
 
     return DAO_SUCCESS;
 }
@@ -981,38 +949,16 @@ int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t
 int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image) 
 {
     daoTrace("\n");
-    int semval = 0;
-    int ss;
-    for(ss = 0; ss < image->md[0].sem; ss++)
-    {
-		#ifdef _WIN32
-		ReleaseSemaphore(image->semptr[ss], 1, NULL);
-		#else
-        sem_getvalue(image->semptr[ss], &semval);
-        if(semval < SEMAPHORE_MAXVAL )
-        {
-            sem_post(image->semptr[ss]);
-        }
-		#endif
-    }
+
+    daoSemPostAll(image);
 
     if(image->semlog != NULL)
     {
-		#ifdef _WIN32
-		ReleaseSemaphore(image->semlog, 1, NULL);
-		#else
-        sem_getvalue(image->semlog, &semval);
-        if(semval < SEMAPHORE_MAXVAL)
-        {
-            sem_post(image->semlog);
-        }
-		#endif
+        daoSemLogPost(image);
     }
-	
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-	image->md[0].atime.tsfixed.secondlong = ((int64_t)(1e9 * t.tv_sec) + t.tv_nsec);
-    image->md[0].cnt0++;
+	 
+    daoShmTimestampShm(image);
+
     return DAO_SUCCESS;
 }
 
@@ -1903,8 +1849,6 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel, int nbVal)
 {
     daoTrace("\n");
-    int semval = 0;
-    int ss;
     int pp;
     int k;
     image->md[0].write = 1;
@@ -2047,37 +1991,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
         }
     }
 	
-    for(ss = 0; ss < image->md[0].sem; ss++)
-    {
-		#ifdef _WIN32
-		ReleaseSemaphore(image->semptr[ss], 1, NULL);
-		#else
-        sem_getvalue(image->semptr[ss], &semval);
-        if(semval < SEMAPHORE_MAXVAL )
-        {
-            sem_post(image->semptr[ss]);
-        }
-        #endif
-    }
-
-    if(image->semlog != NULL)
-    {
-		#ifdef _WIN32
-		ReleaseSemaphore(image->semlog, 1, NULL);
-		#else
-        sem_getvalue(image->semlog, &semval);
-        if(semval < SEMAPHORE_MAXVAL)
-        {
-            sem_post(image->semlog);
-        }
-		#endif
-    }
-
-    image->md[0].write = 0;
-    image->md[0].cnt0++;
-    struct timespec t;
-    clock_gettime(CLOCK_REALTIME, &t);
-	image->md[0].atime.tsfixed.secondlong = ((int64_t)(1e9 * t.tv_sec) + t.tv_nsec);
+    daoShmImagePart2ShmFinalize(image);
 
     return DAO_SUCCESS;
 }
@@ -2242,5 +2156,84 @@ int_fast8_t daoShmCloseShm(IMAGE *image)
     // Mark image as unused
     image->used = 0;
     
+    return DAO_SUCCESS;
+}
+
+/**
+ * @brief Time stamp an image
+ * 
+ * @param image 
+ * @return int_fast8_t 
+ */
+int_fast8_t daoShmTimestampShm(IMAGE *image)
+{
+    struct timespec t;
+    clock_gettime(CLOCK_REALTIME, &t);
+    image->md[0].atime.tsfixed.secondlong = ((int64_t)(1e9 * t.tv_sec) + t.tv_nsec);
+    image->md[0].cnt0++;
+
+    return DAO_SUCCESS;
+}
+
+/**
+ * @brief Post a semaphore
+ * 
+ * @param image 
+ * @param semNb 
+ * @return int_fast8_t 
+ */
+int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
+{
+    daoTrace("\n");
+
+    #ifdef _WIN32
+    ReleaseSemaphore(image->semptr[ss], 1, NULL);
+    #else
+    int semval = 0;
+    sem_getvalue(image->semptr[semNb], &semval);
+    if(semval < SEMAPHORE_MAXVAL )
+    {
+        sem_post(image->semptr[semNb]);
+    }
+    #endif
+    return DAO_SUCCESS;
+}
+/**
+ * @brief Post all semaphore
+ * 
+ * @param image 
+ * @return int_fast8_t 
+ */
+int_fast8_t daoSemPostAll(IMAGE *image)
+{
+    daoTrace("\n");
+    int ss;
+    for(ss = 0; ss < image->md[0].sem; ss++)
+    {
+        daoSemPost(image, ss);
+    }
+    return DAO_SUCCESS;
+}
+
+/**
+ * @brief Post the logsemaphore
+ * 
+ * @param image 
+ * @return int_fast8_t 
+ */
+int_fast8_t daoSemLogPost(IMAGE *image)
+{
+    daoTrace("\n");
+
+    #ifdef _WIN32
+    ReleaseSemaphore(image->semlog, 1, NULL);
+    #else
+    int semval = 0;
+    sem_getvalue(image->semlog, &semval);
+    if(semval < SEMAPHORE_MAXVAL )
+    {
+        sem_post(image->semlog);
+    }
+    #endif
     return DAO_SUCCESS;
 }
