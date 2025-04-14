@@ -36,15 +36,16 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pip-
         
-    # Cache Homebrew dependencies on macOS
-    - name: Cache Homebrew packages
+    # Optimized Homebrew cache on macOS
+    - name: Cache Homebrew
       if: runner.os == 'macOS'
       uses: actions/cache@v4.2.3
       with:
         path: |
-          ~/Library/Caches/Homebrew
-          /opt/homebrew
-        key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/build.yml') }}
+          ~/Library/Caches/Homebrew/downloads
+          ~/Library/Caches/Homebrew/portable-ruby*
+          ~/Library/Caches/Homebrew/*.bottle
+        key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/main.yml') }}-v2
         restore-keys: |
           ${{ runner.os }}-brew-
           
@@ -66,11 +67,23 @@ jobs:
           libssl-dev libncurses5-dev libncursesw5-dev redis libgtest-dev libgsl-dev libzmq3-dev \
           protobuf-compiler numactl libnuma-dev
         
+    # Optimized Homebrew installation
     - name: Install system dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
         brew update
-        brew install libtool pkg-config autoconf automake openssl ncurses redis gsl zeromq protobuf
+        # Install only what's needed and avoid updating unnecessary formulae
+        HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew install \
+          libtool \
+          pkg-config \
+          autoconf \
+          automake \
+          openssl \
+          ncurses \
+          redis \
+          gsl \
+          zeromq \
+          protobuf
     
     - name: Set macOS environment variables
       if: runner.os == 'macOS'
@@ -104,17 +117,10 @@ jobs:
         python waf configure
         python waf build
     
-    # - name: Run tests
-    #   run: |
-    #     python waf test
-        
-    # - name: Upload build artifacts
-    #   uses: actions/upload-artifact@v4.2.3
-    #   with:
-    #     name: build-output-${{ matrix.os }}
-    #     path: build/
-    #     if-no-files-found: warn
-    #     retention-days: 14
-    #     compression-level: 6
-    #     overwrite: true
-    #     include-hidden-files: false
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-output-${{ matrix.os }}
+        path: build/
+        retention-days: 14
+        if-no-files-found: warn
