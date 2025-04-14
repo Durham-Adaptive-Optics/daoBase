@@ -28,6 +28,10 @@
 #include <semaphore.h>
 #endif
 
+#ifdef __APPLE__
+#include <stdatomic.h>
+#endif
+
 #ifdef _WIN32
 #define DLL_EXPORT __declspec(dllexport)
 #else
@@ -316,6 +320,9 @@ typedef struct
     // total size is 187 bytes = 1496 bit when packed
     uint64_t lastNbArray[512];
     // total size is 1211 bytes = 9688 bit when packed
+    #ifdef __APPLE__
+    atomic_ushort semCounter[IMAGE_NB_SEMAPHORE];
+    #endif
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;
 #else
@@ -438,7 +445,7 @@ typedef struct          		/**< structure used to store data arrays              
 #ifdef _WIN32
 	HANDLE shmfm;						/**< shared memory file mapping view handle */
 #endif
-    
+
     // total size is 152 byte = 1216 bit
     // (on Windows,  160 byte = 1280 bit)
 #ifdef DATA_PACKED

@@ -60,6 +60,10 @@ static int clock_gettime(int clk_id, struct timespec *t)
 #include <omp.h>
 #endif
 
+#ifdef __APPLE__
+#include <stdatomic.h>
+#endif
+
 // #ifdef __MACH__
 // #include <mach/mach_time.h>
 // #define CLOCK_REALTIME 0
@@ -1084,7 +1088,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 		#else
         image->semptr = (sem_t**) malloc(sizeof(sem_t**)*image->md[0].sem);
 		#endif
-
+        
         for(s=0; s<NBsem; s++)
         {
 			#ifdef _WIN32
@@ -1099,8 +1103,10 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 			
 			#else
             sprintf(shmSemName, "%s_sem%02ld", localName, s);
-            if ((image->semptr[s] = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) {
-                if ((image->semptr[s] = sem_open(shmSemName, O_CREAT, 0644, 1)) == SEM_FAILED) {
+            if ((image->semptr[s] = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) 
+            {
+                if ((image->semptr[s] = sem_open(shmSemName, O_CREAT, 0644, 1)) == SEM_FAILED) 
+                {
                     perror("semaphore initilization\n");
                 }
                 else
@@ -1342,8 +1348,6 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
             daoError("Error opening file (%s) for writing\n", shmName);
             exit(0);
         }
-
-
 
 
         image->shmfd = shmFd;
@@ -2015,9 +2019,13 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 			daoError("Unexpected result from WaitForSingleObject (Windows system error no. %d).\n", GetLastError());
 			return DAO_ERROR;
 	}
+    #elif defined(__APPLE__)
+    sem_wait(image->semptr[semNb]);
+    atomic_fetch_sub(&image->md[0].semCounter[semNb], 1);
 	#else
     sem_wait(image->semptr[semNb]);
 	#endif
+
     return DAO_SUCCESS;
 }
 
@@ -2099,7 +2107,6 @@ int_fast8_t daoShmCloseShm(IMAGE *image)
         free(image->semptr);
         image->semptr = NULL;
     }
-
     // Close log semaphore if it exists
 #ifdef _WIN32
     if (image->semlog) {
@@ -2189,8 +2196,23 @@ int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
     #ifdef _WIN32
     ReleaseSemaphore(image->semptr[ss], 1, NULL);
     #elif defined(__APPLE__)
-    sem_post(image->semptr[semNb]); 
-    #else // Linux
+    unsigned short val = atomic_load(&image->md[0].semCounter[semNb]);
+    if (val < SEMAPHORE_MAXVAL)
+    {
+        if (sem_post(image->semptr[semNb]) == 0)
+        {
+            atomic_fetch_add(&image->md[0].semCounter[semNb], 1);
+        }
+        else
+        {
+            daoError("sem_post failed on sem %d: %s\n", semNb, strerror(errno));
+        }
+    }
+    else
+    {
+        daoDebug("semCounter[%d] at max value (%d), skipping post\n", semNb, SEMAPHORE_MAXVAL);
+    }
+#else // Linux
     int semval = 0;
     sem_getvalue(image->semptr[semNb], &semval);
     if(semval < SEMAPHORE_MAXVAL )
