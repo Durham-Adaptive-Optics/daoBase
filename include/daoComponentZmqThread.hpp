@@ -299,7 +299,7 @@ namespace Dao
             void process_STATE()
             {
                 m_log.Trace("Proces_STATE()");
-                m_payload << "STATE: " << m_ifce->GetStateText();
+                m_payload << m_ifce->GetStateText();
             }
 
             void process_SET_LOG_LEVEL(std::string Payload)
