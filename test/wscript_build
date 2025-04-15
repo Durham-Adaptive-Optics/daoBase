@@ -8,13 +8,24 @@ add_cxx_flags= ['']
 
 
 if platform.system() == "Darwin":
-    add_ld_flags += ['-L/opt/homebrew/lib']
-    add_cxx_flags += ['-std=c++17']
+    add_ld_flags += ['-L/opt/homebrew/lib', '-pthread']
+    add_cxx_flags += ['-std=c++17',]
+    add_c_flags += ['']
+elif platform.system() == "Linux":
+	add_ld_flags += ['-lnuma', '-pthread']
+	add_cxx_flags += ['-lrt', '-pthread']
+	add_c_flags +=  ['-lrt']
+elif platform.system() == "Windows":
+    # Windows
+    add_ld_flags += ['']
+    add_cxx_flags += ['']
     add_c_flags += ['']
 else:
-	add_ld_flags += ['-lnuma']
-	add_cxx_flags += ['-lrt']
-	add_c_flags +=  ['-lrt']
+	# Other OS
+	add_ld_flags += ['']
+	add_cxx_flags += ['']
+	add_c_flags += ['']
+    
 
 
 if bld.options.debug_flag:
@@ -32,35 +43,105 @@ if bld.options.sanitizer_flag:
 # TESTING BUILDS   
 bld.program(
 	features='test',
+	target = 'test_numa',
+	source = [ 'test_numa.cpp' ],
+	includes = ['../include/', f'{bld.env.PREFIX}/include'],
+	lib = [ 'gtest', 'gtest_main'],
+	ldflags=[ f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
+	cxxflags = [''] + add_cxx_flags,
+	use=['daoNuma']
+	)
+
+bld.program(
+	features='test',
+	target = 'test_queue',
+	source = [ 'test_queue.cpp' ],
+	includes = ['../include/', f'{bld.env.PREFIX}/include'],
+	lib = [ 'gtest', 'gtest_main'],
+	ldflags=[  f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
+	cxxflags = [''] + add_cxx_flags,
+	use=['dao']
+	)
+
+bld.program(
+	features='test',
+	target = 'test_log',
+	source = [ 'test_log.cpp' ],
+	includes = ['../include/', '../build/', f'{bld.env.PREFIX}/include',],
+	linkflags = [ '-L../build/proto'],
+	lib = [ 'gtest', 'gtest_main', 'pthread'],
+	ldflags=[ f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
+	cxxflags = [''] + add_cxx_flags,
+	use=['PROTOBUF', 'ZMQ', 'daoProto']
+	)
+
+bld.program(
+    features='test',
+    target = 'test_comp.cpp',
+    source = [ 'test_component.cpp' ],
+    includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
+    lib = [ 'gtest', 'gtest_main'],
+	cxxflags = [''] + add_cxx_flags,
+    ldflags=[f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
+    use=['ZMQ', 'PROTOBUF','daoNuma', 'daoProto']
+    )
+
+bld.program(
+    features='test',
+    target = 'test_threads',
+    source = [ 'test_threads.cpp' ],
+    includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
+    lib = [ 'gtest', 'gtest_main'],
+	ldflags=[f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
+    cxxflags = [''] + add_cxx_flags,
+    use=['ZMQ', 'PROTOBUF', 'daoNuma', 'daoProto']
+    )
+
+bld.program(
+    features='test',
+    target = 'test_thread_block',
+    source = [ 'test_thread_block.cpp' ],
+    includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
+    lib = [ 'gtest', 'gtest_main'],
+	ldflags=[f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
+    cxxflags = [''] + add_cxx_flags,
+    use=['ZMQ', 'PROTOBUF', 'daoNuma', 'daoProto']
+    )
+
+bld.program(
+	features='test',
+	target = 'test_shm',
+	source = [ 'test_shm.cpp' ],
+    includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
+    lib = [ 'gtest', 'gtest_main'],
+	ldflags=[f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
+    cxxflags = [''] + add_cxx_flags,
+	use=['dao', 'daoNuma', 'daoProto', 'ZMQ', 'PROTOBUF']
+	)
+
+bld.program(
+	features ='test',
+	target   = 'test_update_thread',
+	source   = [ 'test_update_thread.cpp' ],
+    includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
+    lib = [ 'gtest', 'gtest_main'],
+	ldflags=[f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
+    cxxflags = [''] + add_cxx_flags,
+	use=['dao', 'daoNuma', 'daoProto', 'ZMQ', 'PROTOBUF']
+	)
+
+bld.program(
+	features='test',
 	target = 'test_shm_ifce',
 	source = [ 'test_shm_ifce.cpp' ],
     includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
-    lib = [ 'gtest', 'gtest_main','dao'],
+    lib = [ 'gtest', 'gtest_main'],
+	ldflags=[f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
     cxxflags = [''] + add_cxx_flags,
-    ldflags=['-lpthread', '-L' + bld.env.PREFIX+'/lib64', '-ldaoProto'] + add_ld_flags,
-    use=['ZMQ', 'PROTOBUF', 'daoNuma', 'daoProto', 'dao']
+	use=['dao', 'daoNuma', 'daoProto', 'ZMQ', 'PROTOBUF']
 	)
 
-# bld.program(
-# 	features='test',
-# 	target = 'test_queue',
-# 	source = [ 'test_queue.cpp' ],
-# 	includes = ['../include/', bld.env.PREFIX+'/include',],
-# 	lib = [ 'gtest'],
-# 	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64'],
-# 	)
-
-# bld.program(
-# 	features='test',
-# 	target = 'test_log',
-# 	source = [ 'test_log.cpp' ],
-# 	includes = ['../include/', '../build/', bld.env.PREFIX+'/include',],
-# 	linkflags = [ '-L../build/proto'],
-# 	lib = [ 'gtest'],
-# 	ldflags=[ '-L'+ bld.env.PREFIX+'/lib64', '-pthread','-ldaoProto'],
-# 	use=['PROTOBUF', 'ZMQ']
-# 	)
-
+### test ciomnponents
 # daoLogTest = bld.program(
 # 	source = 'daoLogTest.c',
 # 	target = 'daoLogTest',
@@ -70,125 +151,3 @@ bld.program(
 # 	use= 'dao',
 # 	cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe', '-fdiagnostics-color=auto'],
 # 	)
-
-# bld.program(
-#     features='test',
-#     target = 'test_comp.cpp',
-#     source = [ 'test_component.cpp' ],
-#     includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
-#     lib = [ 'gtest'],
-#     ldflags=['-pthread', '-L'+ bld.env.PREFIX+'/lib64'],
-#     use=['ZMQ', 'PROTOBUF','daoNuma', 'daoProto']
-#     )
-
-# bld.program(
-#     features='test',
-#     target = 'test_threads',
-#     source = [ 'test_threads.cpp' ],
-#     includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
-#     lib = [ 'gtest'],
-#     ldflags=['-lnuma', '-lpthread', '-L' + bld.env.PREFIX+'/lib64', '-ldaoProto'],
-#     use=['ZMQ', 'PROTOBUF', 'daoNuma', 'daoProto']
-#     )
-
-# bld.program(
-#     features='test',
-#     target = 'test_thread_block',
-#     source = [ 'test_thread_block.cpp' ],
-#     includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
-#     lib = [ 'gtest', 'daoNuma'],
-#     ldflags=['-lnuma', '-lpthread', '-L' + bld.env.PREFIX+'/lib64', '-ldaoProto'],
-#     use=['ZMQ', 'PROTOBUF', 'daoNuma', 'daoProto']
-#     )
-
-# bld.program(
-# 	features='test',
-# 	target = 'test_shm',
-# 	source = [ 'test_shm.cpp' ],
-# 	includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
-# 	lib = [ 'gtest', 'g'],
-# 	ldflags=add_ld_flags +[ '-L'+ bld.env.PREFIX+'/lib64'],
-# 	use=['dao', 'daoNuma', 'daoProto']
-# 	)
-
-# bld.program(
-# 	features ='test',
-# 	target   = 'test_update_thread',
-# 	source   = [ 'test_update_thread.cpp' ],
-# 	includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
-#   	cxxflags = [''] + add_cxx_flags,
-# 	lib      = [ 'gtest'],
-# 	ldflags  = add_ld_flags + ['-lrt'],
-# 	use=['dao',  'ZMQ', 'PROTOBUF','daoProto', 'daoNuma' ]
-# 	)
-
-
-# # 	# TESTING BUILDS
-# # bld.program(
-# #         features='test',
-# #         target = 'test_numa',
-# #         source = [ 'test_numa.cpp' ],
-# #         includes = ['../include/', bld.env.PREFIX+'/include'],
-# #         lib = [ 'gtest', 'numa'],
-# #         use=['daoNuma']
-# #         )
-
-# # bld.program(
-# #         features='test',
-# #         target = 'test_queue',
-# #         source = [ 'test_queue.cpp' ],
-# #         includes = ['../include/', bld.env.PREFIX+'/include',],
-# #         lib = [ 'gtest', 'pthread'],
-# #         ldflags=[ '-L'+ bld.env.PREFIX+'/lib64'],
-# #         )
-
-# # bld.program(
-# #         features='test',
-# #         target = 'test_log',
-# #         source = [ 'test_log.cpp' ],
-# #         includes = ['../include/', '../build/', bld.env.PREFIX+'/include',],
-# #         linkflags = [ '-L../build/proto'],
-# #         lib = [ 'gtest', 'pthread'],
-# #         ldflags=[ f"-L{bld.env.PREFIX}/lib64"],
-# #         use=['PROTOBUF', 'ZMQ', 'daoProto']
-# #         )
-
-# # daoLogTest = bld.program(
-# #         source = 'daoLogTest.c',
-# #         target = 'daoLogTest',
-# #         includes = '../include '+os.getenv('DAOROOT')+'/include/',
-# #         linkflags = [ '-L'+os.getenv('DAOROOT')+'/lib/','-L'+os.getenv('DAOROOT')+'/lib64/'],
-# #         ldflags = ['-ldao', '-lpthread', '-lrt', '-lm', '-lncurses'],
-# #         use= 'dao',
-# #         cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe', '-fdiagnostics-color=auto'],
-# #         )
-
-# # bld.program(
-# #     features='test',
-# #     target = 'test_comp.cpp',
-# #     source = [ 'test_component.cpp' ],
-# #     includes = ['../include/', bld.env.PREFIX+'/include'],
-# #     lib = [ 'gtest'],
-# #     ldflags=['-pthread', '-L'+ bld.env.PREFIX+'/lib64'],
-# #     use=['ZMQ', 'PROTOBUF', 'daoNuma', 'daoProto']
-# #     )
-
-# # bld.program(
-# #     features='test',
-# #     target = 'test_threads',
-# #     source = [ 'test_threads.cpp' ],
-# #     includes = ['../include/', bld.env.PREFIX+'/include'],
-# #     lib = [ 'gtest', 'pthread', 'numa'],
-# #     ldflags=['-lpthread', '-L' + bld.env.PREFIX+'/lib64'],
-# #     use=['daoNuma', 'ZMQ', 'PROTOBUF', 'daoProto']
-# #     )
-
-# # bld.program(
-# #     features='test',
-# #     target = 'test_thread_block',
-# #     source = [ 'test_thread_block.cpp' ],
-# #     includes = ['../include/', bld.env.PREFIX+'/include'],
-# #     lib = [ 'gtest', 'pthread'],
-# #     ldflags=['-L' + bld.env.PREFIX+'/lib64'],
-# #     use=['daoNuma', 'ZMQ', 'PROTOBUF']
-# #     )
