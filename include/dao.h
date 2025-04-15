@@ -322,6 +322,7 @@ typedef struct
     // total size is 1211 bytes = 9688 bit when packed
     #ifdef __APPLE__
     atomic_ushort semCounter[IMAGE_NB_SEMAPHORE];
+    atomic_ushort semLogCounter;
     #endif
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;

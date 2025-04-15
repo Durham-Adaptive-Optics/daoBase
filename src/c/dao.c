@@ -2252,8 +2252,23 @@ int_fast8_t daoSemLogPost(IMAGE *image)
     #ifdef _WIN32
     ReleaseSemaphore(image->semlog, 1, NULL);
     #elif defined(__APPLE__)
-    sem_post(image->semlog); 
-    #else
+    unsigned short val = atomic_load(&image->md[0].semLogCounter);
+    if (val < SEMAPHORE_MAXVAL)
+    {
+        if (sem_post(image->semlog) == 0)
+        {
+            atomic_fetch_add(&image->md[0].semLogCounter, 1);
+        }
+        else
+        {
+            daoError("sem_post failed on semlog: %s\n", strerror(errno));
+        }
+    }
+    else
+    {
+        daoDebug("semlogCounter at max value (%d), skipping post\n", SEMAPHORE_MAXVAL);
+    }
+#else
     int semval = 0;
     sem_getvalue(image->semlog, &semval);
     if(semval < SEMAPHORE_MAXVAL )
