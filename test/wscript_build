@@ -15,7 +15,7 @@ elif platform.system() == "Linux":
 	add_ld_flags += ['-lnuma', '-pthread']
 	add_cxx_flags += ['-lrt', '-pthread']
 	add_c_flags +=  ['-lrt']
-elif platform.system() == "windows":
+elif platform.system() == "Windows":
     # Windows
     add_ld_flags += ['']
     add_cxx_flags += ['']
