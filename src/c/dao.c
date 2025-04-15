@@ -2118,7 +2118,7 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct ti
 
     return DAO_TIMEOUT;
 #else
-    if (sem_timedwait(image[0].semptr[1], &timeout) == -1)
+    if (sem_timedwait(image[0].semptr[semNb], &timeout) == -1)
     {
         return DAO_TIMEOUT;
     }
