@@ -1,7 +1,7 @@
 #ifndef DAO_SHM_IFCE_H
 #define DAO_SHM_IFCE_H
 
-#include "daoShm.h"
+#include "dao.h"
 #include <daoLog.hpp>
 
 
