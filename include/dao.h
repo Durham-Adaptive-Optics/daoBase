@@ -462,12 +462,14 @@ typedef struct          		/**< structure used to store data arrays              
 
 // Function declaration
 DLL_EXPORT void daoSetLogLevel(int logLevel);
-DLL_EXPORT int daoGetLogLevel(); // Add this line
+DLL_EXPORT int daoGetLogLevel();
 DLL_EXPORT unsigned daoBaseIp2Int(const char * ip); 
 						   
 DLL_EXPORT int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image);
 DLL_EXPORT int_fast8_t daoShmShm2Img(const char *name, IMAGE *image);
-DLL_EXPORT int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image); 
+DLL_EXPORT int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image);
+// Add new function to get blocks of data
+DLL_EXPORT int_fast8_t daoShmGetDataBlock(IMAGE *image, void *out_buffer, uint32_t nFrames, int32_t semNb, struct timespec *timeout);
 DLL_EXPORT int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t position,
                              uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber); 
 DLL_EXPORT int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image); 
@@ -478,6 +480,7 @@ DLL_EXPORT int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int
 DLL_EXPORT int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
 DLL_EXPORT int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct timespec timeout);
 DLL_EXPORT int_fast8_t daoShmWaitForCounter(IMAGE *image);
+DLL_EXPORT int_fast8_t daoShmWaitForCounter2(IMAGE *image, uint64_t counter);
 DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmCloseShm(IMAGE *image); // New function to properly clean up SHM resources
 DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE *image);

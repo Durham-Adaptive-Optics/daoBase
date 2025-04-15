@@ -2379,3 +2379,84 @@ int_fast8_t daoSemLogPost(IMAGE *image)
     #endif
     return DAO_SUCCESS;
 }
+
+/**
+ * Get multiple frames of data from shared memory
+ * 
+ * @param image The image structure to read from
+ * @param out_buffer Pre-allocated buffer to store the frames
+ * @param nFrames Number of frames to retrieve
+ * @param semNb Semaphore number to use for synchronization
+ * @param timeout Optional timeout (NULL for no timeout)
+ * @return DAO_SUCCESS on success, DAO_ERROR on error, DAO_TIMEOUT on timeout
+ */
+int_fast8_t daoShmGetDataBlock(IMAGE *image, void *out_buffer, uint32_t nFrames, int32_t semNb, struct timespec *timeout)
+{
+    daoTrace("\n");
+    
+    if (!image || !out_buffer) {
+        daoError("Null pointer passed to daoShmGetDataBlock\n");
+        return DAO_ERROR;
+    }
+
+    uint64_t frame_size = image->md[0].nelement;
+    uint8_t atype = image->md[0].atype;
+    size_t type_size;
+
+    // Get size of data type
+    switch(atype) {
+        case _DATATYPE_UINT8:
+            type_size = SIZEOF_DATATYPE_UINT8; break;
+        case _DATATYPE_INT8:
+            type_size = SIZEOF_DATATYPE_INT8; break;
+        case _DATATYPE_UINT16:
+            type_size = SIZEOF_DATATYPE_UINT16; break;
+        case _DATATYPE_INT16:
+            type_size = SIZEOF_DATATYPE_INT16; break;
+        case _DATATYPE_UINT32:
+            type_size = SIZEOF_DATATYPE_UINT32; break;
+        case _DATATYPE_INT32:
+            type_size = SIZEOF_DATATYPE_INT32; break;
+        case _DATATYPE_UINT64:
+            type_size = SIZEOF_DATATYPE_UINT64; break;
+        case _DATATYPE_INT64:
+            type_size = SIZEOF_DATATYPE_INT64; break;
+        case _DATATYPE_FLOAT:
+            type_size = SIZEOF_DATATYPE_FLOAT; break;
+        case _DATATYPE_DOUBLE:
+            type_size = SIZEOF_DATATYPE_DOUBLE; break;
+        case _DATATYPE_COMPLEX_FLOAT:
+            type_size = SIZEOF_DATATYPE_COMPLEX_FLOAT; break;
+        case _DATATYPE_COMPLEX_DOUBLE:
+            type_size = SIZEOF_DATATYPE_COMPLEX_DOUBLE; break;
+        default:
+            daoError("Unknown data type %d\n", atype);
+            return DAO_ERROR;
+    }
+
+    char *dest = (char *)out_buffer;
+    char *src = (char *)image->array.V;
+    size_t bytes_per_frame = frame_size * type_size;
+
+    // Read frames one at a time
+    for (uint32_t i = 0; i < nFrames; i++) {
+        int_fast8_t result;
+        
+        // Wait for next frame
+        if (timeout) {
+            result = daoShmWaitForSemaphoreTimeout(image, semNb, *timeout);
+        } else {
+            result = daoShmWaitForSemaphore(image, semNb);
+        }
+
+        if (result != DAO_SUCCESS) {
+            daoError("Failed waiting for frame %u\n", i);
+            return result;
+        }
+
+        // Copy frame data
+        memcpy(dest + (i * bytes_per_frame), src, bytes_per_frame);
+    }
+
+    return DAO_SUCCESS;
+}

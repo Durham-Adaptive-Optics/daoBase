@@ -47,11 +47,24 @@ def setLogLevel(logLevel):
     
     Args:
         logLevel (int): The log level to set (0-4)
+            0 = ERROR
+            1 = WARNING 
+            2 = INFO
+            3 = DEBUG
+            4 = TRACE
     """
-    daoLib.daoSetLogLevel(logLevel)
+    if not isinstance(logLevel, int):
+        raise TypeError("logLevel must be an integer")
+        
+    if logLevel < 0 or logLevel > 4:
+        raise ValueError("logLevel must be between 0 and 4")
+        
+    daoLib.daoSetLogLevel(ctypes.c_int(logLevel))
+    global daoLogLevel
+    daoLogLevel = logLevel
 
 def getLogLevel():
-    """Get the current log level for the DAO library.
+    """Get the current log level of the DAO library.
     
     Returns:
         int: The current log level (0-4)
@@ -405,6 +418,17 @@ class shm:
         self.daoShmCloseShm.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmCloseShm.restype = ctypes.c_int8
 
+        # Add prototype for daoShmGetDataBlock
+        self.daoShmGetDataBlock = daoLib.daoShmGetDataBlock
+        self.daoShmGetDataBlock.argtypes = [
+            ctypes.POINTER(IMAGE),
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.c_int32,
+            ctypes.POINTER(timespec)
+        ]
+        self.daoShmGetDataBlock.restype = ctypes.c_int8
+
         self.image=IMAGE()
         if fname == '':
             log.error("Need at least a SHM name")
@@ -504,6 +528,59 @@ class shm:
         data = data.astype(daoType2NpType(self.image.md.contents.atype))
 
         return data
+
+    def get_data_block(self, nFrames, semNb=0, timeout=0):
+        """Get multiple frames of data from the shared memory efficiently.
+        
+        Args:
+            nFrames (int): Number of frames to retrieve
+            semNb (int, optional): Semaphore number to use for synchronization. Defaults to 0.
+            timeout (float, optional): Timeout in seconds. Defaults to 0 (no timeout).
+            
+        Returns:
+            numpy.ndarray: Array containing nFrames frames of data
+        
+        Raises:
+            TimeoutError: If timeout is specified and exceeded while waiting for frames
+        """
+        # Calculate output shape
+        arraySize = np.frombuffer(self.image.md.contents.size,
+                                dtype=np.uint32, count=3)
+        
+        if arraySize[2] == 0:
+            if arraySize[1] == 0:
+                outShape = (nFrames, arraySize[0])
+            else:
+                outShape = (nFrames, arraySize[0], arraySize[1])
+        else:
+            outShape = (nFrames, arraySize[0], arraySize[1], arraySize[2])
+            
+        # Pre-allocate output buffer
+        out = np.zeros(outShape, dtype=daoType2NpType(self.image.md.contents.atype))
+        
+        # Create timespec if timeout specified
+        ts = None
+        if timeout > 0:
+            ts = make_timespec_from_now(timeout)
+            ts_ptr = ctypes.pointer(ts)
+        else:
+            ts_ptr = None
+        
+        # Call C function to get data block
+        result = self.daoShmGetDataBlock(
+            ctypes.byref(self.image),
+            out.ctypes.data_as(ctypes.c_void_p),
+            ctypes.c_uint32(nFrames),
+            ctypes.c_int32(semNb),
+            ts_ptr
+        )
+        
+        if result == -1:  # DAO_TIMEOUT
+            raise TimeoutError("Timeout waiting for frames")
+        elif result != 0:  # DAO_ERROR
+            raise RuntimeError("Error getting data block")
+            
+        return out
 
     def get_meta_data(self):
         ''' --------------------------------------------------------------
