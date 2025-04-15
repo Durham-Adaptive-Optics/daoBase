@@ -87,11 +87,18 @@ def make_timespec(seconds_float):
     nsec = int((seconds_float - sec) * 1e9)
     return timespec(tv_sec=sec, tv_nsec=nsec)
 
-def make_timespec_from_now(seconds_from_now):
+def make_timespec_from_now(timeout_seconds):
+    """
+    Returns an absolute timespec 'now + timeout_seconds' for use with sem_timedwait.
+    Works with CLOCK_REALTIME behavior.
+    """
     now = time.time()
-    sec = int(now)
-    nsec = int((now - sec) * 1e9)
-    return timespec(tv_sec=sec + seconds_from_now, tv_nsec=nsec)
+    future = now + timeout_seconds
+
+    tv_sec = int(future)
+    tv_nsec = int((future - tv_sec) * 1e9)
+
+    return timespec(tv_sec=tv_sec, tv_nsec=tv_nsec)
 class Complex64(ctypes.Structure):
     _fields_ = [("real", ctypes.c_float), ("imag", ctypes.c_float)]
 
@@ -468,11 +475,11 @@ class shm:
                 if timeout == 0:
                     result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
                 else:
-                    ts = make_timespec(timeout)
+                    ts = make_timespec_from_now(timeout)
                     result = self.daoShmWaitForSemaphoreTimeout(ctypes.byref(self.image), semNb, ts)
-                if result != 0:
-                    log.error("Timeout waiting for semaphore")
-                    return None
+                    if result != 0:
+                        log.error("Timeout waiting for semaphore")
+                        return None
 
         arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
                                                       ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
