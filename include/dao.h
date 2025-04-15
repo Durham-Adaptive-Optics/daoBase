@@ -320,10 +320,10 @@ typedef struct
     // total size is 187 bytes = 1496 bit when packed
     uint64_t lastNbArray[512];
     // total size is 1211 bytes = 9688 bit when packed
-    #ifdef __APPLE__
-    atomic_ushort semCounter[IMAGE_NB_SEMAPHORE];
-    atomic_ushort semLogCounter;
-    #endif
+#ifdef __APPLE__
+        atomic_ushort semCounter[IMAGE_NB_SEMAPHORE];
+        atomic_ushort semLogCounter;
+#endif
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;
 #else
@@ -476,6 +476,7 @@ DLL_EXPORT int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long na
                            uint8_t atype, int shared, int NBkw);
 DLL_EXPORT int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal); 
 DLL_EXPORT int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
+DLL_EXPORT int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct timespec timeout);
 DLL_EXPORT int_fast8_t daoShmWaitForCounter(IMAGE *image);
 DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmCloseShm(IMAGE *image); // New function to properly clean up SHM resources

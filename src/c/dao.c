@@ -475,24 +475,24 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
     long snb;
     long s;
 
-	#ifdef _WIN32
-	HANDLE shmFd; // shared memory file handle
+#ifdef _WIN32
+    HANDLE shmFd; // shared memory file handle
 	HANDLE shmFm; // shared memory file mapping object
 	HANDLE stest;
 	WCHAR wideShmName[256];
 	WCHAR wideShmSemName[256];
-	#else
+#else
     int shmFd;
     struct stat file_stat;
     sem_t *stest;
-	#endif
+#endif
 
     int rval = DAO_ERROR;
     sprintf(shmName, "%s", name);
     //sprintf(shmName, "%s/%s%s.im.shm", SHAREDMEMDIR, prefix, name);
 
-	#ifdef _WIN32	
-	MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, 256);
+#ifdef _WIN32
+    MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, 256);
 	shmFd = CreateFileW(wideShmName, GENERIC_READ | GENERIC_WRITE,
 						FILE_SHARE_READ | FILE_SHARE_WRITE,
 						NULL, OPEN_EXISTING, FILE_ATTRIBUTE_TEMPORARY, NULL);
@@ -502,7 +502,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 		daoError("Cannot import shared memory file %s \n", name);
 		rval = DAO_ERROR;
 	}
-	#else
+#else
     shmFd = open(shmName, O_RDWR);
     if(shmFd==-1)
     {
@@ -510,13 +510,13 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         daoError("Cannot import shared memory file %s \n", name);
         rval = DAO_ERROR;
     }
-	#endif
+#endif
     else
     {
         rval = DAO_SUCCESS; // we assume by default success
 
-		#ifdef _WIN32
-		DWORD fileSizeHigh, fileSizeLow;
+#ifdef _WIN32
+        DWORD fileSizeHigh, fileSizeLow;
 		fileSizeLow = GetFileSize(shmFd, &fileSizeHigh);
 		
 		// passing 0 for size means "use file's current size"
@@ -541,15 +541,15 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 		image->shmfd = shmFd;
 		image->shmfm = shmFm;
 		image->md = map;
-		
-		#else
+
+#else
 		
         fstat(shmFd, &file_stat);
-        #ifdef __APPLE__
+#ifdef __APPLE__
             daoDebug("File %s size: %lld\n", shmName, file_stat.st_size);
-        #else
+#else
             daoDebug("File %s size: %ld\n", shmName, file_stat.st_size);
-        #endif
+#endif
         map = (IMAGE_METADATA*) mmap(0, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
         if (map == MAP_FAILED) 
         {
@@ -563,8 +563,8 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         image->shmfd = shmFd;
         image->md = map;
         //        image->md[0].sem = 0;
-		
-		#endif
+
+#endif
         atype = image->md[0].atype;
         image->md[0].shared = 1;
 
@@ -723,9 +723,9 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
             free(nameCopy);
             return DAO_ERROR;
         }
-        
-		#ifdef _WIN32
-		// create semaphores one-by-one, and stop when we get one that does NOT exist
+
+#ifdef _WIN32
+        // create semaphores one-by-one, and stop when we get one that does NOT exist
 		PACL dacl;
 		SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644, &dacl);
 		if (!saShm) {
@@ -783,7 +783,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         }
 
 		daoDestroyWindowsSecurityAttrs(saShm, dacl);
-		#else
+#else
         // looking for semaphores
 
 		snb = 0;
@@ -818,8 +818,8 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         if ((image->semlog = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) 
         {
             daoWarning("could not open semaphore %s\n", shmSemName);
-        }		
-		#endif
+        }
+#endif
         free(nameCopy);
     }
     return(rval);
@@ -966,6 +966,13 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
     return DAO_SUCCESS;
 }
 
+/**
+ * @brief 
+ * 
+ * @param image 
+ * @param NBsem 
+ * @return int_fast8_t 
+ */
 int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 {
     daoTrace("\n");
@@ -1027,8 +1034,8 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
     }
 
     // Remove pre-existing semaphores if any
-	#ifdef _WIN32
-	SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644, &dacl);
+#ifdef _WIN32
+    SECURITY_ATTRIBUTES *saShm = daoCreateWindowsSecurityAttrs(0644, &dacl);
 	if (!saShm) {
 		daoError("Could not create semaphore security attributes\n");
 		free(nameCopy);
@@ -1049,7 +1056,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
         //free(image->semptr);
         image->semptr = NULL;
     }
-	#else
+#else
     if(image->md[0].sem != NBsem)
     {
         // Close existing semaphores ...
@@ -1072,7 +1079,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
         //free(image->semptr);
         image->semptr = NULL;
     }
-	#endif
+#endif
 
 
     if(image->md[0].sem == 0)
@@ -1082,16 +1089,16 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 
         image->md[0].sem = (uint16_t)NBsem;
         daoInfo("malloc semptr %d entries\n", image->md[0].sem);
-		
-		#ifdef _WIN32
-		image->semptr = (HANDLE*) malloc(sizeof(HANDLE*)*image->md[0].sem);
-		#else
+
+#ifdef _WIN32
+        image->semptr = (HANDLE*) malloc(sizeof(HANDLE*)*image->md[0].sem);
+#else
         image->semptr = (sem_t**) malloc(sizeof(sem_t**)*image->md[0].sem);
-		#endif
+#endif
         
         for(s=0; s<NBsem; s++)
         {
-			#ifdef _WIN32
+#ifdef _WIN32
             sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, s);
 			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
 			
@@ -1100,8 +1107,8 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 				fprintf(stderr, "semaphore initialization error: %d\n", GetLastError());
 			}
 			ReleaseSemaphore(image->semptr[s], 1, NULL);
-			
-			#else
+
+#else
             sprintf(shmSemName, "%s_sem%02ld", localName, s);
             if ((image->semptr[s] = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) 
             {
@@ -1114,13 +1121,13 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
                     sem_init(image->semptr[s], 1, 0);
                 }
             }
-			#endif
+#endif
         }
     }
-	
-	#ifdef _WIN32
-	daoDestroyWindowsSecurityAttrs(saShm, dacl);
-	#endif
+
+#ifdef _WIN32
+    daoDestroyWindowsSecurityAttrs(saShm, dacl);
+#endif
 
     free(nameCopy);
     return(0);
@@ -1148,16 +1155,16 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 //    char comment[80];
 //    char kname[16];
     nelement = 1;
-	
-	#ifdef _WIN32
-	WCHAR wideShmSemName[256];
+
+#ifdef _WIN32
+    WCHAR wideShmSemName[256];
 	WCHAR wideShmName[256];
 	HANDLE shmFd; // shared memory file handle
 	HANDLE shmFm; // shared memory file mapping object
-	#else
+#else
     int shmFd; // shared memory file descriptor
     int result;
-	#endif
+#endif
 	
     for(i=0; i<naxis; i++)
     {
@@ -1204,7 +1211,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
 
         // create semlog
-		#ifdef _WIN32
+#ifdef _WIN32
         daoInfo("Creation Local\\DAO_%s_semlog\n", semFName);
         sprintf(shmSemName, "Local\\DAO_%s_semlog", semFName);
         image->semlog = NULL;
@@ -1225,8 +1232,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 		}
 		ReleaseSemaphore(image->semlog, 1, NULL);
 		daoDestroyWindowsSecurityAttrs(saSem, daclSem);
-		
-		#else
+
+#else
         daoInfo("Creation %s_semlog\n", semFName);
         sprintf(shmSemName, "%s_semlog", semFName);
         remove(shmSemName);
@@ -1239,7 +1246,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         {
             sem_init(image->semlog, 1, 0);
         }
-		#endif
+#endif
 
         sharedsize = sizeof(IMAGE_METADATA);
 
@@ -1294,7 +1301,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 
         sharedsize += NBkw*sizeof(IMAGE_KEYWORD);
 
-		#ifdef _WIN32
+#ifdef _WIN32
         sprintf(shmName, "%s", name);
 		MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, 256);
 		
@@ -1338,7 +1345,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 			daoError("Error creating view of file mapping (%s)\n", shmName);
 		}
 
-		#else
+#else
         //sprintf(shmName, "%s/%s.im.shm", SHAREDMEMDIR, name);
         sprintf(shmName, "%s", name);
         shmFd = open(shmName, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
@@ -1376,16 +1383,16 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
             perror("Error mmapping the file");
             exit(0);
         }
-		#endif
+#endif
 	
         image->md = (IMAGE_METADATA*) map;
         image->md[0].shared = 1;
         image->md[0].sem = 0;
         free(nameCopy);
-		
-		#ifdef _WIN32
-		daoDestroyWindowsSecurityAttrs(saFile, daclFile);
-		#endif
+
+#ifdef _WIN32
+        daoDestroyWindowsSecurityAttrs(saFile, daclFile);
+#endif
     }
     else
     {
@@ -1836,11 +1843,20 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         daoInfo("Creating Semaphores\n");
         daoImageCreateSem(image, 10); // by default, create 10 semaphores
         daoInfo("Semaphores created\n");
+
+#ifdef __APPLE__
+        for (int i = 0; i < image->md[0].sem; i++)
+        {
+            atomic_store(&image->md[0].semCounter[i], 0);
+        }
+        atomic_store(&image->md[0].semLogCounter, 0);
+#endif
     }
     else
     {
 		image->md[0].sem = 0; // no semaphores
     }
+
 
     // initialize keywords
     for(kw=0; kw<image->md[0].NBkw; kw++)
@@ -2010,8 +2026,8 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 {
     daoTrace("\n");
     // Wait for new image
-	#ifdef _WIN32
-	DWORD dWaitResult = WaitForSingleObject(image->semptr[semNb], INFINITE);
+#ifdef _WIN32
+    DWORD dWaitResult = WaitForSingleObject(image->semptr[semNb], INFINITE);
 	switch (dWaitResult) {
 		case WAIT_OBJECT_0:
 			break;
@@ -2019,12 +2035,94 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 			daoError("Unexpected result from WaitForSingleObject (Windows system error no. %d).\n", GetLastError());
 			return DAO_ERROR;
 	}
-    #elif defined(__APPLE__)
+#elif defined(__APPLE__)
+    if (sem_wait(image->semptr[semNb]) == 0) 
+    {
+        atomic_fetch_sub(&image->md[0].semCounter[semNb], 1);
+    } 
+    else
+    {
+        daoError("sem_wait failed on sem %d: %s\n", semNb, strerror(errno));
+        return DAO_ERROR;
+    }
+#else
     sem_wait(image->semptr[semNb]);
-    atomic_fetch_sub(&image->md[0].semCounter[semNb], 1);
-	#else
-    sem_wait(image->semptr[semNb]);
-	#endif
+#endif
+
+    return DAO_SUCCESS;
+}
+
+/**
+ * @brief Wait for new data in SHM with time out
+ * 
+ * @param image 
+ * @return uint_fast64_t 
+ * @timeout timespec
+ */
+int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct timespec timeout)
+{
+    daoTrace("\n");
+    // Wait for new image
+#ifdef _WIN32
+    // Convert absolute timespec to milliseconds from now
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+
+    DWORD millis =
+        (timeout.tv_sec - now.tv_sec) * 1000 +
+        (timeout.tv_nsec - now.tv_nsec) / 1000000;
+
+    if ((int)millis < 0) millis = 0; // prevent underflow
+
+	DWORD dWaitResult = WaitForSingleObject(image->semptr[semNb], millis);
+	switch (dWaitResult) {
+		case WAIT_OBJECT_0:
+			break;
+        case WAIT_TIMEOUT:
+            return DAO_TIMEOUT;
+		default:
+			daoError("Unexpected result from WaitForSingleObject (Windows system error no. %d).\n", GetLastError());
+			return DAO_ERROR;
+	}
+#elif defined(__APPLE__)
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+
+    uint64_t now_ns = (uint64_t)now.tv_sec * 1000000000ULL + now.tv_nsec;
+    uint64_t end_ns = (uint64_t)timeout.tv_sec * 1000000000ULL + timeout.tv_nsec;
+
+    while (now_ns < end_ns)
+    {
+        unsigned short val = atomic_load(&image->md[0].semCounter[semNb]);
+        if (val > 0)
+        {
+            if (sem_wait(image->semptr[semNb]) == 0)
+            {
+                atomic_fetch_sub(&image->md[0].semCounter[semNb], 1);
+                return DAO_SUCCESS;
+            }
+            else
+            {
+                daoError("sem_wait failed: %s\n", strerror(errno));
+                return DAO_ERROR;
+            }
+        }
+
+        // Sleep briefly (e.g., 100 µs)
+        struct timespec sleep_ts = {.tv_sec = 0, .tv_nsec = 100000};
+        nanosleep(&sleep_ts, NULL);
+
+        clock_gettime(CLOCK_REALTIME, &now);
+        now_ns = (uint64_t)now.tv_sec * 1000000000ULL + now.tv_nsec;
+    }
+
+    return DAO_TIMEOUT;
+#else
+    if (sem_timedwait(inShm[0].semptr[1], &timeout) == -1)
+    {
+        return DAO_TIMEOUT;
+    }
+#endif
 
     return DAO_SUCCESS;
 }
@@ -2038,13 +2136,13 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 int_fast8_t daoShmWaitForCounter(IMAGE *image)
 {
     daoTrace("\n");
-	#ifdef _WIN32
-	volatile uint_fast64_t counter = image->md[0].cnt0;
+#ifdef _WIN32
+    volatile uint_fast64_t counter = image->md[0].cnt0;
 	while (image->md[0].cnt0 <= counter)
 	{
 		// Spin
 	}
-	#else
+#else
 	uint_fast64_t counter = image->md[0].cnt0;
     struct timespec req, rem;
     req.tv_sec = 0;          // Seconds
@@ -2058,7 +2156,7 @@ int_fast8_t daoShmWaitForCounter(IMAGE *image)
             return 1;
         }
     }
-	#endif
+#endif
     return DAO_SUCCESS;
 }
 
@@ -2193,15 +2291,18 @@ int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
 {
     daoTrace("\n");
 
-    #ifdef _WIN32
+#ifdef _WIN32
     ReleaseSemaphore(image->semptr[ss], 1, NULL);
-    #elif defined(__APPLE__)
+#elif defined(__APPLE__)
     unsigned short val = atomic_load(&image->md[0].semCounter[semNb]);
+    daoDebug("semCounter[%d] = %d\n", semNb, val);
     if (val < SEMAPHORE_MAXVAL)
     {
         if (sem_post(image->semptr[semNb]) == 0)
         {
             atomic_fetch_add(&image->md[0].semCounter[semNb], 1);
+            daoDebug("Posted sem %d, new semCounter = %u\n", semNb,
+                atomic_load(&image->md[0].semCounter[semNb]));
         }
         else
         {
@@ -2219,7 +2320,7 @@ int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
     {
         sem_post(image->semptr[semNb]);
     }
-    #endif
+#endif
     return DAO_SUCCESS;
 }
 /**
@@ -2249,9 +2350,9 @@ int_fast8_t daoSemLogPost(IMAGE *image)
 {
     daoTrace("\n");
 
-    #ifdef _WIN32
+#ifdef _WIN32
     ReleaseSemaphore(image->semlog, 1, NULL);
-    #elif defined(__APPLE__)
+#elif defined(__APPLE__)
     unsigned short val = atomic_load(&image->md[0].semLogCounter);
     if (val < SEMAPHORE_MAXVAL)
     {
