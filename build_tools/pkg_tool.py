@@ -1,5 +1,6 @@
 # build_tools/pkg_tool
 from waflib.TaskGen import feature, after_method
+from waflib import Logs
 import os
 
 pruned_flags = ['-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector', '-Ofast', '-O0', '-O1', '-O2', '-O3', '-g']
@@ -14,9 +15,9 @@ def prune_c_flags(cflags):
 @feature('pkg_build')
 @after_method('apply_core')
 def add_post_build_step(self):
-    #     # Access build arguments directly
+    # Access build arguments directly
     ldflags = self.to_list(getattr(self, 'ldflags', []))
-    # # check if c or c++
+    # check if c or c++
     if('cxx' in self.env):
         c_flags = self.to_list(getattr(self, 'cxxflags', []))
     else:
@@ -37,7 +38,10 @@ Libs: -L${{libdir}} -l{self.to_list(getattr(self,'target',[])).pop(0)} {' '.join
 Cflags: -I${{includedir}} {' '.join(c_flags)}"""
     # Write pkgconfig file
     pc_file_path = os.path.join(self.bld.bldnode.abspath(), f'{self.target}.pc')
-    with open(pc_file_path, 'w') as pc_file:
-        pc_file.write(pc_content)
-
-    print(f"pkgconfig file generated: {pc_file_path}")
+    if not os.path.exists(pc_file_path):
+        with open(pc_file_path, 'w') as pc_file:
+            pc_file.write(pc_content)
+        Logs.info(f"pkgconfig file generated: {pc_file_path}")
+    else:
+        # output file already exists
+        Logs.info(f"pkgconfig already exists: {pc_file_path}")
