@@ -6,44 +6,6 @@ import subprocess
 from waflib import Logs
 import datetime
 
-def setup_lint_configs(top='.'):
-    """Set up the linting configuration files"""
-    # Create directories for linting config files if they don't exist
-    lint_configs_dir = os.path.join(top, 'build_tools', 'lint_configs')
-    if not os.path.exists(lint_configs_dir):
-        os.makedirs(lint_configs_dir)
-    
-    # Create clang-format config file for C/C++ with Google style but Allman brackets
-    clang_format_file = os.path.join(lint_configs_dir, '.clang-format')
-    if not os.path.exists(clang_format_file):
-        with open(clang_format_file, 'w') as f:
-            f.write("""---
-BasedOnStyle: Google
-IndentWidth: 4
-ColumnLimit: 100
-BreakBeforeBraces: Allman
-AllowShortFunctionsOnASingleLine: None
-AllowShortIfStatementsOnASingleLine: false
-AllowShortLoopsOnASingleLine: false
-...
-""")
-    
-    # Create .pylintrc for Python linting
-    pylintrc_file = os.path.join(lint_configs_dir, '.pylintrc')
-    if not os.path.exists(pylintrc_file):
-        try:
-            subprocess.run(['pylint', '--generate-rcfile'], stdout=open(pylintrc_file, 'w'), check=True)
-        except (subprocess.SubprocessError, FileNotFoundError):
-            Logs.warn("pylint not found, cannot generate default config file")
-            with open(pylintrc_file, 'w') as f:
-                f.write("""[MASTER]
-init-hook='import sys; sys.path.append(".")'
-disable=C0103,C0111
-[FORMAT]
-max-line-length=100
-""")
-    
-    return lint_configs_dir, clang_format_file, pylintrc_file
 
 def setup_logging(top='.'):
     """Set up logging for lint command output"""
@@ -204,7 +166,19 @@ def run_lint(ctx):
     
     # Setup lint configuration files
     top = getattr(ctx, 'top', '.')
-    lint_configs_dir, clang_format_file, pylintrc_file = setup_lint_configs(top)
+
+    lint_configs_dir = os.path.join(top, 'build_tools', 'lint_configs')
+    if not os.path.exists(lint_configs_dir):
+        Logs.error(f"Failed to find lint directory {lint_configs_dir}")
+        raise FileNotFoundError(f"Lint directory {lint_configs_dir} not found")
+    clang_format_file = os.path.join(lint_configs_dir, '.clang-format')
+    if not os.path.exists(clang_format_file):
+        Logs.error(f"Failed to find clang-format file {clang_format_file}")
+        raise FileNotFoundError(f"Clang format file {clang_format_file} not found")
+    pylintrc_file = os.path.join(lint_configs_dir, '.pylintrc')
+    if not os.path.exists(pylintrc_file):
+        Logs.error(f"Failed to find pylintrc file {pylintrc_file}")
+        raise FileNotFoundError(f"Pylintrc file {pylintrc_file} not found")
     
     # Setup logging
     log_file = setup_logging(top)
