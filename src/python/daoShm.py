@@ -82,6 +82,23 @@ def struct2Dict(structure):
         
     return result
 
+def make_timespec(seconds_float):
+    sec = int(seconds_float)
+    nsec = int((seconds_float - sec) * 1e9)
+    return timespec(tv_sec=sec, tv_nsec=nsec)
+
+def make_timespec_from_now(timeout_seconds):
+    """
+    Returns an absolute timespec 'now + timeout_seconds' for use with sem_timedwait.
+    Works with CLOCK_REALTIME behavior.
+    """
+    now = time.time()
+    future = now + timeout_seconds
+
+    tv_sec = int(future)
+    tv_nsec = int((future - tv_sec) * 1e9)
+
+    return timespec(tv_sec=tv_sec, tv_nsec=tv_nsec)
 class Complex64(ctypes.Structure):
     _fields_ = [("real", ctypes.c_float), ("imag", ctypes.c_float)]
 
@@ -371,6 +388,14 @@ class shm:
         ]
         self.daoShmWaitForSemaphore.restype = ctypes.c_int8
 
+        self.daoShmWaitForSemaphoreTimeout = daoLib.daoShmWaitForSemaphoreTimeout
+        self.daoShmWaitForSemaphoreTimeout.argtypes = [
+            ctypes.POINTER(IMAGE),
+            ctypes.c_int32,
+            timespec
+        ]
+        self.daoShmWaitForSemaphoreTimeout.restype = ctypes.c_int8
+
         self.daoShmWaitForCounter = daoLib.daoShmWaitForCounter
         self.daoShmWaitForCounter.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmWaitForCounter.restype = ctypes.c_int8
@@ -447,7 +472,14 @@ class shm:
             if spin == True:
                 result = self.daoShmWaitForCounter(ctypes.byref(self.image))
             else:
-                result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
+                if timeout == 0:
+                    result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
+                else:
+                    ts = make_timespec_from_now(timeout)
+                    result = self.daoShmWaitForSemaphoreTimeout(ctypes.byref(self.image), semNb, ts)
+                    if result != 0:
+                        log.error("Timeout waiting for semaphore")
+                        return None
 
         arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
                                                       ctypes.POINTER(ctypes.c_uint32)), shape=(3,))

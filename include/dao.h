@@ -48,6 +48,10 @@
 
 #define DEFAULT_LOG_LEVEL LOG_LEVEL_INFO
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void daoLog(int log_level, const char *format, ...);
 void daoLogError(const char *format, ...);
 void daoLogPrint(const char *format, ...);
@@ -56,6 +60,10 @@ void daoLogInfo(const char *format, ...);
 void daoLogDebug(const char *format, ...);
 void daoLogTrace(const char *format, ...);
 void daoLogSetLevel(int log_level);
+
+#ifdef __cplusplus
+}
+#endif
 
 // original Log System
 #define DAO_SUCCESS     0
@@ -320,9 +328,10 @@ typedef struct
     // total size is 187 bytes = 1496 bit when packed
     uint64_t lastNbArray[512];
     // total size is 1211 bytes = 9688 bit when packed
-    #ifdef __APPLE__
-    atomic_ushort semCounter[IMAGE_NB_SEMAPHORE];
-    #endif
+#ifdef __APPLE__
+        atomic_ushort semCounter[IMAGE_NB_SEMAPHORE];
+        atomic_ushort semLogCounter;
+#endif
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;
 #else
@@ -460,8 +469,12 @@ typedef struct          		/**< structure used to store data arrays              
 
 
 // Function declaration
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DLL_EXPORT void daoSetLogLevel(int logLevel);
-DLL_EXPORT int daoGetLogLevel(); // Add this line
+DLL_EXPORT int daoGetLogLevel();
 DLL_EXPORT unsigned daoBaseIp2Int(const char * ip); 
 						   
 DLL_EXPORT int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image);
@@ -475,12 +488,18 @@ DLL_EXPORT int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long na
                            uint8_t atype, int shared, int NBkw);
 DLL_EXPORT int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal); 
 DLL_EXPORT int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
+DLL_EXPORT int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct timespec timeout);
 DLL_EXPORT int_fast8_t daoShmWaitForCounter(IMAGE *image);
 DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE *image);
-DLL_EXPORT int_fast8_t daoShmCloseShm(IMAGE *image); // New function to properly clean up SHM resources
+DLL_EXPORT int_fast8_t daoShmCloseShm(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE *image);
 
 DLL_EXPORT int_fast8_t daoSemPost(IMAGE *image, int32_t semNb);
 DLL_EXPORT int_fast8_t daoSemPostAll(IMAGE *image);
 DLL_EXPORT int_fast8_t daoSemLogPost(IMAGE *image);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
