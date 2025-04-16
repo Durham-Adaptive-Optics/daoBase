@@ -38,7 +38,7 @@ namespace Dao
             ShmIfce(Log::Logger& logger, const std::string& fname, T* data = nullptr, size_t dataSize = 0) 
                 : m_log(logger)
                 , m_shm_filename(fname)
-                , m_file_is_open(false)
+                , m_file_is_open(true)
             {
                 m_log.Trace("ShmIfce2()");
                 m_image = new IMAGE();
