@@ -2088,8 +2088,8 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct ti
     struct timespec now;
     clock_gettime(CLOCK_REALTIME, &now);
 
-    uint64_t now_ns = (uint64_t)now.tv_sec * 1000000000ULL + now.tv_nsec;
-    uint64_t end_ns = (uint64_t)timeout.tv_sec * 1000000000ULL + timeout.tv_nsec;
+    uint64_t now_ns = (uint64_t)now.tv_sec * 1e9 + now.tv_nsec;
+    uint64_t end_ns = (uint64_t)timeout.tv_sec * 1e9 + timeout.tv_nsec;
 
     while (now_ns < end_ns)
     {
@@ -2113,7 +2113,7 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct ti
         nanosleep(&sleep_ts, NULL);
 
         clock_gettime(CLOCK_REALTIME, &now);
-        now_ns = (uint64_t)now.tv_sec * 1000000000ULL + now.tv_nsec;
+        now_ns = (uint64_t)now.tv_sec * 1e9 + now.tv_nsec;
     }
 
     return DAO_TIMEOUT;
