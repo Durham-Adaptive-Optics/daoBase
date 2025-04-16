@@ -150,3 +150,31 @@ waf --test
 
 This will build and run the tests.
 
+##
+Linting
+
+# For Python linting
+```
+pip install pylint
+```
+
+# For C/C++ linting
+```
+pip install cpplint
+```
+# On macOS
+```
+brew install clang-format
+```
+# On Linux
+```
+apt-get install clang-format
+```
+
+# To lint during build
+./waf build --lint
+
+# To lint standalone (faster)
+./waf lint
+
+lint details can be found in ./build/logs/lint_<timestamp>.log

@@ -20,12 +20,22 @@ import subprocess
 from waflib.Tools import waf_unit_test
 
 from build_tools import pkg_tool
+from build_tools import lint as lint_module
+
 def build_docs(conf):
 	os.system("doxygen docs/Doxyfile")
 	os.system(f"make -C {docs} html")
 
 def clean_docs(conf):
 	os.system(f"make -C {docs} clean")
+
+# New context for lint command
+class LintContext(Context.Context):
+    cmd = 'lint'
+    fun = 'run_lint'
+
+def run_lint(ctx):
+    lint_module.run_lint(ctx)
 
 def options(opt):
 	opt.load('cxx compiler_c compiler_cxx gnu_dirs waf_unit_test')
@@ -38,6 +48,15 @@ def options(opt):
  
 	opt.add_option('--test', dest='test_flag', default=False, action='store_true',
              help='flags for running tests')
+             
+	opt.add_option('--lint', dest='lint_flag', default=False, action='store_true',
+             help='Run linting tools on the codebase')
+	
+	opt.add_option('--docs', dest='docs_flag', default=False, action='store_true',
+			help='Run doc build tools on the codebase')
+			
+	opt.add_option('--force-proto', dest='force_proto_flag', default=False, action='store_true',
+			help='Force rebuilding of proto files even if they are up-to-date')
 	
 def configure(conf):
 	conf.load('cxx compiler_c compiler_cxx gnu_dirs waf_unit_test')
@@ -64,7 +83,8 @@ def configure(conf):
  
 def build(bld):
 	bld.env.DEFINES=['WAF=1']
-	Logs.info("Recursing into proto...")
+	
+
 	bld.recurse('proto')
 	Logs.info("Recursing into src...")
 	bld.recurse('src')# test')
@@ -120,6 +140,13 @@ def build(bld):
 	for file in files:
 		bld.install_files(bld.env.DATADIR, file, relative_trick=False)
 	
+	# Run lint if requested
+	if bld.options.lint_flag:
+		lint_module.run_lint(bld)
+	
+	if bld.options.docs_flag:
+		build_docs(bld)
+		
 	# uncommment to run tests
 #	bld(features='test', source='test/daoBaseTestEvent.py', target='daoBaseTestEvent', 
 #        exec_command='python -m pytest ${SRC}')
