@@ -2059,7 +2059,7 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
  * @return uint_fast64_t 
  * @timeout timespec
  */
-int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct timespec timeout)
+int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const struct timespec * timeout)
 {
     daoTrace("\n");
     // Wait for new image
@@ -2069,8 +2069,8 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct ti
     clock_gettime(CLOCK_REALTIME, &now);
 
     DWORD millis =
-        (timeout.tv_sec - now.tv_sec) * 1000 +
-        (timeout.tv_nsec - now.tv_nsec) / 1000000;
+        (timeout->tv_sec - now->tv_sec) * 1000 +
+        (timeout->tv_nsec - now->tv_nsec) / 1000000;
 
     if ((int)millis < 0) millis = 0; // prevent underflow
 
@@ -2089,7 +2089,7 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct ti
     clock_gettime(CLOCK_REALTIME, &now);
 
     uint64_t now_ns = (uint64_t)now.tv_sec * 1e9 + now.tv_nsec;
-    uint64_t end_ns = (uint64_t)timeout.tv_sec * 1e9 + timeout.tv_nsec;
+    uint64_t end_ns = (uint64_t)timeout->tv_sec * 1e9 + timeout->tv_nsec;
 
     while (now_ns < end_ns)
     {
@@ -2118,7 +2118,7 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, struct ti
 
     return DAO_TIMEOUT;
 #else
-    if (sem_timedwait(image[0].semptr[semNb], &timeout) == -1)
+    if (sem_timedwait(image[0].semptr[semNb], imeout) == -1)
     {
         return DAO_TIMEOUT;
     }

@@ -392,7 +392,7 @@ class shm:
         self.daoShmWaitForSemaphoreTimeout.argtypes = [
             ctypes.POINTER(IMAGE),
             ctypes.c_int32,
-            timespec
+            ctypes.POINTER(timespec)
         ]
         self.daoShmWaitForSemaphoreTimeout.restype = ctypes.c_int8
 
@@ -476,7 +476,7 @@ class shm:
                     result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
                 else:
                     ts = make_timespec_from_now(timeout)
-                    result = self.daoShmWaitForSemaphoreTimeout(ctypes.byref(self.image), semNb, ts)
+                    result = self.daoShmWaitForSemaphoreTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))
                     if result != 0:
                         log.error("Timeout waiting for semaphore")
                         return None
