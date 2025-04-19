@@ -37,6 +37,7 @@ class proto_py(Task):
         return self.exec_command(f'protoc -I{self.inputs[0]} --python_out={output_folder} {input_file}')
 
 def build_proto_list(bld, list, proto_path='../../proto/', build_path='../'):
+    print(f"Building proto files: {list}")
     Rebuild = False
     for i in list:
         input_file = os.path.join(os.path.join(os.getcwd(), 'proto'), i)
@@ -71,7 +72,7 @@ def build_proto_list(bld, list, proto_path='../../proto/', build_path='../'):
 
 def build(bld):
     # List of .proto files
-    proto_files = ['daoCommand.proto', 'daoLogging.proto', 'daoEvent.proto']
+    proto_files = ['daoCommand.proto', 'daoLogging.proto', 'daoEvent.proto', 'daoFileServer.proto']
     
     # Compile Protobuf files
     build_proto_list(bld, proto_files)
@@ -94,7 +95,7 @@ def build(bld):
         )
 
 if platform.system() != "Windows":
-    bld = build_proto_list(bld, ['daoCommand.proto', 'daoLogging.proto', 'daoEvent.proto'])
+    bld = build_proto_list(bld, ['daoCommand.proto', 'daoLogging.proto', 'daoEvent.proto','daoFileServer.proto'])
     bld.shlib(
         target='daoProto',
         source= ["../build/daoCommand.pb.cc", "../build/daoLogging.pb.cc", "../build/daoEvent.pb.cc"],

@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package FileServer;
+
+message FileRequest {
+  enum RequestType {
+    LIST_FILES = 0;
+    OPEN_FILE = 1;
+  }
+
+  RequestType request_type = 1;
+  string file_path = 2;  // Used for OPEN_FILE requests
+}
+
+message FileResponse {
+  enum Status {
+    SUCCESS = 0;
+    FILE_NOT_FOUND = 1;
+    PERMISSION_DENIED = 2;
+    ERROR = 3;
+  }
+
+  message ShmMetadata {
+    repeated int32 shape = 1;    // Array shape
+    string dtype = 2;           // Numpy dtype as string
+    int32 pub_port = 3;        // Port for pub/sub data transfer
+    int32 sub_port = 4;        // Port for client->server data transfer
+  }
+
+  Status status = 1;
+  repeated string file_list = 2;     // Used for LIST_FILES responses - will only list .im.shm files
+  ShmMetadata metadata = 3;          // Used for OPEN_FILE responses
+  string error_message = 4;          // Used when status is not SUCCESS
+  bytes initial_data = 5;            // Used for OPEN_FILE to send serialized initial data
+}

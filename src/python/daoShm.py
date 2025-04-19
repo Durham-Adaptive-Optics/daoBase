@@ -431,6 +431,7 @@ class shm:
         self.pubEvent = Event()
         self.pubThread = Thread(target = self.publish)
         self.pubEnable = False
+        self.last_received_counter = 0  # Track last counter received from subscription
         #self.pubThread.start()
         # Subscriber
         self.subPort = subPort
@@ -448,7 +449,6 @@ class shm:
         Parameters:
         ----------
         - data: the array to upload to SHM
-        - check_dt: boolean (default: false) recasts data
         '''
         # Call the daoShmImage2Shm function to feel the SHM
         if data.flags['C_CONTIGUOUS']:
@@ -458,7 +458,7 @@ class shm:
 
         nbVal = ctypes.c_uint32(data.size)
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
-        
+
     def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False):
         ''' --------------------------------------------------------------
         Reads and returns the data part of the SHM file
@@ -557,31 +557,48 @@ class shm:
     def publish(self):
         self.pubContext = zmq.Context()
         self.pubSocket = self.pubContext.socket(zmq.PUB)
-        self.pubSocket.bind("tcp://*:%d"%(self.pubPort))
-        self.pubThreadCounter = 0
+        self.pubSocket.bind("tcp://*:%d" % (self.pubPort))
+        self.pubThreadCounter = self.get_counter()
         while True:
             if self.pubEnable:
-                topic = 'frameData'
-                self.pubSocket.send_string(topic, zmq.SNDMORE)
-                self.pubSocket.send_pyobj(self.get_data())
-            time.sleep(0.1)
+                current_counter = self.get_counter()
+                if current_counter > self.pubThreadCounter:
+                    # Only publish if this counter wasn't just received from subscription
+                    if current_counter != self.last_received_counter:
+                        topic = 'frameData'
+                        self.pubSocket.send_string(topic, zmq.SNDMORE)
+                        self.pubSocket.send_pyobj(self.get_data())
+                    self.pubThreadCounter = current_counter
             if self.pubEvent.is_set():
                 break
+            time.sleep(0.001)
+        self.pubSocket.close()
+        self.pubContext.term()
     
     def subscribe(self):
         self.subContext = zmq.Context()
         self.subSocket = self.subContext.socket(zmq.SUB)
-        self.subSocket.connect("tcp://%s:%d"%(self.subHost, self.subPort))
+        self.subSocket.connect("tcp://%s:%d" % (self.subHost, self.subPort))
         self.subSocket.setsockopt(zmq.SUBSCRIBE, b'frameData')
         self.subSocket.setsockopt(zmq.CONFLATE, 1)
+        self.subSocket.setsockopt(zmq.RCVTIMEO, 100)  # Set a 1-second timeout for receiving
         topic = 'frameData'
         while True:
             if self.subEnable:
-                topic = self.subSocket.recv_string()
-                frameData = self.subSocket.recv_pyobj()
-                self.set_data(frameData)
+                try:
+                    topic = self.subSocket.recv_string()
+                    frameData = self.subSocket.recv_pyobj()
+                    # Store current counter before updating data
+                    self.last_received_counter = self.get_counter() + 1  # Predict next counter
+                    self.set_data(frameData)
+                except zmq.Again:
+                    # Timeout occurred, check if we need to exit
+                    if self.subEvent.is_set():
+                        break
             if self.subEvent.is_set():
                 break
+        self.subSocket.close()
+        self.subContext.term()
 
     def close(self):
         ''' --------------------------------------------------------------
