@@ -28,6 +28,35 @@ if you use anaconda there could be a conflict between protobuf versions so unins
 ```
 conda uninstall libprotobuf
 ```
+## Linux arm64
+We encoutered several issue with the protobuf, usually related to the librptobuf vs protox version mismatch. One simple solution was to rebuild from the source 
+
+```
+git clone https://github.com/abseil/abseil-cpp.git
+cd abseil-cpp
+mkdir build && cd build
+cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+sudo make install
+```
+then protobuf
+```
+wget https://github.com/protocolbuffers/protobuf/releases/download/v25.3/protobuf-25.3.tar.gz
+tar zxvf protobuf-25.4.tar.gz
+cd protobuf-25.3-full
+mkdir -p cmake/build
+cd cmake/build
+
+cmake ../.. \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -Dprotobuf_BUILD_TESTS=OFF \
+  -Dprotobuf_ABSL_PROVIDER=package
+
+make -j$(nproc)
+sudo make install
+sudo ldconfig
+```
+and 
 
 ## Waf
 waf needs to be installed and in the path: see https://waf.io/book/.  
