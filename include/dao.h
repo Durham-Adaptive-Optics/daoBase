@@ -329,8 +329,8 @@ typedef struct
     uint64_t lastNbArray[512];
     // total size is 1211 bytes = 9688 bit when packed
 #ifdef __APPLE__
-        atomic_ushort semCounter[IMAGE_NB_SEMAPHORE];
-        atomic_ushort semLogCounter;
+        atomic_uint semCounter[IMAGE_NB_SEMAPHORE];
+        atomic_uint semLogCounter;
 #endif
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;
@@ -480,6 +480,7 @@ DLL_EXPORT unsigned daoBaseIp2Int(const char * ip);
 DLL_EXPORT int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image);
 DLL_EXPORT int_fast8_t daoShmShm2Img(const char *name, IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image); 
+DLL_EXPORT int_fast8_t daoShmImage2ShmQuiet(void *im, uint32_t nbVal, IMAGE *image); 
 DLL_EXPORT int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t position,
                              uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber); 
 DLL_EXPORT int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image); 

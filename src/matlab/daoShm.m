@@ -49,24 +49,24 @@ classdef daoShm
 
         end
         
-        function data = get_data(obj, waitForSemaphore, semNb)
+        function data = get_data(obj, check, semNb)
             % GET_DATA Get data from the IMAGE structure.
-            %   data = obj.get_data([waitForSemaphore, semNb]) retrieves data from
+            %   data = obj.get_data([check, semNb]) retrieves data from
             %   the initialized IMAGE structure.
             %
             %   Parameters (optional):
-            %   waitForSemaphore - Whether to wait for semaphore (logical).
+            %   check - Whether to wait for semaphore (logical).
             %   semNb - Semaphore number (integer).
 
             if nargin < 2
-                waitForSemaphore = false; % Default: false
+                check = false; % Default: false
             end
             if nargin < 3
                 semNb = 1; % Default: 1
             end
 
             % Call the MEX function to get data from the IMAGE structure
-            data = daomex('get_data', obj.ImagePtr, waitForSemaphore, semNb);
+            data = daomex('get_data', obj.ImagePtr, check, semNb);
         end
         
         function set_data(obj, data)
