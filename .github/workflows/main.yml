@@ -11,10 +11,17 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+          - os: macos-latest
+            arch: x86_64
+          - os: ubuntu-latest
+            arch: arm64
+            runs-on: ubuntu-latest-arm64
       fail-fast: false  # Continue with other builds even if one fails
     
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runs-on || matrix.os }}
     
     steps:
     - name: Checkout code
@@ -120,7 +127,7 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: build-output-${{ matrix.os }}
+        name: build-output-${{ matrix.os }}-${{ matrix.arch }}
         path: build/
         retention-days: 14
         if-no-files-found: warn
