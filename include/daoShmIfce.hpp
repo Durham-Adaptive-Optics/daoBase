@@ -324,7 +324,7 @@ namespace Dao
                         m_time.tv_nsec %= 1000000000;
                     }
                     //int rVal = sem_timedwait(m_shm[0].semptr[1], &m_time);
-                    int rVal = daoShmWaitForSemaphoreTimeout(m_shm, 1, m_time);
+                    int rVal = daoShmWaitForSemaphoreTimeout(m_shm, 1, &m_time);
                     return rVal;
                 }
                 else
