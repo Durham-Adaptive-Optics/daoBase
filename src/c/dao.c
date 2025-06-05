@@ -991,6 +991,7 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 {
     daoTrace("\n");
 
+    daoShmTimestampShm(image);
     daoSemPostAll(image);
 
     if(image->semlog != NULL)
@@ -998,7 +999,6 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
         daoSemLogPost(image);
     }
 	 
-    daoShmTimestampShm(image);
 
     return DAO_SUCCESS;
 }
