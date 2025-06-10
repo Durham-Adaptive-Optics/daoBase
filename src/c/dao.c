@@ -654,7 +654,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         {
             daoDebug("atype = DOUBLE\n");
             image->array.D = (double*) mapv;
-            mapv += SIZEOF_DATATYPE_COMPLEX_DOUBLE * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_DOUBLE * image->md[0].nelement;
         }
         if(atype == _DATATYPE_COMPLEX_FLOAT)
         {
