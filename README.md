@@ -128,7 +128,8 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/homebrew/lib
  
 export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/opt/homebrew/include
 export C_INCLUDE_PATH=$C_INCLUDE_PATH:/opt/homebrew/include
-export CPATH=$CPATH:$/opt/homebrew/include
+export CPATH=$CPATH:/opt/homebrew/include
+export PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig
 ```
 !! BE SURE THE DAOROOT exists. In the example
 ```
