@@ -2117,8 +2117,8 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
     clock_gettime(CLOCK_REALTIME, &now);
 
     DWORD millis =
-        (timeout->tv_sec - now->tv_sec) * 1000 +
-        (timeout->tv_nsec - now->tv_nsec) / 1000000;
+        (timeout->tv_sec - now.tv_sec) * 1000 +
+        (timeout->tv_nsec - now.tv_nsec) / 1000000;
 
     if ((int)millis < 0) millis = 0; // prevent underflow
 
@@ -2340,7 +2340,7 @@ int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
     daoTrace("\n");
 
 #ifdef _WIN32
-    ReleaseSemaphore(image->semptr[ss], 1, NULL);
+    ReleaseSemaphore(image->semptr[semNb], 1, NULL);
 #elif defined(__APPLE__)
     unsigned int oldval = atomic_load(&image->md[0].semCounter[semNb]);
 
