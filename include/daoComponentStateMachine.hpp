@@ -202,7 +202,7 @@ namespace Dao
                     m_state = requestedEndState;
                 }
                 catch (const std::exception &e) {
-                    m_log.Error("Failed to change state to %s: %s", m_state_text.at(requestedEndState), e.what());
+                    m_log.Error("Failed to change state to %s: %s", m_state_text.at(requestedEndState).c_str(), e.what());
                     m_state = State::Error;
                 }
             }
