@@ -186,40 +186,25 @@ namespace Dao
 
             void changeState(Events event, State requiredStartState, State requestedEndState, std::function<void()> eventFunction)
             {
-                // calling exit function of current state
-                try
-                {
-                    // check a state transition happens
-                    if(requiredStartState != requestedEndState)
+                try {
+                    // calling exit function of current state
+                    if(requiredStartState != requestedEndState) // check a state transition happens
                         m_state_exit_function.at(m_state)();
 
-                }
-                catch (...)
-                {
-                    m_log.Error("Error in change state: something went wrong");
-                }
-
-                // calling transition
-                try
-                {
+                    // calling transition
                     if(eventFunction)
                         eventFunction();
-                }
-                catch (...)
-                {
-                    m_log.Error("Error in change state: something went wrong");
-                }
-                // calling transition
-                try
-                {
-                    if(requiredStartState != requestedEndState)
+
+                    //calling entry function of new state
+                    if(requiredStartState != requestedEndState) 
                         m_state_entry_function.at(requestedEndState)();
+
+                    m_state = requestedEndState;
                 }
-                catch (...)
-                {
-                    m_log.Error("Error in change state: something went wrong");
+                catch (const std::exception &e) {
+                    m_log.Error("Failed to change state to %s: %s", m_state_text.at(requestedEndState), e.what());
+                    m_state = State::Error;
                 }
-                m_state = requestedEndState;
             }
 
 
