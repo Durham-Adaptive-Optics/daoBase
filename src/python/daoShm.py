@@ -201,37 +201,75 @@ class IMAGE_KEYWORD(ctypes.Structure):
     ]
 
 # Define the IMAGE_METADATA structure
-class IMAGE_METADATA(ctypes.Structure):
-    class ATIME(ctypes.Union):
-        _fields_ = [
-            ("ts", timespec),
-            ("tsfixed", TIMESPECFIXED)
-        ]
+if sys.platform == "Darwin":
+    # Define the IMAGE_METADATA structure
+    class IMAGE_METADATA(ctypes.Structure):
+        class ATIME(ctypes.Union):
+            _fields_ = [
+                ("ts", timespec),
+                ("tsfixed", TIMESPECFIXED)
+            ]
 
-    _fields_ = [
-        ("name", ctypes.c_char * 80),
-        ("naxis", ctypes.c_uint8),
-        ("size", ctypes.c_uint32 * 3),
-        ("nelement", ctypes.c_uint64),
-        ("atype", ctypes.c_uint8),
-        ("creation_time", ctypes.c_double),
-        ("last_access", ctypes.c_double),
-        ("atime", ATIME),
-        ("shared", ctypes.c_uint8),
-        ("status", ctypes.c_uint8),
-        ("logflag", ctypes.c_uint8),
-        ("sem", ctypes.c_uint16),
-        ("cnt0", ctypes.c_uint64),
-        ("cnt1", ctypes.c_uint64),
-        ("cnt2", ctypes.c_uint64),
-        ("write", ctypes.c_uint8),
-        ("NBkw", ctypes.c_uint16),
-        ("lastPos", ctypes.c_uint32),
-        ("lastNb", ctypes.c_uint32),
-        ("packetNb", ctypes.c_uint32),
-        ("packetTotal", ctypes.c_uint32),
-        ("lastNbArray", ctypes.c_uint64 * 512)
-    ]
+        _fields_ = [
+            ("name", ctypes.c_char * 80),
+            ("naxis", ctypes.c_uint8),
+            ("size", ctypes.c_uint32 * 3),
+            ("nelement", ctypes.c_uint64),
+            ("atype", ctypes.c_uint8),
+            ("creation_time", ctypes.c_double),
+            ("last_access", ctypes.c_double),
+            ("atime", ATIME),
+            ("shared", ctypes.c_uint8),
+            ("status", ctypes.c_uint8),
+            ("logflag", ctypes.c_uint8),
+            ("sem", ctypes.c_uint16),
+            ("cnt0", ctypes.c_uint64),
+            ("cnt1", ctypes.c_uint64),
+            ("cnt2", ctypes.c_uint64),
+            ("write", ctypes.c_uint8),
+            ("NBkw", ctypes.c_uint16),
+            ("lastPos", ctypes.c_uint32),
+            ("lastNb", ctypes.c_uint32),
+            ("packetNb", ctypes.c_uint32),
+            ("packetTotal", ctypes.c_uint32),
+            ("lastNbArray", ctypes.c_uint64 * 512)
+        ]
+else:
+    # Define the IMAGE_METADATA structure
+    class IMAGE_METADATA(ctypes.Structure):
+        class ATIME(ctypes.Union):
+            _fields_ = [
+                ("ts", timespec),
+                ("tsfixed", TIMESPECFIXED)
+            ]
+
+        _fields_ = [
+            ("name", ctypes.c_char * 80),
+            ("naxis", ctypes.c_uint8),
+            ("size", ctypes.c_uint32 * 3),
+            ("nelement", ctypes.c_uint64),
+            ("atype", ctypes.c_uint8),
+            ("creation_time", ctypes.c_double),
+            ("last_access", ctypes.c_double),
+            ("atime", ATIME),
+            ("shared", ctypes.c_uint8),
+            ("status", ctypes.c_uint8),
+            ("logflag", ctypes.c_uint8),
+            ("sem", ctypes.c_uint16),
+            ("cnt0", ctypes.c_uint64),
+            ("cnt1", ctypes.c_uint64),
+            ("cnt2", ctypes.c_uint64),
+            ("write", ctypes.c_uint8),
+            ("NBkw", ctypes.c_uint16),
+            ("lastPos", ctypes.c_uint32),
+            ("lastNb", ctypes.c_uint32),
+            ("packetNb", ctypes.c_uint32),
+            ("packetTotal", ctypes.c_uint32),
+            ("lastNbArray", ctypes.c_uint64 * 512),
+            ("semCounter", ctypes.c_uint32 * 10),
+            ("semLogCounter", ctypes.c_uint32)
+        ]
+    
 
 if sys.platform == "win32":
     # Define the IMAGE structure
@@ -332,6 +370,15 @@ class shm:
             ctypes.POINTER(IMAGE)
         ]
         self.daoShmImage2Shm.restype = ctypes.c_int8
+
+        # int8_t daoShmImage2ShmQuiet(void *procim, uint32_t nbVal, IMAGE *image);
+        self.daoShmImage2ShmQuiet = daoLib.daoShmImage2ShmQuiet
+        self.daoShmImage2ShmQuiet.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.POINTER(IMAGE)
+        ]
+        self.daoShmImage2ShmQuiet.restype = ctypes.c_int8
 
         # int8_t daoShmImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_t position,
         #                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber);

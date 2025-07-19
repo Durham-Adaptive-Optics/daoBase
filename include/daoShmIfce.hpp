@@ -264,23 +264,7 @@ namespace Dao
                 // copy data in.
                 memcpy(dst, data, m_shm_nElements*sizeof(T));
 
-                for(int i = 0; i < m_shm[0].md[0].sem; i++)
-                {
-                    sem_getvalue(m_shm[0].semptr[i], &semval);
-                    if(semval < SEMAPHORE_MAXVAL )
-                        sem_post(m_shm[0].semptr[i]);
-                }
-
-                if(m_shm[0].semlog != NULL)
-                {
-                    sem_getvalue(m_shm[0].semlog, &semval);
-                    if(semval < SEMAPHORE_MAXVAL)
-                    {
-                        sem_post(m_shm[0].semlog);
-                    }
-                }
-                m_shm[0].md[0].write = 0;
-                m_shm[0].md[0].cnt0++;
+                daoShmImagePart2ShmFinalize(m_shm);
             }
 
             void FullFrameWriteData(int32_t frameId = -1)
@@ -289,27 +273,7 @@ namespace Dao
                 m_shm[0].md[0].write = 1;
                 m_shm[0].md[0].cnt2 = frameId != -1 ? frameId : m_shm[0].md[0].cnt2;
 
-                for(int i = 0; i < m_shm[0].md[0].sem; i++)
-                {
-                    sem_getvalue(m_shm[0].semptr[i], &semval);
-                    if(semval < SEMAPHORE_MAXVAL )
-                        sem_post(m_shm[0].semptr[i]);
-                }
-
-                if(m_shm[0].semlog != NULL)
-                {
-                    sem_getvalue(m_shm[0].semlog, &semval);
-                    if(semval < SEMAPHORE_MAXVAL)
-                    {
-                        sem_post(m_shm[0].semlog);
-                    }
-                }
-
-                m_shm[0].md[0].write = 0;
-                m_shm[0].md[0].cnt0++;
-
-                clock_gettime(CLOCK_REALTIME, &m_time);
-                m_shm[0].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * m_time.tv_sec + m_time.tv_nsec);
+                daoShmImagePart2ShmFinalize(m_shm);
             }
 
             void FullFrameReadData()
@@ -359,7 +323,8 @@ namespace Dao
                         m_time.tv_sec += m_time.tv_nsec / 1000000000;
                         m_time.tv_nsec %= 1000000000;
                     }
-                    int rVal = sem_timedwait(m_shm[0].semptr[1], &m_time);
+                    //int rVal = sem_timedwait(m_shm[0].semptr[1], &m_time);
+                    int rVal = daoShmWaitForSemaphoreTimeout(m_shm, 1, &m_time);
                     return rVal;
                 }
                 else
@@ -515,49 +480,12 @@ namespace Dao
                 int semval = 0;
                 m_shm[0].md[0].write = 1;
                 m_shm[0].md[0].cnt2 = frameId;
-
-                for(int i = 0; i < m_shm[0].md[0].sem; i++)
-                {
-                    sem_getvalue(m_shm[0].semptr[i], &semval);
-                    if(semval < SEMAPHORE_MAXVAL )
-                        sem_post(m_shm[0].semptr[i]);
-                }
-
-                if(m_shm[0].semlog != NULL)
-                {
-                    sem_getvalue(m_shm[0].semlog, &semval);
-                    if(semval < SEMAPHORE_MAXVAL)
-                    {
-                        sem_post(m_shm[0].semlog);
-                    }
-                }
-
-                m_shm[0].md[0].write = 0;                                                                                                                 
-                m_shm[0].md[0].cnt0++;
-
-                struct timespec t;
-                clock_gettime(CLOCK_REALTIME, &t);
-                m_shm[0].md[0].atime.tsfixed.secondlong = (unsigned long)(1e9 * t.tv_sec + t.tv_nsec);
+                daoShmImagePart2ShmFinalize(m_shm);
             }
 
             void ReleaseAllSemaphores()
             {
-                int semval = 0;
-                for(int i = 0; i < m_shm[0].md[0].sem; i++)
-                {
-                    sem_getvalue(m_shm[0].semptr[i], &semval);
-                    if(semval < SEMAPHORE_MAXVAL )
-                        sem_post(m_shm[0].semptr[i]);
-                }
-
-                if(m_shm[0].semlog != NULL)
-                {
-                    sem_getvalue(m_shm[0].semlog, &semval);
-                    if(semval < SEMAPHORE_MAXVAL)
-                    {
-                        sem_post(m_shm[0].semlog);
-                    }
-                }
+                daoSemPostAll(m_shm);
             }
 
             void CleanAllSemaphores()

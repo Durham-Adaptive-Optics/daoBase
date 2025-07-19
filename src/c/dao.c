@@ -654,7 +654,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         {
             daoDebug("atype = DOUBLE\n");
             image->array.D = (double*) mapv;
-            mapv += SIZEOF_DATATYPE_COMPLEX_DOUBLE * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_DOUBLE * image->md[0].nelement;
         }
         if(atype == _DATATYPE_COMPLEX_FLOAT)
         {
@@ -900,6 +900,43 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 
     return DAO_SUCCESS;
 }
+
+/*
+ * The image is send to the shared memory.
+ */
+int_fast8_t daoShmImage2ShmQuiet(void *im, uint32_t nbVal, IMAGE *image) 
+{
+    daoTrace("\n");
+    image->md[0].write = 1;
+
+    if (image->md[0].atype == _DATATYPE_UINT8)
+        memcpy(image->array.UI8, (unsigned char *)im, nbVal*sizeof(unsigned char)); 
+    else if (image->md[0].atype == _DATATYPE_INT8)
+        memcpy(image->array.SI8, (char *)im, nbVal*sizeof(char));       
+    else if (image->md[0].atype == _DATATYPE_UINT16)
+        memcpy(image->array.UI16, (unsigned short *)im, nbVal*sizeof(unsigned short));
+    else if (image->md[0].atype == _DATATYPE_INT16)
+        memcpy(image->array.SI16, (short *)im, nbVal*sizeof(short));
+    else if (image->md[0].atype == _DATATYPE_INT32)
+        memcpy(image->array.UI32, (unsigned int *)im, nbVal*sizeof(unsigned int));
+    else if (image->md[0].atype == _DATATYPE_UINT32)
+        memcpy(image->array.SI32, (int *)im, nbVal*sizeof(int));
+    else if (image->md[0].atype == _DATATYPE_UINT64)
+        memcpy(image->array.UI64, (unsigned long *)im, nbVal*sizeof(unsigned long));
+    else if (image->md[0].atype == _DATATYPE_INT64)
+        memcpy(image->array.SI64, (long *)im, nbVal*sizeof(long));
+    else if (image->md[0].atype == _DATATYPE_FLOAT)
+        memcpy(image->array.F, (float *)im, nbVal*sizeof(float));
+    else if (image->md[0].atype == _DATATYPE_DOUBLE)
+        memcpy(image->array.D, (double *)im, nbVal*sizeof(double));
+    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
+        memcpy(image->array.CF, (complex_float *)im, nbVal*sizeof(complex_float));
+    else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
+        memcpy(image->array.CD, (complex_double *)im, nbVal*sizeof(complex_double));
+
+    return DAO_SUCCESS;
+}
+
 /*
  * The image is send to the shared memory.
  * No release of semaphore since it is a part write
@@ -954,6 +991,7 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 {
     daoTrace("\n");
 
+    daoShmTimestampShm(image);
     daoSemPostAll(image);
 
     if(image->semlog != NULL)
@@ -961,7 +999,6 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
         daoSemLogPost(image);
     }
 	 
-    daoShmTimestampShm(image);
 
     return DAO_SUCCESS;
 }
@@ -1847,6 +1884,10 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 #ifdef __APPLE__
         for (int i = 0; i < image->md[0].sem; i++)
         {
+            while (sem_trywait(image->semptr[i]) == 0) 
+            {
+                // Draining kernel-level semaphore
+            }
             atomic_store(&image->md[0].semCounter[i], 0);
         }
         atomic_store(&image->md[0].semLogCounter, 0);
@@ -2038,7 +2079,14 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 #elif defined(__APPLE__)
     if (sem_wait(image->semptr[semNb]) == 0) 
     {
-        atomic_fetch_sub(&image->md[0].semCounter[semNb], 1);
+        // Safely decrement the counter, but only if > 0
+        unsigned int val = atomic_load(&image->md[0].semCounter[semNb]);
+        while (val > 0)
+        {
+            if (atomic_compare_exchange_weak(&image->md[0].semCounter[semNb], &val, val - 1))
+                break;
+            // If CAS fails, val is updated, loop again
+        }
     } 
     else
     {
@@ -2069,8 +2117,8 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
     clock_gettime(CLOCK_REALTIME, &now);
 
     DWORD millis =
-        (timeout->tv_sec - now->tv_sec) * 1000 +
-        (timeout->tv_nsec - now->tv_nsec) / 1000000;
+        (timeout->tv_sec - now.tv_sec) * 1000 +
+        (timeout->tv_nsec - now.tv_nsec) / 1000000;
 
     if ((int)millis < 0) millis = 0; // prevent underflow
 
@@ -2093,7 +2141,7 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
 
     while (now_ns < end_ns)
     {
-        unsigned short val = atomic_load(&image->md[0].semCounter[semNb]);
+        unsigned int val = atomic_load(&image->md[0].semCounter[semNb]);
         if (val > 0)
         {
             if (sem_wait(image->semptr[semNb]) == 0)
@@ -2292,27 +2340,35 @@ int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
     daoTrace("\n");
 
 #ifdef _WIN32
-    ReleaseSemaphore(image->semptr[ss], 1, NULL);
+    ReleaseSemaphore(image->semptr[semNb], 1, NULL);
 #elif defined(__APPLE__)
-    unsigned short val = atomic_load(&image->md[0].semCounter[semNb]);
-    daoDebug("semCounter[%d] = %d\n", semNb, val);
-    if (val < SEMAPHORE_MAXVAL)
+    unsigned int oldval = atomic_load(&image->md[0].semCounter[semNb]);
+
+    while (oldval < SEMAPHORE_MAXVAL)
     {
-        if (sem_post(image->semptr[semNb]) == 0)
+        // Try to increment semCounter atomically
+        if (atomic_compare_exchange_weak(&image->md[0].semCounter[semNb], &oldval, oldval + 1))
         {
-            atomic_fetch_add(&image->md[0].semCounter[semNb], 1);
-            daoDebug("Posted sem %d, new semCounter = %u\n", semNb,
-                atomic_load(&image->md[0].semCounter[semNb]));
+            // Only post if we managed to reserve a "slot" in semCounter
+            if (sem_post(image->semptr[semNb]) == 0)
+            {
+                daoDebug("Posted sem %d, new semCounter = %u (pid=%d)\n",
+                         semNb, atomic_load(&image->md[0].semCounter[semNb]), getpid());
+                return DAO_SUCCESS;
+            }
+            else
+            {
+                // Rollback the counter change
+                atomic_fetch_sub(&image->md[0].semCounter[semNb], 1);
+                daoError("sem_post failed on sem %d: %s\n", semNb, strerror(errno));
+                return DAO_ERROR;
+            }
         }
-        else
-        {
-            daoError("sem_post failed on sem %d: %s\n", semNb, strerror(errno));
-        }
+        // If compare_exchange failed, oldval is updated to current — loop and try again
     }
-    else
-    {
-        daoDebug("semCounter[%d] at max value (%d), skipping post\n", semNb, SEMAPHORE_MAXVAL);
-    }
+
+    daoDebug("semCounter[%d] already at max value (%d), skipping post\n",
+             semNb, SEMAPHORE_MAXVAL);
 #else // Linux
     int semval = 0;
     sem_getvalue(image->semptr[semNb], &semval);
@@ -2353,7 +2409,7 @@ int_fast8_t daoSemLogPost(IMAGE *image)
 #ifdef _WIN32
     ReleaseSemaphore(image->semlog, 1, NULL);
 #elif defined(__APPLE__)
-    unsigned short val = atomic_load(&image->md[0].semLogCounter);
+    unsigned int val = atomic_load(&image->md[0].semLogCounter);
     if (val < SEMAPHORE_MAXVAL)
     {
         if (sem_post(image->semlog) == 0)

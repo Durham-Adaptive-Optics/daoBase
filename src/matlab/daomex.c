@@ -168,17 +168,19 @@ void get_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
 	if (timeout_sec == 0)
 	{
-            sem_wait(selectedImage[0].semptr[semNb]);
+            daoShmWaitForSemaphore(selectedImage, semNb);
+            //sem_wait(selectedImage[0].semptr[semNb]);
 	}
 	else
 	{
             struct timespec timeout;
             clock_gettime(CLOCK_REALTIME, &timeout);
-            timeout.tv_sec += 1; // 1 second timeout
-            if (sem_timedwait(selectedImage[0].semptr[semNb], &timeout) == -1)
-            {
-                daoInfo("Time out (1s) waiting for new data in the SHM, using what is currently in it\n");
-            }
+            timeout.tv_sec += timeout_sec;//1; // 1 second timeout
+            daoShmWaitForSemaphoreTimeout(selectedImage, semNb, &timeout);
+            //if (sem_timedwait(selectedImage[0].semptr[semNb], &timeout) == -1)
+            //{
+            //    daoInfo("Time out (1s) waiting for new data in the SHM, using what is currently in it\n");
+            //}
 	}
     }
     // Determine the size of the UI8 array
@@ -217,34 +219,34 @@ void get_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     else if (selectedImage[0].md[0].atype == _DATATYPE_INT16)
     {
-        dataMatrix = mxCreateNumericMatrix(numRows, numCols, mxUINT16_CLASS, mxREAL);
+        dataMatrix = mxCreateNumericMatrix(numRows, numCols, mxINT16_CLASS, mxREAL);
         // Copy the data from selectedImage[0].array.UI16 to the MATLAB matrix
+        int16_t *dest = (int16_t *)mxGetData(dataMatrix);
+        int16_t *src = selectedImage[0].array.SI16;
+        memcpy(dest, src, numRows * numCols * sizeof(int16_t));
+    }
+    else if (selectedImage[0].md[0].atype == _DATATYPE_UINT16)
+    {
+        dataMatrix = mxCreateNumericMatrix(numRows, numCols, mxUINT16_CLASS, mxREAL);
+        // Copy the data from selectedImage[0].array.SI16 to the MATLAB matrix
         uint16_t *dest = (uint16_t *)mxGetData(dataMatrix);
         uint16_t *src = selectedImage[0].array.UI16;
         memcpy(dest, src, numRows * numCols * sizeof(uint16_t));
     }
-    else if (selectedImage[0].md[0].atype == _DATATYPE_UINT16)
-    {
-        dataMatrix = mxCreateNumericMatrix(numRows, numCols, mxINT16_CLASS, mxREAL);
-        // Copy the data from selectedImage[0].array.SI16 to the MATLAB matrix
-        uint16_t *dest = (uint16_t *)mxGetData(dataMatrix);
-        uint16_t *src = selectedImage[0].array.SI16;
-        memcpy(dest, src, numRows * numCols * sizeof(uint16_t));
-    }
     else if (selectedImage[0].md[0].atype == _DATATYPE_INT32)
     {
-        dataMatrix = mxCreateNumericMatrix(numRows, numCols, mxUINT32_CLASS, mxREAL);
+        dataMatrix = mxCreateNumericMatrix(numRows, numCols, mxINT32_CLASS, mxREAL);
         // Copy the data from selectedImage[0].array.UI32 to the MATLAB matrix
-        uint32_t *dest = (uint32_t *)mxGetData(dataMatrix);
-        uint32_t *src = selectedImage[0].array.UI32;
-        memcpy(dest, src, numRows * numCols * sizeof(uint32_t));
+        int32_t *dest = (int32_t *)mxGetData(dataMatrix);
+        int32_t *src = selectedImage[0].array.SI32;
+        memcpy(dest, src, numRows * numCols * sizeof(int32_t));
     }
     else if (selectedImage[0].md[0].atype == _DATATYPE_UINT32)
     {
-        dataMatrix = mxCreateNumericMatrix(numRows, numCols, mxINT32_CLASS, mxREAL);
+        dataMatrix = mxCreateNumericMatrix(numRows, numCols, mxUINT32_CLASS, mxREAL);
         // Copy the data from selectedImage[0].array.SI32 to the MATLAB matrix
         uint32_t *dest = (uint32_t *)mxGetData(dataMatrix);
-        uint32_t *src = selectedImage[0].array.SI32;
+        uint32_t *src = selectedImage[0].array.UI32;
         memcpy(dest, src, numRows * numCols * sizeof(uint32_t));
     }
     else if (selectedImage[0].md[0].atype == _DATATYPE_UINT64)
@@ -259,9 +261,9 @@ void get_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
         dataMatrix = mxCreateNumericMatrix(numRows, numCols, mxINT64_CLASS, mxREAL);
         // Copy the data from selectedImage[0].array.SI64 to the MATLAB matrix
-        uint64_t *dest = (uint64_t *)mxGetData(dataMatrix);
-        uint64_t *src = selectedImage[0].array.SI64;
-        memcpy(dest, src, numRows * numCols * sizeof(uint64_t));
+        int64_t *dest = (int64_t *)mxGetData(dataMatrix);
+        int64_t *src = selectedImage[0].array.SI64;
+        memcpy(dest, src, numRows * numCols * sizeof(int64_t));
     }
     else if (selectedImage[0].md[0].atype == _DATATYPE_FLOAT)
     {

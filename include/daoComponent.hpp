@@ -155,10 +155,23 @@ namespace Dao
         bool autoRun = false;
         if (config["Control"]["autoRun"])
         {
+            std::string autoRunStr = config["Control"]["autoRun"].as<std::string>();
+            if (autoRunStr == "true" || autoRunStr == "1")
+                autoRun = true;
+            else if (autoRunStr == "false" || autoRunStr == "0")
+                autoRun = false;
+            else
+                throw std::runtime_error("Invalid value for autoRun in configuration: " + autoRunStr);
+
+
             autoRun = config["Control"]["autoRun"].as<bool>();
         }
         
         logger->SetLevel(Dao::Log::LEVEL::TRACE);
+
+        logger->Info("Creating component: %s with IP: %s and port: %d", name.c_str(), ip.c_str(), port);
+        logger->Info("Configuration loaded from: %s", config_file.c_str());
+        logger->Info("Auto-run is %s", autoRun ? "enabled" : "disabled");
         
         // Create component instance
         ComponentType* component = new ComponentType(name, *logger, ip, port, config);
@@ -172,7 +185,7 @@ namespace Dao
             usleep(10000); // Sleep for 100ms
             component->Run();
         }
-
+        // sleep(5);
         RunComponentLoop(*logger);
 
         delete component;
