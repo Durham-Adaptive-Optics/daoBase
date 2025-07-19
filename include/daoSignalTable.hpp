@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <cassert>
 #include <unistd.h>
+#include <chrono>
 
 namespace Dao
 {
@@ -130,12 +131,23 @@ namespace Dao
              * @param index signal index to be checked 
              * @param timeout_us timeout in us
              * @note No error checking occurs if index outside range 0->max_signals the system may segfault
-             * @note Not implimented
+             * @note Returns 1 if signal received, 0 if timeout occurred
              */
             inline uint64_t SignalReceiveSpinTimeout( int signum, uint64_t timeout_us )
             {
-                // TODO: impliment version using a simple timeout
-                return 0;
+                auto start_time = std::chrono::high_resolution_clock::now();
+                auto timeout_duration = std::chrono::microseconds(timeout_us);
+                
+                while(tracker[signum] >= signal[signum])
+                {
+                    auto current_time = std::chrono::high_resolution_clock::now();
+                    if (current_time - start_time >= timeout_duration)
+                    {
+                        return 0; // timeout occurred
+                    }
+                }
+                tracker[signum]++;
+                return 1; // signal received
             }
 
             /**

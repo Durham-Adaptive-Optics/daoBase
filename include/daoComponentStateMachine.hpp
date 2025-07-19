@@ -196,7 +196,8 @@ namespace Dao
                 }
                 catch (...)
                 {
-                    m_log.Error("Error in change state: something went wrong");
+                    m_log.Error("Error in change state: not in required state for event: %s, current state: %s", 
+                                m_event_text.at(event).c_str(), m_state_text.at(m_state).c_str());
                 }
 
                 // calling transition
@@ -207,7 +208,8 @@ namespace Dao
                 }
                 catch (...)
                 {
-                    m_log.Error("Error in change state: something went wrong");
+                    m_log.Error("Error in change state: something went wrong in event function for event: %s, current state: %s", 
+                                m_event_text.at(event).c_str(), m_state_text.at(m_state).c_str());
                 }
                 // calling transition
                 try
@@ -217,7 +219,8 @@ namespace Dao
                 }
                 catch (...)
                 {
-                    m_log.Error("Error in change state: something went wrong");
+                    m_log.Error("Error in change state: not in required end state for event: %s, current state: %s", 
+                                m_event_text.at(event).c_str(), m_state_text.at(m_state).c_str());
                 }
                 m_state = requestedEndState;
             }

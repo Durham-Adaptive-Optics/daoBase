@@ -39,12 +39,12 @@ namespace Dao
             , m_core(core)
             , m_node(-1)
             , m_thread_number(thread_number)
-            , m_rt_enabled(rt_enabled)
             , m_start(false)
             , m_running(false)
             , m_spawned(false)
             , m_stop(true)
             , m_start_waiting(false)
+            , m_rt_enabled(rt_enabled)
             {
                 m_thread_name.resize(15);
                 // calculate node from core...
@@ -113,7 +113,6 @@ namespace Dao
             {   
                 if(!m_spawned)
                 {
-                    m_spawned = true;
                     m_thread = std::thread{&ThreadBase::threadEntryPoint, this};
                     m_thread_id = pthread_self();
 
@@ -128,7 +127,10 @@ namespace Dao
 #else
                         int rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
 #endif
-                        // check error code?
+                        if(rc != 0)
+                        {
+                            m_log.Error("Thread name not set, %d - %s", rc, m_thread_name.c_str());
+                        }
                     }
                     m_log.Debug("Thread %s Spawned...", m_thread_name.c_str());
                 }
@@ -164,13 +166,14 @@ namespace Dao
             void Kill(int signal)
             {
                 // std::terminate();
+                pthread_kill(pthread_self(), signal);
             };
 
             virtual void Body() = 0; // overwritten later
 
             // get status stuff
             inline bool isRunning(){return m_running;};
-            inline bool isSpawned(){return m_spawned;};
+            bool isSpawned(){return m_spawned;};
             std::string getThreadName(){return m_thread_name;};
             int getAffinity(){return m_core;};
             int getNumaNode(){return m_node;};
@@ -196,20 +199,29 @@ namespace Dao
 #else
                     int rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
 #endif
-                    if(rc != 0)
-                        std::cout << "Return : " << rc << std::endl;
+                        if(rc != 0)
+                        {
+                            m_log.Error("Thread name not set, %d - %s", rc, m_thread_name.c_str());
+                        }
                 }
                 // realtime threads - set RT priority and FIFO scheduling
                 if(getuid() == 0 && m_rt_enabled)
                 {
                     struct sched_param param;
-                    param.sched_priority = 95;
-                    pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+                    param.sched_priority = 99;
+                    int sched_result = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+                    if (sched_result != 0) {
+                        m_log.Error("Failed to set thread scheduling parameters: %s", strerror(sched_result));
+                    } else {
+                        m_log.Debug("Thread %s set to SCHED_FIFO with priority %d", 
+                                   m_thread_name.c_str(), param.sched_priority);
+                    }
                 }
 
                 try
                 {
                     OnceOnSpawn();
+                    m_spawned = true;
                 }
                 catch(const std::exception& e)
                 {

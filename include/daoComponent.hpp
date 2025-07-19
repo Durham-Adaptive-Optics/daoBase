@@ -21,6 +21,10 @@
 
 #include <daoLog.hpp>
 
+#include <yaml-cpp/yaml.h>
+#include <signal.h>
+#include <unistd.h>
+
 namespace Dao
 {
     class Component : public ComponentBase, public ComponentIfce
@@ -32,22 +36,12 @@ namespace Dao
              * @param logger Logger instance for component logging
              * @param ip IP address for ZMQ communication
              * @param port Port number for ZMQ communication
-             * @param autoRun If true, component will automatically advance to Running state
              * @param core CPU core to bind component threads to (-1 for no affinity)
              */
-            Component(std::string name, Dao::Log::Logger& logger, std::string ip, int port, bool autoRun = false, int core=-1)
+            Component(std::string name, Dao::Log::Logger& logger, std::string ip, int port, int core=-1)
             : ComponentBase(name, logger, ip, port, core)
-            , m_autoRun(autoRun)
             {
                ComponentBase::PostConstructor(static_cast<Dao::ComponentIfce*>(this));
-               
-               // If autoRun is enabled, advance the state machine to Running state
-               if (m_autoRun) {
-                   logger.Info("Auto-running component %s", name.c_str());
-                   Init();
-                   Enable();
-                   Run();
-               }
             }
                
             virtual ~Component()
@@ -113,8 +107,80 @@ namespace Dao
         protected:
 
         private:
-            bool m_autoRun; // Keeps track of whether component is in auto-run mode
-    };            
-}; // namespace DAO
+    };
+
+    /**
+     * @brief Simple runs a blocking loop that waits for signals and handles them
+     * @param m_log Logger reference for logging
+     */
+    void RunComponentLoop(Dao::Log::Logger& m_log);
+
+    /**
+     * @brief Generic factory function to create and optionally auto-run any Component-derived class
+     * @tparam ComponentType The specific component class (must inherit from Component)
+     * @param config_file Path to YAML configuration file
+     * @return nothing when the component is closed via signal
+     */
+    template<typename ComponentType>
+    void
+    CreateComponentAndRun(const std::string& config_file)
+    {
+        // Load configuration
+        if (config_file.empty()) {
+            throw std::runtime_error("Configuration file path is required");
+        }
+        
+        YAML::Node config = YAML::LoadFile(config_file);
+        
+        // Extract basic configuration
+        const std::string name = config["static"]["name"].as<std::string>();
+        const std::string ip = config["Control"]["ip"].as<std::string>();
+        const int port = config["Control"]["port"].as<int>();
+        
+        // Setup logger
+        Dao::Log::Logger* logger = nullptr;
+        const std::string log_policy = config["Logging"]["policy"].as<std::string>();
+        
+        if (log_policy.compare("NETWORK") == 0) {
+            const int log_port = config["Logging"]["port"].as<int>();
+            const std::string log_ip = config["Logging"]["ip"].as<std::string>();
+            logger = new Dao::Log::Logger(name, Dao::Log::Logger::DESTINATION::NETWORK, log_ip, log_port);
+        } else if (log_policy == "FILE") {
+            const std::string log_filename = config["Logging"]["filename"].as<std::string>();
+            logger = new Dao::Log::Logger(name, Dao::Log::Logger::DESTINATION::FILE, log_filename);
+        } else {
+            logger = new Dao::Log::Logger(name, Dao::Log::Logger::DESTINATION::SCREEN);
+        }
+
+        bool autoRun = false;
+        if (config["Control"]["autoRun"])
+        {
+            autoRun = config["Control"]["autoRun"].as<bool>();
+        }
+        
+        logger->SetLevel(Dao::Log::LEVEL::TRACE);
+        
+        // Create component instance
+        ComponentType* component = new ComponentType(name, *logger, ip, port, config);
+        
+        // Auto-run if requested
+        if (autoRun)
+        {
+            component->Init();
+            usleep(10000);  // Sleep for 100ms
+            component->Enable();
+            usleep(10000); // Sleep for 100ms
+            component->Run();
+        }
+
+        RunComponentLoop(*logger);
+
+        delete component;
+        delete logger;
+        
+        return;
+    }
+
+}; // namespace Dao
 
 #endif /* DAO_COMPONENT_HPP */
