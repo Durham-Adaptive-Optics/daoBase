@@ -91,8 +91,9 @@ namespace Dao
     class ComponentUpdateThread : public Thread
     {
         public:
-            ComponentUpdateThread(std::string name, Log::Logger& logger, int core=-1, int handle=-1, bool rt_enabled=true)
+            ComponentUpdateThread(std::string name, Log::Logger& logger, int core=-1, int handle=-1, bool rt_enabled=true, int poll_delay=100)
             : Thread("Up_"+ name, logger, core, handle, rt_enabled)
+            , m_poll_delay(poll_delay)
             {
 
             }
@@ -280,6 +281,8 @@ namespace Dao
                 {
                     element.check_update(m_log); 
                 }
+
+                usleep(m_poll_delay);
             }
 
 
@@ -296,6 +299,8 @@ namespace Dao
             std::vector<ItemUpdate<uint64_t>> m_uint64;
             std::vector<ItemUpdate<float>> m_float;
             std::vector<ItemUpdate<double>> m_double;
+
+            int m_poll_delay;
     }; 
 }; // namespace DAO
 

@@ -177,6 +177,8 @@ namespace Dao
         ComponentType* component = new ComponentType(name, *logger, ip, port, config);
         
         // Auto-run if requested
+        // TODO: poll the state of the statemachine as to not delay too long or
+        //       start next transition too soon.
         if (autoRun)
         {
             component->Init();
