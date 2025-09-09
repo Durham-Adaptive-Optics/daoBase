@@ -124,3 +124,7 @@ jobs:
         path: build/
         retention-days: 14
         if-no-files-found: warn
+
+    - name: Test Suite
+      run: |
+        python waf --test

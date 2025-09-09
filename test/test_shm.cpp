@@ -25,6 +25,8 @@ TEST(test_log_screen, set_up)
     int shared = 1;
     int NBkw = 0;
     int_fast8_t a = daoShmImageCreate(img, fp, naxis, size, atype, shared, NBkw);
+
+    EXPECT_TRUE(false);
 }
 
 
