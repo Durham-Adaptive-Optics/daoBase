@@ -65,7 +65,7 @@ jobs:
         sudo apt update
         sudo apt install -y libtool pkg-config build-essential autoconf automake python3 python-is-python3 \
           libssl-dev libncurses5-dev libncursesw5-dev redis libgtest-dev libgsl-dev libzmq3-dev \
-          protobuf-compiler numactl libnuma-dev
+          protobuf-compiler numactl libnuma-dev libgtest-dev
         
     # Optimized Homebrew installation
     - name: Install system dependencies (macOS)
