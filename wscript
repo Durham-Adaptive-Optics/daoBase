@@ -126,3 +126,4 @@ def build(bld):
 	if bld.options.test_flag:
 		bld.recurse('test')
 		bld.add_post_fun(waf_unit_test.summary)
+		bld.add_post_fun(waf_unit_test.set_exit_code) # make waf exit with failure code if a test fails (used for CI pipeline).
