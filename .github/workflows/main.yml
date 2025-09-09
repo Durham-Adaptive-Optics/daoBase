@@ -83,7 +83,8 @@ jobs:
           redis \
           gsl \
           zeromq \
-          protobuf
+          protobuf \
+          googletest
     
     - name: Set macOS environment variables
       if: runner.os == 'macOS'
