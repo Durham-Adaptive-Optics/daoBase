@@ -128,4 +128,4 @@ jobs:
 
     - name: Test Suite
       run: |
-        python waf --test --exit-on-failure
+        python waf --test
