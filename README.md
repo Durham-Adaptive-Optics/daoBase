@@ -1,4 +1,4 @@
-# daoBase 
+# daoBase [![CI Workflow](https://github.com/Durham-Adaptive-Optics/daoBase/actions/workflows/main.yml/badge.svg)](https://github.com/Durham-Adaptive-Optics/daoBase/actions/workflows/main.yml)
 basic tools for dao
 
 (for build instructions on Windows, see windows-build.md)
