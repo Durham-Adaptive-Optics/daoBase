@@ -2,7 +2,7 @@ name: Build and Test Project
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, Testing-Workflow]
   pull_request:
     branches: [ main ]
   workflow_dispatch:  # Allows manual triggering
@@ -65,7 +65,7 @@ jobs:
         sudo apt update
         sudo apt install -y libtool pkg-config build-essential autoconf automake python3 python-is-python3 \
           libssl-dev libncurses5-dev libncursesw5-dev redis libgtest-dev libgsl-dev libzmq3-dev \
-          protobuf-compiler numactl libnuma-dev
+          protobuf-compiler numactl libnuma-dev libgtest-dev
         
     # Optimized Homebrew installation
     - name: Install system dependencies (macOS)
@@ -83,7 +83,8 @@ jobs:
           redis \
           gsl \
           zeromq \
-          protobuf
+          protobuf \
+          googletest
     
     - name: Set macOS environment variables
       if: runner.os == 'macOS'
@@ -124,3 +125,7 @@ jobs:
         path: build/
         retention-days: 14
         if-no-files-found: warn
+
+    - name: Test Suite
+      run: |
+        python waf --test
