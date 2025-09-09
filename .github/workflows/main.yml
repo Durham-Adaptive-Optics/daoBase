@@ -2,7 +2,7 @@ name: Build and Test Project
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, Testing-Workflow]
   pull_request:
     branches: [ main ]
   workflow_dispatch:  # Allows manual triggering
