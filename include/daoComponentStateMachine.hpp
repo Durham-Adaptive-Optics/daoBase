@@ -180,7 +180,7 @@ namespace Dao
                 {Events::Run,       std::make_tuple<State,State,std::function<void()>>(State::Idle,    State::Running,  [&](){this->transition_Idle_Running();} )},
                 {Events::Idle,      std::make_tuple<State,State,std::function<void()>>(State::Running, State::Idle,     [&](){this->transition_Running_Idle();} )},
                 {Events::OnFailure, std::make_tuple<State,State,std::function<void()>>(State::Idle,    State::Error,    [&](){this->transition_Idle_Error();}   )},
-                {Events::OnFailure, std::make_tuple<State,State,std::function<void()>>(State::Running, State::Error,    [&](){this->transition_Idle_Error();}   )},
+                {Events::OnFailure, std::make_tuple<State,State,std::function<void()>>(State::Running, State::Error,    [&](){this->transition_Running_Error();})},
                 {Events::Recover,   std::make_tuple<State,State,std::function<void()>>(State::Error,   State::Idle,     [&](){this->transition_Error_Idle();}   )}
             };
 
