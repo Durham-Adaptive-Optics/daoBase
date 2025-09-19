@@ -896,8 +896,8 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
     else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
         memcpy(image->array.CD, (complex_double *)im, nbVal*sizeof(complex_double));
 
-    daoShmImagePart2ShmFinalize(image);
     image->md[0].write = 0;
+    daoShmImagePart2ShmFinalize(image);
 
     return DAO_SUCCESS;
 }
