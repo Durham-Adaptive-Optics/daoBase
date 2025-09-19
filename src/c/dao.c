@@ -897,6 +897,7 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
         memcpy(image->array.CD, (complex_double *)im, nbVal*sizeof(complex_double));
 
     daoShmImagePart2ShmFinalize(image);
+    image->md[0].write = 0;
 
     return DAO_SUCCESS;
 }
@@ -933,6 +934,8 @@ int_fast8_t daoShmImage2ShmQuiet(void *im, uint32_t nbVal, IMAGE *image)
         memcpy(image->array.CF, (complex_float *)im, nbVal*sizeof(complex_float));
     else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
         memcpy(image->array.CD, (complex_double *)im, nbVal*sizeof(complex_double));
+	
+    image->md[0].write = 0;
 
     return DAO_SUCCESS;
 }
