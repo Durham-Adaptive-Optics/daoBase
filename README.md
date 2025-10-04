@@ -1,8 +1,38 @@
 # daoBase [![CI Workflow](https://github.com/Durham-Adaptive-Optics/daoBase/actions/workflows/main.yml/badge.svg)](https://github.com/Durham-Adaptive-Optics/daoBase/actions/workflows/main.yml) [![DOI](https://zenodo.org/badge/506638374.svg)](https://doi.org/10.5281/zenodo.17264151)
 basic tools for dao
 
-(for build instructions on Windows, see windows-build.md)
+## Citation
 
+If you use this software in your research or work, please cite it using the following DOI:
+
+**DOI:** [10.5281/zenodo.17264152](https://doi.org/10.5281/zenodo.17264152)
+
+### BibTeX
+
+```bibtex
+@software{barr_2025_17264152,
+  author       = {Barr, David and
+                  Cetre, Sylvain and
+                  Connolly, John and
+                  Thomas Davies},
+  title        = {Durham-Adaptive-Optics/daoBase: Initial Release},
+  month        = oct,
+  year         = 2025,
+  publisher    = {Zenodo},
+  version      = {v0.0.1},
+  doi          = {10.5281/zenodo.17264152},
+  url          = {https://doi.org/10.5281/zenodo.17264152},
+  swhid        = {swh:1:dir:e28d715b004461ad5ac69d7ac13d5a4a0f8fc196
+                   ;origin=https://doi.org/10.5281/zenodo.17264151;vi
+                   sit=swh:1:snp:c39ecfb0c6dc79d3ad9523b5cdd88dc1a14f
+                   43e2;anchor=swh:1:rel:b822be04b6dda609af461bb157fc
+                   b1ec74853023;path=Durham-Adaptive-Optics-daoBase-
+                   ccd63ee
+                  },
+}
+```
+# Build
+(for build instructions on Windows, see windows-build.md)
 # Prerequiries
 ## Linux package
 Package for Redhat based distribution... to be adapted for other Linux distrib
