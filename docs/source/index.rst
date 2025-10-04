@@ -11,6 +11,7 @@ Welcome to Duraham Adaptive Optics's documentation!
    :caption: Contents:
 
    installation_guide
+   cite
    quick_start_guide
    OSSpecifics
    shared_memory
