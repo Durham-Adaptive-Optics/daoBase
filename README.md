@@ -1,6 +1,14 @@
 # daoBase [![CI Workflow](https://github.com/Durham-Adaptive-Optics/daoBase/actions/workflows/main.yml/badge.svg)](https://github.com/Durham-Adaptive-Optics/daoBase/actions/workflows/main.yml) [![DOI](https://zenodo.org/badge/506638374.svg)](https://doi.org/10.5281/zenodo.17264151)
 basic tools for dao
 
+## 📖 Documentation
+
+The complete documentation for installation, usage, and API reference can be found here:
+
+[**Read the Docs**](https://daobase.readthedocs.io/en/latest/)
+
+---
+
 ## Citation
 
 If you use this software in your research or work, please cite it using the following DOI:
@@ -31,6 +39,9 @@ If you use this software in your research or work, please cite it using the foll
                   },
 }
 ```
+
+---
+
 # Build
 (for build instructions on Windows, see windows-build.md)
 # Prerequiries
