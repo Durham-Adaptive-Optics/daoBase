@@ -5,7 +5,7 @@ Read/Write access to SHM. Tjhe old interface is still available as shmOld object
 '''
 import os, sys, struct
 import numpy as np
-import astropy.io.fits as pf
+# import astropy.io.fits as pf
 import time
 from threading import Thread
 from threading import Event
