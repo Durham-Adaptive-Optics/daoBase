@@ -1,7 +1,22 @@
 Installation Guide
 ==================
 
+
 This guide provides comprehensive installation instructions for DAO (Durham Adaptive Optics) on Linux, macOS, and Windows platforms.
+
+Get the source code
+===================
+
+The DAO source code is hosted on GitHub. The recommended way to obtain the code is to clone the repository with git. Below are a few common options — pick the one that suits your environment.
+
+Clone (SSH)
+-----------
+
+.. code-block:: bash
+
+   git clone git@github.com:Durham-Adaptive-Optics/daoBase.git ~/daoBase
+   cd ~/daoBase
+
 
 .. note::
    For Windows build instructions, see the dedicated :ref:`windows-installation` section below.
