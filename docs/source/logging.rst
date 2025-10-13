@@ -1,11 +1,3 @@
-/**
- * @ Author: Thomas N. Davies
- * @ Company: Centre for Advanced Instrumentation, Durham University
- * @ Contact: thomas.n.davies@durham.ac.uk
- * @ Create Time: 2025-10-09 15:55:11
- * @ Description: Documentation for the Dao logging system.
- */
-
 Logging
 =======
 
