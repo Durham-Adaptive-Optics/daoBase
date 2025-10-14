@@ -1,7 +1,7 @@
 .. DAO documentation master file
 
 Durham Adaptive Optics (DAO)
-=============================
+============================
 
 .. raw:: html
 
@@ -185,6 +185,27 @@ Documentation Guide
          </a>
       </div>
    </div>
+
+
+daolite - Durham Adaptive Optics Latency Investigation and Timing Estimator 
+===========================================================================
+
+Need help optimising your adaptive optics real-time control system? We've recently released daolite, a tool for modelling and reducing computational latency in AO systems. daolite lets you build complex pipelines from a library of hardware components, estimate timing for each stage, compare configurations across CPUs, GPUs, and network architectures, and rapidly iterate on designs to meet your real-time performance requirements.
+
+.. raw:: html
+
+   <div class="hero-section">
+      <img src="_static/daoliteLogoCrop.png" alt="daolite" class="hero-logo"/>
+      <div class="hero-text">
+        <p class="tagline">Model and optimise computational latency in Adaptive Optics real-time control systems.</p>
+        <p class="description">Estimate per-component timing, compare hardware configurations (CPUs, GPUs, network), and iterate on pipeline designs to meet real-time constraints.</p>
+        <div class="cta-buttons">
+           <a href="https://daobase.readthedocs.io/en/latest/index.html" class="cta-button">Documentation</a>
+           <a href="https://github.com/davetbarr/daolite" class="cta-button secondary">Github</a>
+        </div>
+      </div>
+   </div>
+
 
 .. toctree::
    :maxdepth: 2
