@@ -1,5 +1,5 @@
 Shared Memory 
-==================
+=============
 
 DAO is based on independent processes interacting via shared memory.
 
@@ -20,7 +20,7 @@ The Durham AO (DAO) system uses a shared memory architecture for efficient data 
 * Handle various data types for scientific computing
 
 Core Components
---------------
+---------------
 
 The shared memory system consists of several key components:
 
@@ -30,7 +30,7 @@ The shared memory system consists of several key components:
 4. **Cross-platform layer**: Abstracts system-specific implementations (POSIX vs Windows)
 
 Supported Data Types
--------------------
+--------------------
 
 The system supports the following data types:
 
@@ -39,7 +39,7 @@ The system supports the following data types:
 * Complex numbers (single and double precision)
 
 Creating Shared Memory
----------------------
+----------------------
 
 To create a shared memory segment:
 
@@ -55,7 +55,7 @@ To create a shared memory segment:
    shared_mem = shm("/tmp/example.im.shm", data)
 
 Accessing Shared Memory
-----------------------
+-----------------------
 
 To access an existing shared memory segment:
 
@@ -70,7 +70,7 @@ To access an existing shared memory segment:
    data = shared_mem.get_data()
 
 Synchronization Methods
-----------------------
+-----------------------
 
 The system provides two synchronization methods:
 
@@ -89,7 +89,7 @@ The system provides two synchronization methods:
       data = shared_mem.get_data(check=True, spin=True)
 
 Cross-Platform Implementation
-----------------------------
+-----------------------------
 
 The shared memory implementation varies by platform:
 
@@ -97,7 +97,7 @@ The shared memory implementation varies by platform:
 * **Windows**: Uses Windows file mapping objects, file handles, and system semaphores
 
 Metadata and Counters
---------------------
+---------------------
 
 Each shared memory segment maintains several important counters:
 
@@ -129,7 +129,7 @@ The shared memory segment consists of:
 4. Semaphores for synchronization
 
 Closing Shared Memory
---------------------
+---------------------
 
 To properly clean up resources:
 
@@ -141,7 +141,7 @@ To properly clean up resources:
 Additionally, the `__del__` method ensures resources are freed when the object is garbage collected.
 
 ZeroMQ Integration
------------------
+------------------
 
 The shared memory system can optionally integrate with ZeroMQ for network communication:
 
@@ -160,7 +160,7 @@ The shared memory system can optionally integrate with ZeroMQ for network commun
    remote_shm.subThread.start()
 
 C Interface
-----------
+-----------
 
 The Python interface is a wrapper around the C library functions. For C developers, the following key functions are available:
 
