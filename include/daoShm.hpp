@@ -92,9 +92,7 @@ namespace Dao
          */
         T* get_data(sync sync = sync::NONE, size_t semTimeout = 0) const {
             switch(sync) {
-                case sync::NONE: {
-                    [[fallthrough]];
-                } break;
+                case sync::NONE: {} break;
 
                 case sync::SPIN: {
                     if(daoShmWaitForCounter(&image_) != DAO_SUCCESS)
