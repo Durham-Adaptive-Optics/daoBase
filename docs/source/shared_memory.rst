@@ -24,7 +24,7 @@ Core Components
 
 The shared memory system consists of several key components:
 
-1. **IMAGE Structure**: The main container that holds metadata and points to the shared data array
+1. **IMAGE structure**: The main container that holds metadata and points to the shared data array
 2. **IMAGE_METADATA**: Contains information about the image dimensions, data type, timestamps, and counters
 3. **Semaphores**: Used for inter-process synchronization when data is updated
 4. **Cross-platform layer**: Abstracts system-specific implementations (POSIX vs Windows)
@@ -34,7 +34,7 @@ Supported Data Types
 
 The system supports the following data types:
 
-* Integer types (8, 16, 32, and 64 bit, signed and unsigned)
+* Integer types (8, 16, 32 and 64-bit, signed and unsigned)
 * Floating point types (single and double precision)
 * Complex numbers (single and double precision)
 
@@ -53,6 +53,8 @@ To create a shared memory segment:
    
    # Create shared memory with name "/tmp/example.im.shm"
    shared_mem = shm("/tmp/example.im.shm", data)
+
+Data arrays can be created with up to three axes.
 
 Accessing Shared Memory
 -----------------------
@@ -81,12 +83,16 @@ The system provides two synchronization methods:
       # Wait for update using semaphore 0
       data = shared_mem.get_data(check=True, semNb=0)
 
+By default, the shared memory is created with 10 separate semaphores for use by separate processes.
+
 2. **Polling on Counter**: Using the `daoShmWaitForCounter` function
    
    .. code-block:: python
       
       # Wait for update using counter (spin)
       data = shared_mem.get_data(check=True, spin=True)
+
+
 
 Cross-Platform Implementation
 -----------------------------
@@ -104,6 +110,9 @@ Each shared memory segment maintains several important counters:
 * `cnt0`: Incremented each time the image is updated
 * `cnt1`: In 3D rolling buffer images, indicates the last slice written
 * `cnt2`: In event mode, records the number of events
+
+Flags controlling or indicating the state of the shared memory are provided:
+* `write`: 1 if the SHM is currently being written, and 0 otherwise. Useful for verifying the integrity of data copied from SHM
 
 Timestamps are also recorded:
 
@@ -182,3 +191,7 @@ The Python interface is a wrapper around the C library functions. For C develope
    
    // Clean up
    int_fast8_t daoShmCloseShm(IMAGE *image);
+
+Additionally, the C interface provides partial write functions, which can be useful when working with packetised data over
+a network (e.g. receiving frames from GigE Vision cameras). Information on the complete C interface can be found in the
+Doxygen documentation.
