@@ -491,6 +491,7 @@ DLL_EXPORT int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int
 DLL_EXPORT int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
 DLL_EXPORT int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const struct timespec *timeout);
 DLL_EXPORT int_fast8_t daoShmWaitForCounter(IMAGE *image);
+DLL_EXPORT int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0);
 DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmCloseShm(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE *image);
