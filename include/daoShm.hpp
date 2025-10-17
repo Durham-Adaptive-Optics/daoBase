@@ -14,15 +14,15 @@
 #include <time.h>
 #include <dao.h>
 
-namespace Dao 
+namespace Dao
 {
     template <typename T>
-    class shm {
+    class Shm {
         public:
         /**
          * @brief Syncronization options when loading shared memory frame.
          */
-        enum class sync : int32_t {
+        enum class Sync : int32_t {
             SEM0 = 0, 
             SEM1, SEM2, SEM3,
             SEM4, SEM5, SEM6,
@@ -37,7 +37,7 @@ namespace Dao
          * @param nAxes Number of axes in the shared memory data frame.
          * @param shape Number of elements in each axis.
          */
-        shm(const std::string &name, T *initialData, long nAxes, uint32_t *shape) {
+        Shm(const std::string &name, T *initialData, long nAxes, uint32_t *shape) {
             const auto status = daoShmImageCreate(
                 &image_,
                 name.c_str(),
@@ -59,7 +59,7 @@ namespace Dao
          * @brief Open a pre-existing Dao shared memory.
          * @param name Shared memory name.
          */
-        shm(const std::string &name) {
+        Shm(const std::string &name) {
             const auto status = daoShmShm2Img(name.c_str(), &image_);
 
             if(status != DAO_SUCCESS)
@@ -70,7 +70,7 @@ namespace Dao
          * @brief Releases resources used in accessing the shared memory object,
          * however the object itself will still persist afterward.
          */
-        ~shm() {
+        ~Shm() {
             daoShmCloseShm(&image_);
         }
 
@@ -85,34 +85,60 @@ namespace Dao
         /**
          * @brief Retrieve a pointer to the shared memory frame array.
          * Optionally blocks until the next frame is written to shared memory.
-         * @param sync Synchronization option (see Dao::Shm::Sync for different options).
-         * @param semTimeout Timeout for when a semaphore sync option is used (in seconds).
+         * @param sync Synchronization option (see Dao::Shm::Sync).
          * @return Pointer to the shared memory frame array, or nullptr if synchronization
          * failed internally.
          */
-        T* get_data(sync sync = sync::NONE, size_t semTimeout = 0) const {
+        T* get_data(Sync sync = Sync::NONE) const {
             switch(sync) {
-                case sync::NONE: {} break;
+                case Sync::NONE: {} break;
 
-                case sync::SPIN: {
-                    if(daoShmWaitForCounter(&image_) != DAO_SUCCESS)
+                case Sync::SPIN: {
+                    const auto status = daoShmWaitForCounter(&image_);
+                    if(status != DAO_SUCCESS)
+                        return nullptr;
+                } break;
+
+                default: {
+                    const int32_t semNb = (sync == Sync::SEM) ? (int32_t)Sync::SEM0 : (int32_t)sync;
+                    const auto status = daoShmWaitForSemaphore(&image_, semNb);
+                    if(status != DAO_SUCCESS)
+                        return nullptr;
+                } break;
+            }
+            return (T*)image_.array.V;
+        }
+
+
+        /**
+         * @brief Retrieve a pointer to the shared memory frame array.
+         * Optionally blocks until the next frame is written to shared memory.
+         * @param sync Synchronization option (see Dao::Shm::Sync).
+         * @param syncValue Specifies the timeout (seconds) for the semaphore sync options, or the cnt0 value to sync on when using the SPIN sync option.
+         * @return Pointer to the shared memory frame array, or nullptr if synchronization
+         * failed internally.
+         */
+        T* get_data(Sync sync, size_t syncValue) const {
+            switch(sync) {
+                case Sync::NONE: {} break;
+
+                case Sync::SPIN: {
+                    const auto status = daoShmWaitForTargetCounter(&image_, syncValue);
+                    if(status != DAO_SUCCESS)
                         return nullptr;
                 } break;
 
                 default: {
                     timespec ts;
                     clock_gettime(CLOCK_REALTIME, &ts);
-                    ts.tv_sec += semTimeout;
+                    ts.tv_sec += syncValue;
 
-                    const int32_t semNb = (sync == sync::SEM) ? (int32_t)sync::SEM0 : (int32_t)sync;
-                    const auto status = semTimeout ? daoShmWaitForSemaphoreTimeout(&image_, semNb, &ts) :  
-                        daoShmWaitForSemaphore(&image_, semNb);
-
+                    const int32_t semNb = (sync == Sync::SEM) ? (int32_t)Sync::SEM0 : (int32_t)sync;
+                    const auto status = daoShmWaitForSemaphoreTimeout(&image_, semNb, &ts); 
                     if(status != DAO_SUCCESS)
                         return nullptr;
                 } break;
             }
-
             return (T*)image_.array.V;
         }
 
@@ -178,6 +204,9 @@ namespace Dao
             else if(std::is_same_v<T, complex_double>) return _DATATYPE_COMPLEX_DOUBLE;
         }
 
+        /*
+            === MEMBER VARIABLES ===
+        */
         IMAGE image_;
     };
 };
