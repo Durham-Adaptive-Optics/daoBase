@@ -47,6 +47,7 @@ namespace Dao
                 1, // shared memory
                 0 // no keywords
             );
+            md_ = (volatile IMAGE_METADATA *)image_.md;
             
             if(status != DAO_SUCCESS)
                 throw std::runtime_error("failed to create dao shared memory");
@@ -61,6 +62,7 @@ namespace Dao
          */
         Shm(const std::string &name) {
             const auto status = daoShmShm2Img(name.c_str(), &image_);
+            md_ = (volatile IMAGE_METADATA *)image_.md;
 
             if(status != DAO_SUCCESS)
                 throw std::runtime_error("failed to open dao shared memory");
@@ -79,7 +81,7 @@ namespace Dao
          * @param frameData Pointer to the frame array.
          */
         void set_data(const T *frameArray) {
-            daoShmImage2Shm(frameArray, image_.md->nelement, &image_);
+            daoShmImage2Shm((T*)frameArray, image_.md->nelement, &image_);
         }
 
         /**
@@ -89,7 +91,7 @@ namespace Dao
          * @return Pointer to the shared memory frame array, or nullptr if synchronization
          * failed internally.
          */
-        T* get_data(Sync sync = Sync::NONE) const {
+        T* get_data(Sync sync = Sync::NONE) {
             switch(sync) {
                 case Sync::NONE: {} break;
 
@@ -109,7 +111,6 @@ namespace Dao
             return (T*)image_.array.V;
         }
 
-
         /**
          * @brief Retrieve a pointer to the shared memory frame array.
          * Optionally blocks until the next frame is written to shared memory.
@@ -118,7 +119,7 @@ namespace Dao
          * @return Pointer to the shared memory frame array, or nullptr if synchronization
          * failed internally.
          */
-        T* get_data(Sync sync, size_t syncValue) const {
+        T* get_data(Sync sync, size_t syncValue) {
             switch(sync) {
                 case Sync::NONE: {} break;
 
@@ -143,12 +144,19 @@ namespace Dao
         }
 
         /**
+         * @brief Get element count.
+         * @return nelements.
+         */
+        uint64_t get_element_count() const {
+            return image_.md->nelement;
+        }
+
+        /**
          * @brief Get current metadata cnt0 value.
          * @return cnt0.
          */
         uint64_t get_counter() const {
-            volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA*)image_.md;
-            return md->cnt0;
+            return md_->cnt0;
         }
 
         /**
@@ -156,8 +164,7 @@ namespace Dao
          * @return cnt1.
          */
         uint64_t get_cnt1() const {
-            volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA*)image_.md;
-            return md->cnt1;
+            return md_->cnt1;
         }
 
         /**
@@ -165,8 +172,7 @@ namespace Dao
          * @return frame id (cnt2).
          */
         uint64_t get_frame_id() const {
-            volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA*)image_.md;
-            return md->cnt2;
+            return md_->cnt2;
         }
 
         /**
@@ -174,8 +180,7 @@ namespace Dao
          * @return Seconds since Unix epoch.
          */
         int64_t get_timestamp() const {
-            volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA*)image_.md;
-            return md->atime.tsfixed.secondlong;
+            return md_->atime.tsfixed.secondlong;
         }
 
         /**
@@ -207,7 +212,9 @@ namespace Dao
         /*
             === MEMBER VARIABLES ===
         */
-        IMAGE image_;
+       IMAGE image_;
+       volatile IMAGE_METADATA *md_;
+
     };
 };
 #endif // DAO_SHM_HPP
