@@ -168,10 +168,34 @@ The shared memory system can optionally integrate with ZeroMQ for network commun
    remote_shm.subEnable = True
    remote_shm.subThread.start()
 
+C++ Interface
+-----------
+
+For C++ developers, including the ``daoShm.hpp`` header provides access
+to the following shared memory interface:
+
+.. code-block:: cpp
+
+   // Create a shared memory segment.
+   Dao::Shm(const std::string &name, const Dao::Shape &shape, T *frame); // initialize frame.
+   Dao::Shm(const std::string &name, const Dao::Shape &shape);
+
+   // Open an exisiting shared memory segment.
+   Dao::Shm(const std::string &name);
+
+   // Write frame to shared memory.
+   Dao::Shm::set_frame(const T *frame);
+
+   // Get shared memory frame.
+   T* Dao::Shm::get_frame(Dao::ShmSync sync); // with synchronization.
+   T* Dao::Shm::get_frame(); // no synchronization.
+
+Information on the full C++ interface can be found in the Doxygen documentation.
+
 C Interface
 -----------
 
-The Python interface is a wrapper around the C library functions. For C developers, the following key functions are available:
+Both the C++ and Python interfaces are lightweight wrappers around the C library functions. For C developers, the following key functions are available:
 
 .. code-block:: c
 

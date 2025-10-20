@@ -203,7 +203,7 @@ Example Item Update:
     class ItemUpdate
     {
     public:
-        ItemUpdate(ShmIfce<T> * shm, DoubleBuffer<T>* buffer, 
+        ItemUpdate(Shm<T> *shm, DoubleBuffer<T>* buffer, 
                   std::string name, std::function<void()> callback = nullptr);
         
         void check_update(Log::Logger& logger);
@@ -328,8 +328,8 @@ Add shared memory items to the update thread:
 .. code-block:: cpp
 
     // In component constructor
-    ShmIfce<float> * shm = new ShmIfce<float>("data.im.shm");
-    DoubleBuffer<float> * buffer = new DoubleBuffer<float>(1024);
+    Shm<float> *shm = new Shm<float>("data.im.shm");
+    DoubleBuffer<float> *buffer = new DoubleBuffer<float>(1024);
     
     // Add to update thread
     m_update_thread->add(shm, buffer, "myData", [this](){
