@@ -45,7 +45,7 @@ TEST_F(Suite, CreateInit)
 {
     Dao::Shape shape{ 3,4,1 };
     int16_t frame[] = { 1,2,3,4,5,6,7,8,9,10,11,12 };
-    Dao::Shm smem(shmPath_, frame, shape);
+    Dao::Shm smem(shmPath_, shape, frame);
 
     IMAGE image {};
     ASSERT_EQ(daoShmShm2Img(shmPath_.c_str(), &image), DAO_SUCCESS);
@@ -64,7 +64,7 @@ TEST_F(Suite, CreateInit)
 TEST_F(Suite, CreateNoInit)
 {
     Dao::Shape shape{ 3,4,1 };
-    Dao::Shm<int16_t> smem(shmPath_, nullptr, shape);
+    Dao::Shm<int16_t> smem(shmPath_, shape);
 
     IMAGE image {};
     ASSERT_EQ(daoShmShm2Img(shmPath_.c_str(), &image), DAO_SUCCESS);
@@ -84,7 +84,6 @@ TEST_F(Suite, CreateError)
     EXPECT_ANY_THROW(
         Dao::Shm<int16_t> smem(
             "",
-            nullptr,
             { 3,4,1 }
         )
     );
@@ -121,12 +120,12 @@ TEST_F(Suite, OpenError)
  */
 TEST_F(Suite, ReadWrite)
 {
-    Dao::Shm<float> smem(shmPath_, nullptr, { 1,1 });
+    Dao::Shm<float> smem(shmPath_, { 1,1 });
 
     float frame[] = { 3.1415f };
-    smem.set_data(frame);
+    smem.set_frame(frame);
 
-    float *frame_ = smem.get_data();
+    float *frame_ = smem.get_frame();
     ASSERT_EQ(std::memcmp(frame, frame_, smem.get_element_count() * sizeof(float)), 0);
 }
 
@@ -137,15 +136,15 @@ TEST_F(Suite, SpinSync)
 {
     bool syncDone = false;
     float frame[] = { 3.1415f };
-    Dao::Shm<float> smem(shmPath_, nullptr, { 1,1 });
+    Dao::Shm<float> smem(shmPath_, { 1,1 });
 
     std::thread waiter ([&]() {
-        float *frame_ = smem.get_data(Dao::ShmSync::SPIN);
+        float *frame_ = smem.get_frame(Dao::ShmSync::SPIN);
         syncDone = true;
     });
 
     sleep(1);
-    smem.set_data(frame);
+    smem.set_frame(frame);
 
     sleep(1);
     ASSERT_EQ(syncDone, true);
@@ -159,15 +158,15 @@ TEST_F(Suite, SpinSyncTimeout)
 {
     bool syncDone = false;
     float frame[] = { 3.1415f };
-    Dao::Shm<float> smem(shmPath_, nullptr, { 1,1 });
+    Dao::Shm<float> smem(shmPath_, { 1,1 });
 
     std::thread waiter ([&]() {
-        float *frame_ = smem.get_data(Dao::ShmSync::SPIN, 1);
+        float *frame_ = smem.get_frame(Dao::ShmSync::SPIN, 1);
         syncDone = true;
     });
 
     sleep(1);
-    smem.set_data(frame);
+    smem.set_frame(frame);
 
     sleep(1);
     ASSERT_EQ(syncDone, true);
@@ -181,15 +180,15 @@ TEST_F(Suite, SemSync)
 {
     bool syncDone = false;
     float frame[] = { 3.1415f };
-    Dao::Shm<float> smem(shmPath_, nullptr, { 1,1 });
+    Dao::Shm<float> smem(shmPath_, { 1,1 });
 
     std::thread waiter ([&]() {
-        float *frame_ = smem.get_data(Dao::ShmSync::SEM);
+        float *frame_ = smem.get_frame(Dao::ShmSync::SEM);
         syncDone = true;
     });
 
     sleep(1);
-    smem.set_data(frame);
+    smem.set_frame(frame);
 
     sleep(1);
     ASSERT_EQ(syncDone, true);
@@ -203,11 +202,11 @@ TEST_F(Suite, SemSyncTimeout)
 {
     bool syncDone = false;
     float frame[] = { 3.1415f };
-    Dao::Shm<float> smem(shmPath_, nullptr, { 1,1 });
+    Dao::Shm<float> smem(shmPath_, { 1,1 });
 
     const size_t timeout = 1;
     std::thread waiter ([&]() {
-        float *frame_ = smem.get_data(Dao::ShmSync::SEM, timeout);
+        float *frame_ = smem.get_frame(Dao::ShmSync::SEM, timeout);
         syncDone = true;
     });
 
@@ -223,15 +222,15 @@ TEST_F(Suite, SemXSync)
 {
     bool syncDone = false;
     float frame[] = { 3.1415f };
-    Dao::Shm<float> smem(shmPath_, nullptr, { 1,1 });
+    Dao::Shm<float> smem(shmPath_, { 1,1 });
 
     std::thread waiter ([&]() {
-        float *frame_ = smem.get_data(Dao::ShmSync::SEM7);
+        float *frame_ = smem.get_frame(Dao::ShmSync::SEM7);
         syncDone = true;
     });
 
     sleep(1);
-    smem.set_data(frame);
+    smem.set_frame(frame);
 
     sleep(1);
     ASSERT_EQ(syncDone, true);
@@ -244,7 +243,7 @@ TEST_F(Suite, SemXSync)
 TEST_F(Suite, GetShape)
 {
     Dao::Shape shape{ 1, 1 };
-    Dao::Shm<float> smem(shmPath_, nullptr, shape);
+    Dao::Shm<float> smem(shmPath_, shape);
 
     Dao::Shape shape_ = smem.get_shape();
     ASSERT_EQ(shape.size(), shape_.size());

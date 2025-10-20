@@ -36,11 +36,10 @@ namespace Dao
         /**
          * @brief Create and open a Dao shared memory.
          * @param name Shared memory name.
-         * @param initialData Initial shared memory data frame.
-         * @param nAxes Number of axes in the shared memory data frame.
          * @param shape Dao::Shape containing number of elements in each axis.
+         * @param frame Initial shared memory data frame.
          */
-        Shm(const std::string &name, T *initialData, const Shape &shape) {
+        Shm(const std::string &name, const Dao::Shape &shape, T *frame = nullptr) {
             if(shape.size() != 2 && shape.size() != 3)
                 throw std::runtime_error("invalid dao shape");
 
@@ -58,8 +57,8 @@ namespace Dao
             if(status != DAO_SUCCESS)
                 throw std::runtime_error("failed to create dao shared memory");
 
-            if(initialData)
-                set_data(initialData);
+            if(frame)
+                set_frame(frame);
         }
 
         /**
@@ -84,10 +83,10 @@ namespace Dao
 
         /**
          * @brief Writes new frame array into the shared memory.
-         * @param frameData Pointer to the frame array.
+         * @param frame Pointer to the frame array.
          */
-        void set_data(const T *frameArray) {
-            daoShmImage2Shm((T*)frameArray, image_.md->nelement, &image_);
+        void set_frame(const T *frame) {
+            daoShmImage2Shm((T*)frame, image_.md->nelement, &image_);
         }
 
         /**
@@ -97,7 +96,7 @@ namespace Dao
          * @return Pointer to the shared memory frame array, or nullptr if synchronization
          * failed internally.
          */
-        T* get_data(ShmSync sync = ShmSync::NONE) {
+        T* get_frame(ShmSync sync = ShmSync::NONE) {
             switch(sync) {
                 case ShmSync::NONE: {} break;
 
@@ -123,7 +122,7 @@ namespace Dao
          * @return Pointer to the shared memory frame array, or nullptr if synchronization
          * failed internally.
          */
-        T* get_data(ShmSync sync, size_t syncValue) {
+        T* get_frame(ShmSync sync, size_t syncValue) {
             switch(sync) {
                 case ShmSync::NONE: {} break;
 
