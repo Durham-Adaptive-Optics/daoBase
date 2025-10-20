@@ -83,7 +83,7 @@ bld.program(
     lib = [ 'gtest', 'gtest_main'],
 	cxxflags = [''] + add_cxx_flags,
     ldflags=[f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
-    use=['ZMQ', 'PROTOBUF','daoNuma', 'daoProto']
+    use=['dao', 'ZMQ', 'PROTOBUF','daoNuma', 'daoProto']
     )
 
 bld.program(
