@@ -2180,17 +2180,19 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
 }
 
 /**
- * @brief Wait for new data in SHM by spining on SHM ocunter
+ * @brief Wait for new data in SHM by spining on SHM counter
  * 
  * @param image 
- * @return uint_fast64_t 
+ * @return int_fast8_t 
  */
 int_fast8_t daoShmWaitForCounter(IMAGE *image)
 {
     daoTrace("\n");
-#ifdef _WIN32
-    volatile uint_fast64_t counter = image->md[0].cnt0;
-	while (image->md[0].cnt0 <= counter)
+    volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA *)image->md;
+
+    #ifdef _WIN32
+    volatile uint_fast64_t counter = md->cnt0;
+	while (md->cnt0 <= counter)
 	{
 		// Spin
 	}
@@ -2199,16 +2201,45 @@ int_fast8_t daoShmWaitForCounter(IMAGE *image)
     struct timespec req, rem;
     req.tv_sec = 0;          // Seconds
     req.tv_nsec = 0; // Nanoseconds
-    while (image->md[0].cnt0 <= counter)
+    while (md->cnt0 <= counter)
     {
         // Spin
         if (nanosleep(&req, &rem) < 0) 
         {
             printf("Nanosleep interrupted\n");
-            return 1;
+            return DAO_ERROR;
         }
     }
 #endif
+    return DAO_SUCCESS;
+}
+
+/**
+ * @brief Wait for new data in SHM by spining until the provided SHM counter is reached or exceeded.
+ * 
+ * @param image 
+ * @param targetCnt0 The cnt0 value to spin until. 
+ * @return int_fast8_t 
+ */
+int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
+{
+    daoTrace("\n");
+
+    struct timespec req, rem;
+    req.tv_sec = 0;          // Seconds
+    req.tv_nsec = 0; // Nanoseconds
+
+    volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA *)image->md;
+    while (md->cnt0 < targetCnt0)
+    {
+        // Spin
+        if (nanosleep(&req, &rem) < 0) 
+        {
+            printf("Nanosleep interrupted\n");
+            return DAO_ERROR;
+        }
+    }
+
     return DAO_SUCCESS;
 }
 
