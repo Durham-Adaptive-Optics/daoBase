@@ -24,14 +24,14 @@ The following is a list of all the available severity levels:
 Python
 ------
 
-To use the Dao logging system within a Python application, import the following:
+To use the logging system within a Python application, import the following:
 
 .. code-block:: python
 
     from daoLog import daoLog
     import logging
 
-The example below demonstrates how to create a Dao logger and use it to output
+The example below demonstrates how to create a logger and use it to output
 logs to the standard output:
 
 .. code-block:: python
@@ -47,7 +47,7 @@ logs to the standard output:
     logger.critical("critical log")
 
 By default, the log severity threshold is set to ``TRACE``, therefore all severities
-will be included in the output. The following shows how to To adjust the logging granularity
+will be included in the output. The following shows how to adjust the logging granularity
 at runtime:
 
 .. code-block:: python
@@ -90,13 +90,13 @@ The C++ logging system queues log messages as they are issued by the application
 and routes them to the configured output destination on a dedicated background
 thread, minimizing overhead for real-time applications.
 
-To use the Dao logging system within your C++ application, include the following header:
+To use the logging system within your C++ application, include the following header:
 
 .. code-block:: cpp
 
     #include <daoLog.hpp>
 
-The following example shows how to create a Dao logger and output various logs
+The following example shows how to create a logger and output various logs
 to standard output:
 
 .. code-block:: cpp
@@ -110,9 +110,9 @@ to standard output:
     logger.Error("error log");
     logger.critical("critical log");
 
-Note that the trace and debug logs are omitted
-as the default severity threshold is the ``INFO`` level, thus filtering out
-lower-severity messages. The threshold can be adjusted at runtime depending on
+By default, the trace and debug logs will be omitted from the output
+as the default severity threshold is the ``INFO`` level and thus
+lower-severity messages are filtered out. The threshold can be adjusted at runtime depending on
 the desired granularity of the output, as shown below:
 
 .. code-block:: cpp
