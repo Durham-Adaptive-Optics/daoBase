@@ -94,7 +94,7 @@ conda install -c conda-forge libstdcxx-ng>=12 libgcc-ng>=12
 ```
 
 
-# Build
+# Complete Build
 (for build instructions on Windows, see windows-build.md)
 # Prerequiries
 ## Linux package
