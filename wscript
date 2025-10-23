@@ -76,7 +76,7 @@ def build(bld):
     # install python files
 	python_files = glob.glob('build/*.py')
 	for file in python_files:
-		bld.install_files(bld.env.PYTHONDIR, file, relative_trick=False)
+		bld.install_files(f'{bld.env.PYTHONDIR}/dao', file, relative_trick=False)
     # install python files
 	build_files = glob.glob('build_tools/*.py')
 	for file in build_files:

@@ -1,7 +1,7 @@
 import zmq
 import time
 import threading
-import daoEvent_pb2
+import dao.daoEvent_pb2 as daoEvent_pb2
 
 class EventManager:
     def __init__(self):

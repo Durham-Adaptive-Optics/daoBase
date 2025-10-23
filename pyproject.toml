@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dao"
+version = "0.0.9"
+description = "Durham Adaptive Optics DAO (native libs + protobuf via waf)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [{ name = "scetre" }]
+
+dependencies = [
+  "pyzmq",
+  "protobuf==3.20.0",
+  "astropy",
+  "python-statemachine",
+  "statemachine",
+  "redis",
+  "sphinx",
+  "screeninfo",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src/python"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src/python"]
+
+# ensure binary + generated files end up inside the wheel under dao/
+[tool.setuptools.package-data]
+dao = [
+  "*.so",
+  "*.dylib",
+  "*.dll",
+  "*_pb2.py",
+]

@@ -1,0 +1,8 @@
+include LICENSE
+include README.md
+include waf
+include wscript
+recursive-include include *.h *.hpp
+recursive-include src/c *.c *.cc *.cpp *.hpp
+recursive-include proto *.proto
+recursive-include build_tools *.py

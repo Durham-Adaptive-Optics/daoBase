@@ -6,7 +6,7 @@ import sys
 
 # this is the network logger. Maybe we can encapsulate this better. 
 import zmq
-import daoLogging_pb2
+import dao.daoLogging_pb2 as daoLogging_pb2 
 import time
 
 logging.TRACE = 5

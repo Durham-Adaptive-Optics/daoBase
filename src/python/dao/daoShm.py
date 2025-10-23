@@ -16,24 +16,75 @@ import datetime
 # ctypes interface for dao
 #
 import ctypes
+import pathlib
 import logging
 import dao.daoLog as daoLog
 
 # Load the shared library
 
 logFile = "/tmp/daolog.txt"
-if sys.platform == "linux" or sys.platform == "linux2":
-    daoLib = ctypes.CDLL('libdao.so')
-elif sys.platform == "darwin":
-    daoroot = os.getenv('DAOROOT')
-    daoLib = ctypes.CDLL(daoroot +'/lib/libdao.dylib')
-elif sys.platform == "win32":
-    # TODO - Add proper path
-    daoLibPath = os.path.join(os.getenv('DAOROOT'), 'lib', 'dao-0.dll')
-    daoLib = ctypes.WinDLL(daoLibPath)
-    logFile = "daolog.txt"
-else:
-    raise Exception("Unsupported platform")
+_pkg_dir = pathlib.Path(__file__).resolve().parent
+_RTLD = getattr(ctypes, "RTLD_GLOBAL", 0) | getattr(ctypes, "RTLD_NOW", 0)
+
+def _load_one(patterns):
+    """
+    Try package-local files first (handles versioned names), then system lookup.
+    If loading fails, raise with the first detailed OSError so we see missing deps.
+    """
+    first_err = None
+
+    # 1) package-local candidates (e.g., libdaoProto.so, libdaoProto.so.0.0.1)
+    for pat in patterns:
+        for p in sorted(_pkg_dir.glob(pat)):
+            try:
+                return ctypes.CDLL(str(p), mode=_RTLD)
+            except OSError as e:
+                if first_err is None:
+                    first_err = OSError(f"{p}: {e}")
+                # keep trying other candidates
+
+    # 2) system lookup as a last resort
+    from ctypes.util import find_library
+    for key in ("dao", "daoProto", "daoNuma"):
+        lib = find_library(key)
+        if lib:
+            try:
+                return ctypes.CDLL(lib, mode=_RTLD)
+            except OSError as e:
+                if first_err is None:
+                    first_err = OSError(f"{lib}: {e}")
+
+    if first_err is not None:
+        raise first_err
+    raise OSError(f"No candidates found for patterns {patterns} in {_pkg_dir}")
+
+
+# Windows: allow loading DLLs from the package dir
+if hasattr(os, "add_dll_directory"):  # Windows 3.8+
+    try:
+        os.add_dll_directory(str(_pkg_dir))
+    except Exception:
+        pass
+
+try:
+    if sys.platform.startswith("linux"):
+        _daoProto = _load_one(["libdaoProto.so", "libdaoProto.so*"])
+        _daoNuma  = _load_one(["libdaoNuma.so", "libdaoNuma.so*"])
+        daoLib    = _load_one(["libdao.so", "libdao.so*"])
+    elif sys.platform == "darwin":
+        _daoProto = _load_one(["libdaoProto.dylib", "libdaoProto.dylib*"])
+        _daoNuma  = _load_one(["libdaoNuma.dylib", "libdaoNuma.dylib*"])
+        daoLib    = _load_one(["libdao.dylib", "libdao.dylib*"])
+    elif sys.platform == "win32":
+        _daoProto = _load_one(["daoProto.dll"])
+        _daoNuma  = _load_one(["daoNuma.dll"])
+        daoLib    = _load_one(["dao.dll"])
+        logFile   = "daolog.txt"  # Windows path
+    else:
+        raise Exception("Unsupported platform")
+except OSError as e:
+    # Convert to a clearer exception with context
+    raise Exception(f"Failed to load DAO native libraries from {_pkg_dir}: {e}") from e
 
 # Add function prototype for daoSetLogLevel
 daoLib.daoSetLogLevel.argtypes = [ctypes.c_int]

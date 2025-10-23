@@ -5,7 +5,7 @@ from threading import Thread
 from threading import Event
 import time
 import yaml
-import daoCommand_pb2  # protobuf
+import dao.daoCommand_pb2 as daoCommand_pb2 # protobuf
 import zmq
 import statemachine
 import os

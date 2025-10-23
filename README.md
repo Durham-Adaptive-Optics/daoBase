@@ -42,6 +42,58 @@ If you use this software in your research or work, please cite it using the foll
 
 ---
 
+# Basic Build
+If you just want to use DAO in python, you can just use pip.
+
+```
+git clone git@github.com:Durham-Adaptive-Optics/daoBase.git
+cd daoBase
+pip install .
+```
+then in your python3 environement:
+```
+(base) daouser@scetre-MS-7D98:~$ ipython3
+Python 3.13.5 | packaged by Anaconda, Inc. | (main, Jun 12 2025, 16:09:02) [GCC 11.2.0]
+Type 'copyright', 'credits' or 'license' for more information
+IPython 9.6.0 -- An enhanced Interactive Python. Type '?' for help.
+Tip: You can change the editing mode of IPython to behave more like vi, or emacs.
+
+In [1]: import numpy as np
+
+In [2]: import dao
+
+In [3]: a=dao.shm('/tmp/test.im.shm', np.zeros((5,5)))
+[2025-10-23 08:06:03,208] [scetre-MS-7D98] - dao.daoShm [INFO] : /tmp/test.im.shm will be created or overwritten (daoShm.py:511)
+2025-10-23_10:06:03:208490 [info] dao.c:daoShmImageCreate:1234: shm name = test.im.shm
+2025-10-23_10:06:03:208500 [info] dao.c:daoShmImageCreate:1238: local name: test
+2025-10-23_10:06:03:208502 [info] dao.c:daoShmImageCreate:1278: Creation test_semlog
+2025-10-23_10:06:03:208553 [info] dao.c:daoShmImageCreate:1884: Creating Semaphores
+2025-10-23_10:06:03:208555 [info] dao.c:daoImageCreateSem:1056: shm name = test.im.shm
+2025-10-23_10:06:03:208556 [info] dao.c:daoImageCreateSem:1060: local name: test
+2025-10-23_10:06:03:208558 [info] dao.c:daoImageCreateSem:1104: Closing semaphore
+2025-10-23_10:06:03:208559 [info] dao.c:daoImageCreateSem:1111: Remove associated files
+2025-10-23_10:06:03:208615 [info] dao.c:daoImageCreateSem:1119: Done
+2025-10-23_10:06:03:208617 [info] dao.c:daoImageCreateSem:1132: malloc semptr 10 entries
+2025-10-23_10:06:03:208647 [info] dao.c:daoShmImageCreate:1886: Semaphores created
+
+In [4]: a.get_data()
+Out[4]:
+array([[0., 0., 0., 0., 0.],
+       [0., 0., 0., 0., 0.],
+       [0., 0., 0., 0., 0.],
+       [0., 0., 0., 0., 0.],
+       [0., 0., 0., 0., 0.]])
+```
+Depending of your python installation, you can have issue with GLIBC, if you see an error like 
+```
+/.../libstdc++.so.6: version `GLIBCXX_3.4.32' not found
+```
+in conda you can try to fix it with 
+```
+conda install -c conda-forge libstdcxx-ng>=12 libgcc-ng>=12
+```
+
+
 # Build
 (for build instructions on Windows, see windows-build.md)
 # Prerequiries
