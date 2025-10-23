@@ -93,9 +93,17 @@ def build(bld):
 	for file in files:
 		bld.install_files(bld.env.INCLUDEDIR, file, relative_trick=False)
 	# src
-	files = glob.glob('src/python/*.py')
-	for file in files:
-		bld.install_files(bld.env.PYTHONDIR, file, relative_trick=False)
+	# install the entire src/python/dao/ tree under ${PYTHONDIR}/dao/...
+	srcdir = bld.path.find_node('src/python')
+	bld.install_files(
+        '${PYTHONDIR}',
+        srcdir.ant_glob(
+            'dao/**',
+            excl=['**/__pycache__/**', '**/*.pyc', '**/*.pyo', '**/.DS_Store']
+        ),
+        cwd=srcdir,
+        relative_trick=True
+    )	
 
 	files = glob.glob('src/julia/*.jl')
 	for file in files:
