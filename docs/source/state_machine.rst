@@ -38,9 +38,9 @@ method and can thus be invoked concurrently from multiple threads; in the case o
 multiple simultaneous events being posted, one will be carried out and the rest ignored.
 
 Before performing a transition, the state machine validates whether the requested
-state change is permitted. If allowed, it invokes the exit hook of the current state,
-followed by the transition logic for this event, ending with the invocation of the
-new state's entry hook. However, if the transition is not permitted, then
+state change is permitted. If allowed, it invokes the **exit hook** of the current state,
+followed by the **transition logic** for this event, ending with the
+new state's **entry hook**. However, if the transition is not permitted, then
 the request is simply ignored.
 
 The state machine will catch any exceptions thrown by the current event's
@@ -52,23 +52,23 @@ The table below summarizes the available events and the state transitions that t
 +---------------+--------------------------------------------------------------+
 | **Event**     | **Purpose**                                                  |
 +===============+==============================================================+
-| ``Init``      | Initialize the object from the **Off** state into            |
+| **Init**      | Initialize the object from the **Off** state into            |
 |               | **Standby**.                                                 |
 +---------------+--------------------------------------------------------------+
-| ``Stop``      | Stop operation and return to the **Off** state.              |
+| **Stop**      | Stop operation and return to the **Off** state.              |
 +---------------+--------------------------------------------------------------+
-| ``Enable``    | Transition from **Standby** to **Idle**, enabling the object |
+| **Enable**    | Transition from **Standby** to **Idle**, enabling the object |
 |               | for operation.                                               |
 +---------------+--------------------------------------------------------------+
-| ``Disable``   | Transition from **Idle** to **Standby**, disabling operation.|
+| **Disable**   | Transition from **Idle** to **Standby**, disabling operation.|
 +---------------+--------------------------------------------------------------+
-| ``Run``       | Transition from **Idle** to **Running** to start processing. |
+| **Run**       | Transition from **Idle** to **Running** to start processing. |
 +---------------+--------------------------------------------------------------+
-| ``Idle``      | Transition from **Running** to **Idle** to stop processing.  |
+| **Idle**      | Transition from **Running** to **Idle** to stop processing.  |
 +---------------+--------------------------------------------------------------+
-| ``OnFailure`` | Triggered when a failure occurs, transitioning to **Error**. |
+| **OnFailure** | Triggered when a failure occurs, transitioning to **Error**. |
 +---------------+--------------------------------------------------------------+
-| ``Recover``   | Attempt recovery from **Error**, transitioning to **Idle**.  |
+| **Recover**   | Attempt recovery from **Error**, transitioning to **Idle**.  |
 +---------------+--------------------------------------------------------------+
 
 .. image:: _static/Statemachine.png
@@ -77,11 +77,6 @@ The table below summarizes the available events and the state transitions that t
 
 Custom Logic
 ------------
-
-Each state provides **entry** and **exit** hooks that are invoked whenever
-the state machine transitions into or out of that state. Additionally, 
-each permitted state change may define a **transition** function
-to encapsulate logic that should occur during that specific transition.
 
 Below are the available hooks and transitions that can be overridden by the
 user to implement custom logic during state transitions.
@@ -120,6 +115,10 @@ Transitions
 To customize the behavior of a state machine object, derive from the base
 state machine class and override the desired hooks or transition functions,
 as shown in the example below.
+
+Below is a code example that shows how to use the **Dao** C++ state machine class
+with custom behaviour for when the **Idle** state is entered and when the
+state changes from **Idle** to **Running**:
 
 .. code-block:: cpp
 
