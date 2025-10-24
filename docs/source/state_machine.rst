@@ -112,10 +112,6 @@ Transitions
     void transition_Running_Error() override;
     void transition_Error_Idle() override;
 
-To customize the behavior of a state machine object, derive from the base
-state machine class and override the desired hooks or transition functions,
-as shown in the example below.
-
 Below is a code example that shows how to use the **Dao** C++ state machine class
 with custom behaviour for when the **Idle** state is entered and when the
 state changes from **Idle** to **Running**:
