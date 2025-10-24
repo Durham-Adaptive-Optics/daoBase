@@ -6,11 +6,6 @@ Overview
 
 The DAO Component system provides a framework for building modular, state-driven applications. It implements a consistent component lifecycle model with well-defined states and transitions. Components communicate via ZeroMQ messaging and can share memory for high-performance data exchange.
 
-.. image:: _static/component_diagram.png
-   :width: 600px
-   :alt: Component Architecture
-   :align: center
-
 Component Architecture
 ----------------------
 
@@ -352,3 +347,56 @@ To handle custom commands, extend the ZmqThread functionality:
     };
     
     // Then use your custom thread in the component
+
+Python Developers
+-----------------
+
+**Dao** offers a Python component framework with the same state-driven architecture and lifecycle management as the C++ implementation. Python components can be controlled remotely via ZeroMQ using the standard interface commands, enabling high-performance, networked applications with seamless integration between Python and C++ components.
+
+Below is an example of how to get started: 
+
+.. code-block:: python
+
+    from daoComponent import daoComponent
+    from daoLog import daoLog
+
+    class ExampleProcessingComponent(daoComponent):
+        def __init__(self):
+            super().__init__(name="ExampleComponent", port=8100)
+            # Custom class initialization ...
+
+        def load_static_config(self):
+            # Load, parse and apply configuration data ...
+        
+        def load_dynamic_config(self):
+            # Allocate memory and other resources to prepare for running ...
+
+        def processingThread(self):
+            while not self.procThreadStop.is_set():
+                # Process real-time data ...
+    
+    if __name__ == "__main__":
+        daoLog(componentName)
+
+        // Create daoComponent object
+        myComponent = ExampleProcessingComponent()
+
+        // Initialize component
+        myComponent.Init();
+        
+        // Enable component
+        myComponent.Enable();
+        
+        // Start processing
+        myComponent.Run();
+        
+        // Later...
+        
+        // Stop processing
+        myComponent.Idle();
+        
+        // Disable component
+        myComponent.Disable();
+        
+        // Shut down
+        myComponent.Stop();
