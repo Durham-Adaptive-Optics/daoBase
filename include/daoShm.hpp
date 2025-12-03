@@ -196,7 +196,7 @@ namespace Dao
          * @brief Get shared memory metadata.
          * @return Poiter to shared memory metadata structure.
          */
-        const IMAGE_METADATA* get_meta_data() const { return image_.md; }
+        IMAGE_METADATA* get_meta_data() const { return image_.md; }
 
         private:
         /**
