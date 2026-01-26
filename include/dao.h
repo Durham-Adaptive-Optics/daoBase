@@ -66,9 +66,12 @@ void daoLogSetLevel(int log_level);
 #endif
 
 // original Log System
-#define DAO_SUCCESS     0
-#define DAO_ERROR       1
-#define DAO_TIMEOUT     -1
+#define DAO_SUCCESS                 0
+#define DAO_ERROR                   1
+#define DAO_TIMEOUT                -1
+#define DAO_NOT_REGISTERED         -2   /**< Reader not registered for semaphore */
+#define DAO_NO_SEMAPHORE_AVAILABLE -3   /**< All semaphore slots occupied */
+#define DAO_REGISTRATION_STOLEN    -4   /**< Semaphore stolen by another process */
 
 #define DAO_WARNING 0
 #define DAO_INFO 1
@@ -206,6 +209,30 @@ typedef struct
     double im;
 } complex_double;
 
+/** @brief Semaphore Registry Entry
+ * 
+ * Tracks which process owns which semaphore slot to prevent race conditions
+ * when multiple readers access the same shared memory.
+ */
+typedef struct
+{
+    uint8_t locked;                     /**< 0=free, 1=locked by a reader */
+#ifdef _WIN32
+    DWORD reader_pid;                   /**< Process ID of the reader */
+#else
+    pid_t reader_pid;                   /**< Process ID of the reader */
+#endif
+    char reader_name[64];               /**< Process/application name for debugging */
+    uint64_t last_read_cnt0;            /**< Last cnt0 value this reader saw */
+    struct timespec last_read_time;     /**< Timestamp of last successful read */
+    uint32_t read_count;                /**< Total successful reads */
+    uint32_t timeout_count;             /**< Number of timeouts */
+#ifdef DATA_PACKED
+} __attribute__ ((__packed__)) SEM_REGISTRY_ENTRY;
+#else
+} SEM_REGISTRY_ENTRY;
+#endif
+
 /** @brief Image metadata
  * 
  * This structure has a fixed size regardless of implementation when packed
@@ -332,6 +359,15 @@ typedef struct
         atomic_uint semCounter[IMAGE_NB_SEMAPHORE];
         atomic_uint semLogCounter;
 #endif
+    
+    /** @brief Semaphore registry for multi-reader synchronization
+     * 
+     * Tracks which process owns which semaphore to prevent race conditions.
+     * Protected by registry_lock semaphore (created as named semaphore like semlog).
+     */
+    SEM_REGISTRY_ENTRY sem_registry[IMAGE_NB_SEMAPHORE];
+    uint64_t registry_version;      /**< Incremented on each registry modification */
+    
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;
 #else
@@ -451,6 +487,26 @@ typedef struct          		/**< structure used to store data arrays              
     pid_t *semWritePID;
 #endif
 
+    /** @brief Registry lock semaphore
+     * 
+     * Protects atomic access to sem_registry in shared memory.
+     * Created as a named semaphore like semlog.
+     */
+#ifdef _WIN32
+    HANDLE registry_lock;
+#else
+    sem_t *registry_lock;
+#endif
+
+    /** @brief Local process tracking for semaphore registration
+     * 
+     * These fields are process-local and track this process's registration state.
+     */
+    int32_t my_semaphore_index;        /**< Registered semaphore index (-1 if not registered) */
+    uint8_t is_reader;                 /**< 1 if this process is a reader */
+    uint8_t is_writer;                 /**< 1 if this process is a writer */
+    char my_process_name[64];          /**< Cached process name for this process */
+
 #ifdef _WIN32
 	HANDLE shmfm;						/**< shared memory file mapping view handle */
 #endif
@@ -499,6 +555,123 @@ DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE *image);
 DLL_EXPORT int_fast8_t daoSemPost(IMAGE *image, int32_t semNb);
 DLL_EXPORT int_fast8_t daoSemPostAll(IMAGE *image);
 DLL_EXPORT int_fast8_t daoSemLogPost(IMAGE *image);
+
+/**
+ * @defgroup SemaphoreRegistry Semaphore Registry Functions
+ * @brief Functions for managing semaphore registration to prevent race conditions
+ * 
+ * The semaphore registry system prevents race conditions when multiple reader processes
+ * access the same shared memory buffer by tracking which process owns which semaphore.
+ * Each reader registers to receive a unique semaphore index, and the system automatically
+ * tracks process liveness and cleans up stale entries.
+ * 
+ * @{
+ */
+
+/**
+ * @brief Register a reader process and allocate a semaphore
+ * 
+ * Registers the calling process as a reader and allocates a unique semaphore from the
+ * pool of IMAGE_NB_SEMAPHORE (10) available semaphores. The function attempts to allocate
+ * the preferred semaphore if specified and available, otherwise finds the first free slot.
+ * 
+ * @param image Pointer to IMAGE structure
+ * @param process_name Name of the reader process (max 127 chars, truncated if longer)
+ * @param preferred_sem Preferred semaphore index (0-9), or -1 to auto-select
+ * @return Allocated semaphore index (0-9) on success, or negative error code:
+ *         - DAO_ERROR_SEMAPHORE_EXHAUSTED (-2): All semaphores are in use
+ *         - DAO_ERROR_INVALID_PARAMETER (-3): Invalid parameters
+ * 
+ * @note The function stores the allocated index in image->my_semaphore_index
+ * @note Process name and PID are automatically recorded in the registry
+ * @see daoShmUnregisterReader
+ */
+DLL_EXPORT int_fast8_t daoShmRegisterReader(IMAGE *image, const char *process_name, int32_t preferred_sem);
+
+/**
+ * @brief Unregister the current reader process and release its semaphore
+ * 
+ * Removes the calling process from the semaphore registry and marks its semaphore
+ * slot as available for reuse. This function should be called before closing the
+ * shared memory to properly clean up resources.
+ * 
+ * @param image Pointer to IMAGE structure
+ * @return DAO_SUCCESS (0) on success, or negative error code:
+ *         - DAO_ERROR_NOT_REGISTERED (-4): Process was not registered
+ * 
+ * @note Automatically called by daoShmCloseShm() if the process is registered
+ * @see daoShmRegisterReader
+ */
+DLL_EXPORT int_fast8_t daoShmUnregisterReader(IMAGE *image);
+
+/**
+ * @brief Validate that the reader's semaphore registration is still valid
+ * 
+ * Checks if the calling process still owns the semaphore it was assigned, and that
+ * another process hasn't taken it over. This validation should be performed before
+ * waiting on a semaphore to detect race conditions.
+ * 
+ * @param image Pointer to IMAGE structure
+ * @return DAO_SUCCESS (0) if registration is valid, or negative error code:
+ *         - DAO_ERROR_REGISTRATION_STOLEN (-5): Semaphore has been taken by another process
+ *         - DAO_ERROR_NOT_REGISTERED (-4): Process was not registered
+ * 
+ * @note Automatically called by daoShmWaitForSemaphore() and daoShmWaitForSemaphoreTimeout()
+ * @see daoShmRegisterReader
+ */
+DLL_EXPORT int_fast8_t daoShmValidateReaderRegistration(IMAGE *image);
+
+/**
+ * @brief Get information about all registered readers
+ * 
+ * Retrieves the complete semaphore registry, including information about which
+ * processes are registered to each semaphore, their PIDs, read counts, and timestamps.
+ * 
+ * @param image Pointer to IMAGE structure
+ * @param entries Array of SEM_REGISTRY_ENTRY to populate (must have IMAGE_NB_SEMAPHORE elements)
+ * @return Number of registered readers (0-10), or negative error code on failure
+ * 
+ * @note The entries array must be pre-allocated with space for IMAGE_NB_SEMAPHORE entries
+ * @note Only entries with is_locked=true contain valid reader information
+ */
+DLL_EXPORT int_fast8_t daoShmGetRegisteredReaders(IMAGE *image, SEM_REGISTRY_ENTRY *entries);
+
+/**
+ * @brief Force unlock a specific semaphore (administrative function)
+ * 
+ * Forcibly unlocks a semaphore and clears its registry entry. This is an administrative
+ * function that should be used with caution, typically only when a process has crashed
+ * and left a semaphore locked.
+ * 
+ * @param image Pointer to IMAGE structure
+ * @param semNb Semaphore index to unlock (0 to IMAGE_NB_SEMAPHORE-1)
+ * @return DAO_SUCCESS (0) on success, or negative error code:
+ *         - DAO_ERROR_INVALID_PARAMETER (-3): Invalid semaphore index
+ * 
+ * @warning This function bypasses normal locking mechanisms and should only be used
+ *          by administrative tools or in recovery scenarios
+ * @see daoShmCleanupStaleSemaphores
+ */
+DLL_EXPORT int_fast8_t daoShmForceUnlockSemaphore(IMAGE *image, int32_t semNb);
+
+/**
+ * @brief Clean up registry entries for dead processes
+ * 
+ * Scans the semaphore registry for entries where the registered process is no longer
+ * alive, and releases those semaphores for reuse. This function helps prevent semaphore
+ * exhaustion when reader processes terminate abnormally without unregistering.
+ * 
+ * @param image Pointer to IMAGE structure
+ * @return Number of stale entries cleaned up (0 or more), or negative error code on failure
+ * 
+ * @note This function should be called periodically by long-running writer processes
+ * @note On Windows, process liveness checking may have platform-specific behavior
+ * @see daoShmForceUnlockSemaphore
+ */
+DLL_EXPORT int_fast8_t daoShmCleanupStaleSemaphores(IMAGE *image);
+
+/** @} */ // end of SemaphoreRegistry group
+
 
 #ifdef __cplusplus
 }

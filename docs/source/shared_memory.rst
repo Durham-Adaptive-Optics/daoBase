@@ -92,6 +92,136 @@ By default, the shared memory is created with 10 separate semaphores for use by 
       # Wait for update using counter (spin)
       data = shared_mem.get_data(check=True, spin=True)
 
+Semaphore Registry System
+--------------------------
+
+To prevent race conditions when multiple readers access the same shared memory buffer, the system includes a semaphore registry that tracks which process is using which semaphore.
+
+**Key Features:**
+
+* Automatic semaphore allocation for each reader process
+* Process liveness tracking with automatic cleanup of stale entries
+* Validation to detect if semaphore ownership has been stolen
+* Statistics tracking (read count, timeout count) per reader
+* Thread-safe registry access with atomic locking
+
+**Registering as a Reader:**
+
+.. code-block:: python
+
+   from daoShm import shm
+   
+   # Open shared memory
+   reader = shm("/tmp/example.im.shm")
+   
+   # Register with custom name (optional)
+   sem_index = reader.register_reader("my_reader_process")
+   print(f"Allocated semaphore: {sem_index}")
+   
+   # Or request a specific semaphore (will get different one if taken)
+   sem_index = reader.register_reader("my_reader", preferred_sem=5)
+
+**Validating Registration:**
+
+.. code-block:: python
+
+   # Check if registration is still valid
+   if reader.validate_registration():
+       data = reader.get_data(check=True, semNb=sem_index)
+   else:
+       # Re-register if stolen
+       sem_index = reader.register_reader("my_reader")
+
+**Viewing Registered Readers:**
+
+.. code-block:: python
+
+   # Get list of all registered readers
+   readers = writer.get_registered_readers()
+   
+   for r in readers:
+       print(f"Semaphore {r['index']}: {r['reader_name']} (PID {r['reader_pid']})")
+       print(f"  Reads: {r['read_count']}, Timeouts: {r['timeout_count']}")
+
+**Administrative Functions:**
+
+.. code-block:: python
+
+   # Clean up semaphores from dead processes
+   cleaned = writer.cleanup_stale_semaphores()
+   print(f"Cleaned {cleaned} stale entries")
+   
+   # Force unlock a specific semaphore (use with caution)
+   writer.force_unlock_semaphore(3)
+
+**Automatic Cleanup:**
+
+The system automatically unregisters readers when the object is destroyed:
+
+.. code-block:: python
+
+   reader = shm("/tmp/example.im.shm")
+   reader.register_reader("temp_reader")
+   # ... use reader ...
+   # Automatically unregisters on del or garbage collection
+
+**C++ Interface:**
+
+.. code-block:: cpp
+
+   #include <daoShm.hpp>
+   
+   // Register reader
+   Dao::Shm<float> reader(shmPath);
+   int sem = reader.register_reader("cpp_reader");
+   
+   // Validate registration
+   if (reader.validate_registration()) {
+       float* data = reader.get_frame(Dao::ShmSync::SEM);
+   }
+   
+   // View registered readers
+   auto readers = reader.get_registered_readers();
+   for (const auto& entry : readers) {
+       std::cout << "Reader: " << entry.reader_name 
+                 << " PID: " << entry.reader_pid << std::endl;
+   }
+   
+   // Cleanup
+   reader.unregister_reader();
+
+**C Interface:**
+
+.. code-block:: c
+
+   #include <dao.h>
+   
+   IMAGE image;
+   daoShmShm2Img("/tmp/example.im.shm", &image);
+   
+   // Register reader
+   int32_t sem_index = daoShmRegisterReader(&image, "c_reader", -1);
+   if (sem_index < 0) {
+       // Handle error
+   }
+   
+   // Validate registration
+   int_fast8_t valid = daoShmValidateReaderRegistration(&image);
+   if (valid == DAO_SUCCESS) {
+       daoShmWaitForSemaphore(&image, sem_index);
+   }
+   
+   // Get registered readers
+   SEM_REGISTRY_ENTRY entries[IMAGE_NB_SEMAPHORE];
+   int_fast8_t count = daoShmGetRegisteredReaders(&image, entries);
+   
+   // Cleanup stale entries
+   int_fast8_t cleaned = daoShmCleanupStaleSemaphores(&image);
+   
+   // Unregister
+   daoShmUnregisterReader(&image);
+   daoShmCloseShm(&image);
+
 
 
 Cross-Platform Implementation
@@ -128,7 +258,7 @@ Accessing timestamp data:
    timestamp = shared_mem.get_timestamp()
 
 Memory Layout
-------------
+-------------
 
 The shared memory segment consists of:
 
@@ -169,7 +299,7 @@ The shared memory system can optionally integrate with ZeroMQ for network commun
    remote_shm.subThread.start()
 
 C++ Interface
------------
+-------------
 
 For C++ developers, including the ``daoShm.hpp`` header provides access
 to the following shared memory interface:
@@ -212,6 +342,14 @@ Both the C++ and Python interfaces are lightweight wrappers around the C library
    // Wait for updates
    int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
    int_fast8_t daoShmWaitForCounter(IMAGE *image);
+   
+   // Semaphore registry functions
+   int32_t daoShmRegisterReader(IMAGE *image, const char *reader_name, int32_t preferred_sem);
+   int_fast8_t daoShmUnregisterReader(IMAGE *image);
+   int_fast8_t daoShmValidateReaderRegistration(IMAGE *image);
+   int_fast8_t daoShmGetRegisteredReaders(IMAGE *image, SEM_REGISTRY_ENTRY *entries);
+   int_fast8_t daoShmForceUnlockSemaphore(IMAGE *image, int32_t semaphore_index);
+   int_fast8_t daoShmCleanupStaleSemaphores(IMAGE *image);
    
    // Clean up
    int_fast8_t daoShmCloseShm(IMAGE *image);

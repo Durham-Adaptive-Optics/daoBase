@@ -68,6 +68,9 @@ addr=f"tcp://{ip}:{port}"
 logger = daoLog.daoLog(__name__, filename=logFile)
 log = logging.getLogger(__name__)
 
+# Constants from dao.h
+IMAGE_NB_SEMAPHORE = 10  # Number of semaphores per image
+
 def struct2Dict(structure):
     result = {}
     for field in structure._fields_:
@@ -192,6 +195,18 @@ class TIMESPECFIXED(ctypes.Structure):
         ('secondlong', ctypes.c_int64)
     ]
 
+class SEM_REGISTRY_ENTRY(ctypes.Structure):
+    """Semaphore registry entry for tracking reader ownership"""
+    _fields_ = [
+        ("locked", ctypes.c_uint8),
+        ("reader_pid", ctypes.c_int32 if sys.platform == "win32" else ctypes.c_int32),
+        ("reader_name", ctypes.c_char * 64),
+        ("last_read_cnt0", ctypes.c_uint64),
+        ("last_read_time", timespec),
+        ("read_count", ctypes.c_uint32),
+        ("timeout_count", ctypes.c_uint32)
+    ]
+
 class IMAGE_KEYWORD(ctypes.Structure):
     _fields_ = [
         ("name", ctypes.c_char * 16),
@@ -232,7 +247,11 @@ if sys.platform == "Darwin":
             ("lastNb", ctypes.c_uint32),
             ("packetNb", ctypes.c_uint32),
             ("packetTotal", ctypes.c_uint32),
-            ("lastNbArray", ctypes.c_uint64 * 512)
+            ("lastNbArray", ctypes.c_uint64 * 512),
+            ("semCounter", ctypes.c_uint32 * 10),
+            ("semLogCounter", ctypes.c_uint32),
+            ("sem_registry", SEM_REGISTRY_ENTRY * 10),
+            ("registry_version", ctypes.c_uint64)
         ]
 else:
     # Define the IMAGE_METADATA structure
@@ -267,7 +286,9 @@ else:
             ("packetTotal", ctypes.c_uint32),
             ("lastNbArray", ctypes.c_uint64 * 512),
             ("semCounter", ctypes.c_uint32 * 10),
-            ("semLogCounter", ctypes.c_uint32)
+            ("semLogCounter", ctypes.c_uint32),
+            ("sem_registry", SEM_REGISTRY_ENTRY * 10),
+            ("registry_version", ctypes.c_uint64)
         ]
     
 
@@ -303,6 +324,11 @@ if sys.platform == "win32":
             ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
             ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
             ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
+            ('registry_lock', ctypes.POINTER(ctypes.c_void_p)),
+            ('my_semaphore_index', ctypes.c_int32),
+            ('is_reader', ctypes.c_uint8),
+            ('is_writer', ctypes.c_uint8),
+            ('my_process_name', ctypes.c_char * 64),
             ('shmfm', ctypes.POINTER(ctypes.c_void_p))
         ]
 else:
@@ -336,7 +362,12 @@ else:
             ('semptr', ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))),
             ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
             ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
-            ('semWritePID', ctypes.POINTER(ctypes.c_int32))
+            ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
+            ('registry_lock', ctypes.POINTER(ctypes.c_void_p)),
+            ('my_semaphore_index', ctypes.c_int32),
+            ('is_reader', ctypes.c_uint8),
+            ('is_writer', ctypes.c_uint8),
+            ('my_process_name', ctypes.c_char * 64)
         ]
 
 class shm:
@@ -451,8 +482,48 @@ class shm:
         self.daoShmCloseShm = daoLib.daoShmCloseShm
         self.daoShmCloseShm.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmCloseShm.restype = ctypes.c_int8
+        
+        # Semaphore Registry API
+        self.daoShmRegisterReader = daoLib.daoShmRegisterReader
+        self.daoShmRegisterReader.argtypes = [
+            ctypes.POINTER(IMAGE),
+            ctypes.c_char_p,
+            ctypes.c_int32
+        ]
+        self.daoShmRegisterReader.restype = ctypes.c_int8
+        
+        self.daoShmUnregisterReader = daoLib.daoShmUnregisterReader
+        self.daoShmUnregisterReader.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmUnregisterReader.restype = ctypes.c_int8
+        
+        self.daoShmValidateReaderRegistration = daoLib.daoShmValidateReaderRegistration
+        self.daoShmValidateReaderRegistration.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmValidateReaderRegistration.restype = ctypes.c_int8
+        
+        self.daoShmGetRegisteredReaders = daoLib.daoShmGetRegisteredReaders
+        self.daoShmGetRegisteredReaders.argtypes = [
+            ctypes.POINTER(IMAGE),
+            ctypes.POINTER(SEM_REGISTRY_ENTRY)
+        ]
+        self.daoShmGetRegisteredReaders.restype = ctypes.c_int8
+        
+        self.daoShmForceUnlockSemaphore = daoLib.daoShmForceUnlockSemaphore
+        self.daoShmForceUnlockSemaphore.argtypes = [
+            ctypes.POINTER(IMAGE),
+            ctypes.c_int32
+        ]
+        self.daoShmForceUnlockSemaphore.restype = ctypes.c_int8
+        
+        self.daoShmCleanupStaleSemaphores = daoLib.daoShmCleanupStaleSemaphores
+        self.daoShmCleanupStaleSemaphores.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmCleanupStaleSemaphores.restype = ctypes.c_int8
 
         self.image=IMAGE()
+        
+        # Initialize local registration tracking
+        self._my_semaphore = -1
+        self._registered = False
+        
         if fname == '':
             log.error("Need at least a SHM name")
         elif data is not None:
@@ -471,6 +542,14 @@ class shm:
         else:
             # log.info("loading existing %s " % (fname))
             result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
+            # Auto-register as reader for backward compatibility
+            try:
+                import os
+                process_name = os.path.basename(sys.argv[0]) if sys.argv else "python_reader"
+                self._my_semaphore = self.register_reader(process_name)
+                log.info(f"Auto-registered as reader with semaphore {self._my_semaphore}")
+            except Exception as e:
+                log.warning(f"Failed to auto-register reader: {e}")
         # Publisher
         self.pubPort = pubPort
         self.pubContext = 0# zmq.Context()
@@ -647,6 +726,183 @@ class shm:
         self.subSocket.close()
         self.subContext.term()
 
+    def register_reader(self, process_name=None, preferred_sem=-1):
+        ''' --------------------------------------------------------------
+        Register as a reader for this shared memory buffer.
+        
+        This function allocates a dedicated semaphore for this reader process,
+        preventing race conditions when multiple readers access the same buffer.
+        
+        Parameters:
+            process_name: str, optional
+                Custom name for this reader process. If None, uses the actual
+                process name from the OS.
+            preferred_sem: int, optional
+                Preferred semaphore index (0-9). If -1 or unavailable, 
+                automatically finds a free semaphore.
+                
+        Returns:
+            int: The allocated semaphore index (0-9)
+            
+        Raises:
+            RuntimeError: If registration fails (no semaphores available,
+                         or registration was stolen by another process)
+        -------------------------------------------------------------- '''
+        if self._registered:
+            # Already registered, return current semaphore
+            return self._my_semaphore
+            
+        # Convert process_name to bytes if provided
+        proc_name_bytes = None
+        if process_name is not None:
+            proc_name_bytes = process_name.encode('utf-8')
+            
+        # Call C function
+        sem_index = self.daoShmRegisterReader(
+            ctypes.byref(self.image),
+            proc_name_bytes,
+            ctypes.c_int(preferred_sem)
+        )
+        
+        if sem_index < 0:
+            if sem_index == -3:  # DAO_NO_SEMAPHORE_AVAILABLE
+                raise RuntimeError("No semaphores available - all 10 slots are in use")
+            elif sem_index == -4:  # DAO_REGISTRATION_STOLEN
+                raise RuntimeError("Registration was stolen by another process")
+            else:
+                raise RuntimeError(f"Failed to register reader: error code {sem_index}")
+                
+        # Update local state
+        self._my_semaphore = sem_index
+        self._registered = True
+        return sem_index
+
+    def unregister_reader(self):
+        ''' --------------------------------------------------------------
+        Unregister this reader and release its semaphore.
+        
+        This should be called when the reader no longer needs to access
+        the shared memory, allowing other readers to use the semaphore slot.
+        
+        Returns:
+            int: 0 on success, negative error code on failure
+        -------------------------------------------------------------- '''
+        if not self._registered:
+            return 0  # Not registered, nothing to do
+            
+        result = self.daoShmUnregisterReader(ctypes.byref(self.image))
+        
+        if result == 0:
+            self._my_semaphore = -1
+            self._registered = False
+            
+        return result
+
+    def validate_registration(self):
+        ''' --------------------------------------------------------------
+        Validate that this reader's registration is still valid.
+        
+        Checks that our process still owns the semaphore slot we registered for.
+        This is a quick check that doesn't involve acquiring locks.
+        
+        Returns:
+            bool: True if registration is valid, False otherwise
+        -------------------------------------------------------------- '''
+        if not self._registered:
+            return False
+            
+        result = self.daoShmValidateReaderRegistration(ctypes.byref(self.image))
+        
+        if result != 0:
+            # Registration is invalid - clear local state
+            self._my_semaphore = -1
+            self._registered = False
+            return False
+            
+        return True
+
+    def get_registered_readers(self):
+        ''' --------------------------------------------------------------
+        Get information about all currently registered readers.
+        
+        Returns a list of dictionaries, one per registered reader, containing:
+        - locked: True if semaphore is in use
+        - reader_pid: Process ID of the reader
+        - reader_name: Name of the reader process
+        - last_read_cnt0: Counter value at last read
+        - last_read_time: Timestamp of last read
+        - read_count: Total number of successful reads
+        - timeout_count: Number of timeouts
+        
+        Returns:
+            list: List of dictionaries with reader information
+        -------------------------------------------------------------- '''
+        # Allocate array for registry entries
+        registry_array = (SEM_REGISTRY_ENTRY * IMAGE_NB_SEMAPHORE)()
+        
+        # Call C function
+        result = self.daoShmGetRegisteredReaders(
+            ctypes.byref(self.image),
+            registry_array
+        )
+        
+        if result < 0:
+            return []
+            
+        # Convert to list of dicts
+        readers = []
+        for i in range(IMAGE_NB_SEMAPHORE):
+            entry = registry_array[i]
+            if entry.locked:
+                readers.append({
+                    'index': i,
+                    'locked': bool(entry.locked),
+                    'reader_pid': entry.reader_pid,
+                    'reader_name': entry.reader_name.decode('utf-8', errors='ignore').rstrip('\x00'),
+                    'last_read_cnt0': entry.last_read_cnt0,
+                    'last_read_time': entry.last_read_time,
+                    'read_count': entry.read_count,
+                    'timeout_count': entry.timeout_count
+                })
+                
+        return readers
+
+    def force_unlock_semaphore(self, semNb):
+        ''' --------------------------------------------------------------
+        Force unlock a semaphore slot (administrative function).
+        
+        WARNING: This should only be used for administrative/debugging
+        purposes. Forcefully unlocking a semaphore that is actively in use
+        can cause race conditions.
+        
+        Parameters:
+            semNb: int
+                Semaphore index (0-9) to force unlock
+                
+        Returns:
+            int: 0 on success, negative error code on failure
+        -------------------------------------------------------------- '''
+        if semNb < 0 or semNb >= IMAGE_NB_SEMAPHORE:
+            raise ValueError(f"Invalid semaphore number {semNb}, must be 0-{IMAGE_NB_SEMAPHORE-1}")
+            
+        return self.daoShmForceUnlockSemaphore(
+            ctypes.byref(self.image),
+            ctypes.c_int(semNb)
+        )
+
+    def cleanup_stale_semaphores(self):
+        ''' --------------------------------------------------------------
+        Clean up semaphore registrations from dead processes.
+        
+        Scans the registry and removes entries for processes that are
+        no longer running. This helps prevent semaphore exhaustion from
+        crashed processes.
+        
+        Returns:
+            int: Number of stale entries cleaned up, or negative error code
+        -------------------------------------------------------------- '''
+        return self.daoShmCleanupStaleSemaphores(ctypes.byref(self.image))
+
     def close(self):
         ''' --------------------------------------------------------------
         Close the SHM file.
@@ -661,6 +917,9 @@ class shm:
         This method is automatically called when the object is garbage collected.
         -------------------------------------------------------------- '''
         try:
+            # Unregister reader if registered
+            if hasattr(self, '_registered') and self._registered:
+                self.unregister_reader()
             # Only call close if the image has been used/initialized
             if hasattr(self, 'image') and self.image.used:
                 self.close()

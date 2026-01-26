@@ -62,6 +62,7 @@ static int clock_gettime(int clk_id, struct timespec *t)
 
 #ifdef __APPLE__
 #include <stdatomic.h>
+#include <libproc.h>
 #endif
 
 // #ifdef __MACH__
@@ -303,6 +304,106 @@ int NBIMAGES = 10;
 //	daoWarning("This is a warning with test2 - %d", test2);
 //	return 0;
 //}
+
+/**
+ * @brief Check if a process is still alive
+ * 
+ * @param pid Process ID to check
+ * @return 1 if alive, 0 if dead, -1 on error
+ */
+static int_fast8_t daoIsProcessAlive(
+#ifdef _WIN32
+    DWORD pid
+#else
+    pid_t pid
+#endif
+)
+{
+    if (pid == 0) {
+        return 0; // Invalid PID
+    }
+    
+#ifdef _WIN32
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (hProcess == NULL) {
+        return 0; // Process doesn't exist or no permission
+    }
+    DWORD exitCode;
+    BOOL result = GetExitCodeProcess(hProcess, &exitCode);
+    CloseHandle(hProcess);
+    return (result && exitCode == STILL_ACTIVE) ? 1 : 0;
+#else
+    // Use kill with signal 0 to check if process exists
+    if (kill(pid, 0) == 0) {
+        return 1; // Process exists
+    }
+    return (errno == EPERM) ? 1 : 0; // EPERM means process exists but we don't have permission
+#endif
+}
+
+/**
+ * @brief Get the name of a process from its PID
+ * 
+ * @param pid Process ID
+ * @param name Output buffer for process name
+ * @param max_len Maximum length of output buffer
+ */
+static void daoGetProcessName(
+#ifdef _WIN32
+    DWORD pid,
+#else
+    pid_t pid,
+#endif
+    char *name,
+    size_t max_len
+)
+{
+    if (name == NULL || max_len == 0) {
+        return;
+    }
+    
+    // Default to PID if we can't get the name
+    snprintf(name, max_len, "pid_%d", (int)pid);
+    
+#ifdef __linux__
+    char path[256];
+    snprintf(path, sizeof(path), "/proc/%d/comm", (int)pid);
+    FILE *f = fopen(path, "r");
+    if (f) {
+        if (fgets(name, max_len, f) != NULL) {
+            // Remove trailing newline
+            name[strcspn(name, "\n")] = 0;
+        }
+        fclose(f);
+    }
+#elif defined(__APPLE__)
+    // macOS: try to get process name
+    char path[PROC_PIDPATHINFO_MAXSIZE];
+    if (proc_pidpath(pid, path, sizeof(path)) > 0) {
+        // Extract just the filename from the full path
+        char *basename = strrchr(path, '/');
+        if (basename != NULL) {
+            strncpy(name, basename + 1, max_len - 1);
+            name[max_len - 1] = '\0';
+        }
+    }
+#elif defined(_WIN32)
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (hProcess != NULL) {
+        char fullPath[MAX_PATH];
+        DWORD size = sizeof(fullPath);
+        if (QueryFullProcessImageNameA(hProcess, 0, fullPath, &size)) {
+            // Extract just the filename from the full path
+            char *basename = strrchr(fullPath, '\\');
+            if (basename != NULL) {
+                strncpy(name, basename + 1, max_len - 1);
+                name[max_len - 1] = '\0';
+            }
+        }
+        CloseHandle(hProcess);
+    }
+#endif
+}
 
 #ifdef _WIN32
 
@@ -781,6 +882,14 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         {
             daoWarning("could not open semaphore %s\n", shmSemName);
         }
+        
+        // Open registry lock semaphore
+        sprintf(shmSemName, "Local\\DAO_%s_registry_lock", localName);
+        MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+        if ((image->registry_lock = CreateSemaphoreW(saShm, 0, 1, wideShmSemName)) == NULL) 
+        {
+            daoWarning("could not open registry_lock semaphore %s\n", shmSemName);
+        }
 
 		daoDestroyWindowsSecurityAttrs(saShm, dacl);
 #else
@@ -819,7 +928,21 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         {
             daoWarning("could not open semaphore %s\n", shmSemName);
         }
+        
+        // Open registry lock semaphore
+        sprintf(shmSemName, "%s_registry_lock", localName);
+        if ((image->registry_lock = sem_open(shmSemName, 0, 0644, 0))== SEM_FAILED) 
+        {
+            daoWarning("could not open registry_lock semaphore %s\n", shmSemName);
+        }
 #endif
+        
+        // Initialize local process tracking fields
+        image->my_semaphore_index = -1;
+        image->is_reader = 0;
+        image->is_writer = 0;
+        memset(image->my_process_name, 0, sizeof(image->my_process_name));
+        
         free(nameCopy);
     }
     return(rval);
@@ -1272,6 +1395,17 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 			fprintf(stderr, "semaphore initialization error: %d\n", GetLastError());
 		}
 		ReleaseSemaphore(image->semlog, 1, NULL);
+		
+		// Create registry lock semaphore
+		daoInfo("Creation Local\\DAO_%s_registry_lock\n", semFName);
+		sprintf(shmSemName, "Local\\DAO_%s_registry_lock", semFName);
+		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+		image->registry_lock = NULL;
+		if (!(image->registry_lock = CreateSemaphoreW(saSem, 1, 1, wideShmSemName))) {
+			DWORD last_error = GetLastError();
+			fprintf(stderr, "registry_lock semaphore initialization error: %d\n", GetLastError());
+		}
+		
 		daoDestroyWindowsSecurityAttrs(saSem, daclSem);
 
 #else
@@ -1286,6 +1420,20 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         else
         {
             sem_init(image->semlog, 1, 0);
+        }
+        
+        // Create registry lock semaphore
+        daoInfo("Creation %s_registry_lock\n", semFName);
+        sprintf(shmSemName, "%s_registry_lock", semFName);
+        remove(shmSemName);
+        image->registry_lock = NULL;
+        if ((image->registry_lock = sem_open(shmSemName, O_CREAT, 0644, 1)) == SEM_FAILED)
+        {
+            perror("registry_lock semaphore creation / initialization");
+        }
+        else
+        {
+            sem_init(image->registry_lock, 1, 1); // Initialize to 1 (unlocked)
         }
 #endif
 
@@ -1896,6 +2044,17 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         atomic_store(&image->md[0].semLogCounter, 0);
 #endif
+        
+        // Initialize semaphore registry
+        daoInfo("Initializing semaphore registry\n");
+        memset(image->md->sem_registry, 0, sizeof(SEM_REGISTRY_ENTRY) * IMAGE_NB_SEMAPHORE);
+        image->md->registry_version = 0;
+        
+        // Initialize local process tracking fields
+        image->my_semaphore_index = -1;
+        image->is_reader = 0;
+        image->is_writer = 1; // This is the writer process
+        memset(image->my_process_name, 0, sizeof(image->my_process_name));
     }
     else
     {
@@ -2070,6 +2229,18 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
 int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 {
     daoTrace("\n");
+    
+    // Validate registration if semNb < IMAGE_NB_SEMAPHORE (using registry)
+    if (semNb < IMAGE_NB_SEMAPHORE) {
+        int validation = daoShmValidateReaderRegistration(image);
+        if (validation < 0) {
+            daoError("Reader registration validation failed: %d\n", validation);
+            return validation;
+        }
+        // Use registered semaphore instead of passed parameter
+        semNb = image->my_semaphore_index;
+    }
+    
     // Wait for new image
 #ifdef _WIN32
     DWORD dWaitResult = WaitForSingleObject(image->semptr[semNb], INFINITE);
@@ -2101,6 +2272,28 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
     sem_wait(image->semptr[semNb]);
 #endif
 
+    // Update statistics if using registry
+    if (semNb < IMAGE_NB_SEMAPHORE && image->my_semaphore_index >= 0) {
+        if (image->registry_lock != NULL) {
+#ifdef _WIN32
+            WaitForSingleObject(image->registry_lock, INFINITE);
+#else
+            sem_wait(image->registry_lock);
+#endif
+        }
+        SEM_REGISTRY_ENTRY *entry = &image->md->sem_registry[image->my_semaphore_index];
+        entry->last_read_cnt0 = image->md->cnt0;
+        clock_gettime(CLOCK_REALTIME, &entry->last_read_time);
+        entry->read_count++;
+        if (image->registry_lock != NULL) {
+#ifdef _WIN32
+            ReleaseSemaphore(image->registry_lock, 1, NULL);
+#else
+            sem_post(image->registry_lock);
+#endif
+        }
+    }
+
     return DAO_SUCCESS;
 }
 
@@ -2114,6 +2307,20 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const struct timespec * timeout)
 {
     daoTrace("\n");
+    
+    // Validate registration if semNb < IMAGE_NB_SEMAPHORE (using registry)
+    if (semNb < IMAGE_NB_SEMAPHORE) {
+        int validation = daoShmValidateReaderRegistration(image);
+        if (validation < 0) {
+            daoError("Reader registration validation failed: %d\n", validation);
+            return validation;
+        }
+        // Use registered semaphore instead of passed parameter
+        semNb = image->my_semaphore_index;
+    }
+    
+    int result = DAO_SUCCESS;
+    
     // Wait for new image
 #ifdef _WIN32
     // Convert absolute timespec to milliseconds from now
@@ -2131,7 +2338,8 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
 		case WAIT_OBJECT_0:
 			break;
         case WAIT_TIMEOUT:
-            return DAO_TIMEOUT;
+            result = DAO_TIMEOUT;
+            break;
 		default:
 			daoError("Unexpected result from WaitForSingleObject (Windows system error no. %d).\n", GetLastError());
 			return DAO_ERROR;
@@ -2151,7 +2359,8 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
             if (sem_wait(image->semptr[semNb]) == 0)
             {
                 atomic_fetch_sub(&image->md[0].semCounter[semNb], 1);
-                return DAO_SUCCESS;
+                result = DAO_SUCCESS;
+                goto update_stats;
             }
             else
             {
@@ -2168,15 +2377,44 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
         now_ns = (uint64_t)now.tv_sec * 1e9 + now.tv_nsec;
     }
 
-    return DAO_TIMEOUT;
+    result = DAO_TIMEOUT;
 #else
     if (sem_timedwait(image->semptr[semNb], timeout) == -1)
     {
-        return DAO_TIMEOUT;
+        result = DAO_TIMEOUT;
     }
 #endif
 
-    return DAO_SUCCESS;
+#ifdef __APPLE__
+update_stats:
+#endif
+    // Update statistics if using registry
+    if (semNb < IMAGE_NB_SEMAPHORE && image->my_semaphore_index >= 0) {
+        if (image->registry_lock != NULL) {
+#ifdef _WIN32
+            WaitForSingleObject(image->registry_lock, INFINITE);
+#else
+            sem_wait(image->registry_lock);
+#endif
+        }
+        SEM_REGISTRY_ENTRY *entry = &image->md->sem_registry[image->my_semaphore_index];
+        if (result == DAO_SUCCESS) {
+            entry->last_read_cnt0 = image->md->cnt0;
+            clock_gettime(CLOCK_REALTIME, &entry->last_read_time);
+            entry->read_count++;
+        } else if (result == DAO_TIMEOUT) {
+            entry->timeout_count++;
+        }
+        if (image->registry_lock != NULL) {
+#ifdef _WIN32
+            ReleaseSemaphore(image->registry_lock, 1, NULL);
+#else
+            sem_post(image->registry_lock);
+#endif
+        }
+    }
+
+    return result;
 }
 
 /**
@@ -2269,6 +2507,11 @@ int_fast8_t daoShmCloseShm(IMAGE *image)
         daoWarning("Null image pointer passed to daoShmCloseShm\n");
         return DAO_ERROR;
     }
+    
+    // Unregister reader if registered
+    if (image->is_reader && image->my_semaphore_index >= 0) {
+        daoShmUnregisterReader(image);
+    }
 
     // Release all semaphores
     if (image->semptr) {
@@ -2298,6 +2541,19 @@ int_fast8_t daoShmCloseShm(IMAGE *image)
     if (image->semlog) {
         sem_close(image->semlog);
         image->semlog = NULL;
+    }
+#endif
+    
+    // Close registry lock semaphore if it exists
+#ifdef _WIN32
+    if (image->registry_lock) {
+        CloseHandle(image->registry_lock);
+        image->registry_lock = NULL;
+    }
+#else
+    if (image->registry_lock) {
+        sem_close(image->registry_lock);
+        image->registry_lock = NULL;
     }
 #endif
 
@@ -2469,4 +2725,411 @@ int_fast8_t daoSemLogPost(IMAGE *image)
     }
     #endif
     return DAO_SUCCESS;
+}
+
+/**
+ * @brief Find a free semaphore slot in the registry
+ * 
+ * @param image Pointer to IMAGE structure
+ * @param preferred Preferred semaphore index (-1 for auto-assignment)
+ * @return Semaphore index (0-9) or -1 if none available
+ */
+static int32_t daoFindFreeSemaphore(IMAGE *image, int32_t preferred)
+{
+    int32_t sem_index = -1;
+    
+    // Try preferred slot first
+    if (preferred >= 0 && preferred < IMAGE_NB_SEMAPHORE) {
+        if (!image->md->sem_registry[preferred].locked) {
+            // Check if it's a stale entry
+            if (image->md->sem_registry[preferred].reader_pid != 0) {
+                if (!daoIsProcessAlive(image->md->sem_registry[preferred].reader_pid)) {
+                    // Stale entry, can reuse
+                    memset(&image->md->sem_registry[preferred], 0, sizeof(SEM_REGISTRY_ENTRY));
+                }
+            }
+            if (image->md->sem_registry[preferred].reader_pid == 0) {
+                return preferred;
+            }
+        }
+    }
+    
+    // Find first free slot
+    for (int i = 0; i < IMAGE_NB_SEMAPHORE; i++) {
+        if (!image->md->sem_registry[i].locked) {
+            // Check if PID is stale
+            if (image->md->sem_registry[i].reader_pid != 0) {
+                if (!daoIsProcessAlive(image->md->sem_registry[i].reader_pid)) {
+                    // Stale entry, can reuse
+                    memset(&image->md->sem_registry[i], 0, sizeof(SEM_REGISTRY_ENTRY));
+                }
+            }
+            
+            if (image->md->sem_registry[i].reader_pid == 0) {
+                sem_index = i;
+                break;
+            }
+        }
+    }
+    
+    return sem_index;
+}
+
+/**
+ * @brief Register this process as a reader and acquire a semaphore slot
+ * 
+ * @param image Pointer to IMAGE structure
+ * @param process_name Descriptive name for logging/debugging (optional, can be NULL)
+ * @param preferred_sem Preferred semaphore index (-1 for auto-assignment)
+ * @return Allocated semaphore index (0-9), or negative error code
+ */
+int_fast8_t daoShmRegisterReader(IMAGE *image, const char *process_name, int32_t preferred_sem)
+{
+    daoTrace("\n");
+    
+    if (image == NULL) {
+        daoError("Image pointer is NULL\n");
+        return DAO_ERROR;
+    }
+    
+    // Check if already registered
+    if (image->my_semaphore_index >= 0 && image->my_semaphore_index < IMAGE_NB_SEMAPHORE) {
+        daoInfo("Already registered with semaphore %d\n", image->my_semaphore_index);
+        return image->my_semaphore_index;
+    }
+    
+    // Get current PID
+#ifdef _WIN32
+    DWORD my_pid = GetCurrentProcessId();
+#else
+    pid_t my_pid = getpid();
+#endif
+    
+    // Get process name
+    char proc_name[64];
+    if (process_name != NULL && strlen(process_name) > 0) {
+        strncpy(proc_name, process_name, sizeof(proc_name) - 1);
+        proc_name[sizeof(proc_name) - 1] = '\0';
+    } else {
+        daoGetProcessName(my_pid, proc_name, sizeof(proc_name));
+    }
+    
+    // Lock registry
+    if (image->registry_lock != NULL) {
+#ifdef _WIN32
+        WaitForSingleObject(image->registry_lock, INFINITE);
+#else
+        sem_wait(image->registry_lock);
+#endif
+    }
+    
+    // Find free semaphore
+    int32_t sem_index = daoFindFreeSemaphore(image, preferred_sem);
+    
+    if (sem_index < 0) {
+        // Unlock registry
+        if (image->registry_lock != NULL) {
+#ifdef _WIN32
+            ReleaseSemaphore(image->registry_lock, 1, NULL);
+#else
+            sem_post(image->registry_lock);
+#endif
+        }
+        daoError("No semaphore slots available\n");
+        return DAO_NO_SEMAPHORE_AVAILABLE;
+    }
+    
+    // Populate registry entry
+    SEM_REGISTRY_ENTRY *entry = &image->md->sem_registry[sem_index];
+    entry->locked = 1;
+    entry->reader_pid = my_pid;
+    strncpy(entry->reader_name, proc_name, sizeof(entry->reader_name) - 1);
+    entry->reader_name[sizeof(entry->reader_name) - 1] = '\0';
+    entry->last_read_cnt0 = image->md->cnt0;
+    clock_gettime(CLOCK_REALTIME, &entry->last_read_time);
+    entry->read_count = 0;
+    entry->timeout_count = 0;
+    
+    // Update registry version
+    image->md->registry_version++;
+    
+    // Unlock registry
+    if (image->registry_lock != NULL) {
+#ifdef _WIN32
+        ReleaseSemaphore(image->registry_lock, 1, NULL);
+#else
+        sem_post(image->registry_lock);
+#endif
+    }
+    
+    // Store local state
+    image->my_semaphore_index = sem_index;
+    image->is_reader = 1;
+    strncpy(image->my_process_name, proc_name, sizeof(image->my_process_name) - 1);
+    image->my_process_name[sizeof(image->my_process_name) - 1] = '\0';
+    
+    daoInfo("Registered reader '%s' (PID %d) with semaphore %d\n", proc_name, (int)my_pid, sem_index);
+    
+    return sem_index;
+}
+
+/**
+ * @brief Unregister this process as a reader and release semaphore slot
+ * 
+ * @param image Pointer to IMAGE structure
+ * @return DAO_SUCCESS or error code
+ */
+int_fast8_t daoShmUnregisterReader(IMAGE *image)
+{
+    daoTrace("\n");
+    
+    if (image == NULL) {
+        return DAO_ERROR;
+    }
+    
+    // Check if registered
+    if (image->my_semaphore_index < 0 || image->my_semaphore_index >= IMAGE_NB_SEMAPHORE) {
+        daoDebug("Not registered, nothing to unregister\n");
+        return DAO_SUCCESS;
+    }
+    
+    int32_t sem_index = image->my_semaphore_index;
+    
+    // Lock registry
+    if (image->registry_lock != NULL) {
+#ifdef _WIN32
+        WaitForSingleObject(image->registry_lock, INFINITE);
+#else
+        sem_wait(image->registry_lock);
+#endif
+    }
+    
+    // Clear registry entry
+    memset(&image->md->sem_registry[sem_index], 0, sizeof(SEM_REGISTRY_ENTRY));
+    
+    // Update registry version
+    image->md->registry_version++;
+    
+    // Unlock registry
+    if (image->registry_lock != NULL) {
+#ifdef _WIN32
+        ReleaseSemaphore(image->registry_lock, 1, NULL);
+#else
+        sem_post(image->registry_lock);
+#endif
+    }
+    
+    daoInfo("Unregistered reader from semaphore %d\n", sem_index);
+    
+    // Clear local state
+    image->my_semaphore_index = -1;
+    image->is_reader = 0;
+    memset(image->my_process_name, 0, sizeof(image->my_process_name));
+    
+    return DAO_SUCCESS;
+}
+
+/**
+ * @brief Check if reader registration is still valid
+ * 
+ * @param image Pointer to IMAGE structure
+ * @return 0 if valid (DAO_SUCCESS), negative error code otherwise
+ */
+int_fast8_t daoShmValidateReaderRegistration(IMAGE *image)
+{
+    if (image == NULL) {
+        return DAO_ERROR;
+    }
+    
+    // Check local registration
+    if (image->my_semaphore_index < 0 || image->my_semaphore_index >= IMAGE_NB_SEMAPHORE) {
+        daoError("Not registered: my_semaphore_index = %d\n", image->my_semaphore_index);
+        return DAO_NOT_REGISTERED;
+    }
+    
+    // Get current PID
+#ifdef _WIN32
+    DWORD my_pid = GetCurrentProcessId();
+#else
+    pid_t my_pid = getpid();
+#endif
+    
+    // Check if we still own the semaphore (no lock needed for quick read)
+    SEM_REGISTRY_ENTRY *entry = &image->md->sem_registry[image->my_semaphore_index];
+    
+    daoDebug("Validation: my_semaphore_index=%d, my_pid=%d, entry->locked=%d, entry->reader_pid=%d\n",
+             image->my_semaphore_index, (int)my_pid, entry->locked, (int)entry->reader_pid);
+    
+    if (!entry->locked || entry->reader_pid != my_pid) {
+        daoError("Semaphore slot %d stolen by PID %d (expected %d, locked=%d)\n", 
+                 image->my_semaphore_index, (int)entry->reader_pid, (int)my_pid, entry->locked);
+        return DAO_REGISTRATION_STOLEN;
+    }
+    
+    return DAO_SUCCESS; // Valid - return 0 for success
+}
+
+/**
+ * @brief List all currently registered readers
+ * 
+ * @param image Pointer to IMAGE structure
+ * @param entries Output array (must be size IMAGE_NB_SEMAPHORE)
+ * @return Number of active registrations, or negative on error
+ */
+int_fast8_t daoShmGetRegisteredReaders(IMAGE *image, SEM_REGISTRY_ENTRY *entries)
+{
+    daoTrace("\n");
+    
+    if (image == NULL || entries == NULL) {
+        return DAO_ERROR;
+    }
+    
+    int count = 0;
+    
+    // Lock registry
+    if (image->registry_lock != NULL) {
+#ifdef _WIN32
+        WaitForSingleObject(image->registry_lock, INFINITE);
+#else
+        sem_wait(image->registry_lock);
+#endif
+    }
+    
+    // Copy all registry entries
+    memcpy(entries, image->md->sem_registry, sizeof(SEM_REGISTRY_ENTRY) * IMAGE_NB_SEMAPHORE);
+    
+    // Count active registrations
+    for (int i = 0; i < IMAGE_NB_SEMAPHORE; i++) {
+        if (entries[i].locked && entries[i].reader_pid != 0) {
+            count++;
+        }
+    }
+    
+    // Unlock registry
+    if (image->registry_lock != NULL) {
+#ifdef _WIN32
+        ReleaseSemaphore(image->registry_lock, 1, NULL);
+#else
+        sem_post(image->registry_lock);
+#endif
+    }
+    
+    daoDebug("Found %d registered readers\n", count);
+    
+    return count;
+}
+
+/**
+ * @brief Force unlock a specific semaphore (admin function)
+ * 
+ * @param image Pointer to IMAGE structure
+ * @param semNb Semaphore number to unlock
+ * @return DAO_SUCCESS or error code
+ */
+int_fast8_t daoShmForceUnlockSemaphore(IMAGE *image, int32_t semNb)
+{
+    daoTrace("\n");
+    
+    if (image == NULL) {
+        return DAO_ERROR;
+    }
+    
+    if (semNb < 0 || semNb >= IMAGE_NB_SEMAPHORE) {
+        daoError("Invalid semaphore number: %d\n", semNb);
+        return DAO_ERROR;
+    }
+    
+    // Lock registry
+    if (image->registry_lock != NULL) {
+#ifdef _WIN32
+        WaitForSingleObject(image->registry_lock, INFINITE);
+#else
+        sem_wait(image->registry_lock);
+#endif
+    }
+    
+    // Clear registry entry
+    if (image->md->sem_registry[semNb].locked) {
+        daoWarning("Force unlocking semaphore %d (was held by PID %d: %s)\n",
+                  semNb,
+                  (int)image->md->sem_registry[semNb].reader_pid,
+                  image->md->sem_registry[semNb].reader_name);
+    }
+    
+    memset(&image->md->sem_registry[semNb], 0, sizeof(SEM_REGISTRY_ENTRY));
+    
+    // Update registry version
+    image->md->registry_version++;
+    
+    // Unlock registry
+    if (image->registry_lock != NULL) {
+#ifdef _WIN32
+        ReleaseSemaphore(image->registry_lock, 1, NULL);
+#else
+        sem_post(image->registry_lock);
+#endif
+    }
+    
+    return DAO_SUCCESS;
+}
+
+/**
+ * @brief Unlock all stale semaphores (from dead processes)
+ * 
+ * @param image Pointer to IMAGE structure
+ * @return Number of semaphores unlocked, or negative on error
+ */
+int_fast8_t daoShmCleanupStaleSemaphores(IMAGE *image)
+{
+    daoTrace("\n");
+    
+    if (image == NULL) {
+        return DAO_ERROR;
+    }
+    
+    int cleanup_count = 0;
+    
+    // Lock registry
+    if (image->registry_lock != NULL) {
+#ifdef _WIN32
+        WaitForSingleObject(image->registry_lock, INFINITE);
+#else
+        sem_wait(image->registry_lock);
+#endif
+    }
+    
+    // Check each locked semaphore
+    for (int i = 0; i < IMAGE_NB_SEMAPHORE; i++) {
+        if (image->md->sem_registry[i].locked && image->md->sem_registry[i].reader_pid != 0) {
+            if (!daoIsProcessAlive(image->md->sem_registry[i].reader_pid)) {
+                daoInfo("Cleaning up stale semaphore %d (dead PID %d: %s)\n",
+                       i,
+                       (int)image->md->sem_registry[i].reader_pid,
+                       image->md->sem_registry[i].reader_name);
+                
+                memset(&image->md->sem_registry[i], 0, sizeof(SEM_REGISTRY_ENTRY));
+                cleanup_count++;
+            }
+        }
+    }
+    
+    if (cleanup_count > 0) {
+        // Update registry version
+        image->md->registry_version++;
+    }
+    
+    // Unlock registry
+    if (image->registry_lock != NULL) {
+#ifdef _WIN32
+        ReleaseSemaphore(image->registry_lock, 1, NULL);
+#else
+        sem_post(image->registry_lock);
+#endif
+    }
+    
+    if (cleanup_count > 0) {
+        daoInfo("Cleaned up %d stale semaphore(s)\n", cleanup_count);
+    }
+    
+    return cleanup_count;
 }

@@ -141,6 +141,17 @@ bld.program(
 	use=['dao', 'daoNuma', 'daoProto', 'ZMQ', 'PROTOBUF']
 	)
 
+bld.program(
+	features ='test',
+	target   = 'test_semaphore_registry',
+	source   = [ 'test_semaphore_registry.cpp' ],
+    includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
+    lib = [ 'gtest', 'gtest_main'],
+	ldflags=[f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
+    cxxflags = [] + add_cxx_flags,
+	use=['dao', 'daoNuma', 'daoProto', 'ZMQ', 'PROTOBUF']
+	)
+
 ### test ciomnponents
 # daoLogTest = bld.program(
 # 	source = 'daoLogTest.c',
