@@ -84,6 +84,9 @@ Threads follow a specific lifecycle:
 5. **Exit**: Thread exits completely
 6. **Join**: Wait for thread to finish
 
+.. note::
+   Starting from version 0.0.2, the thread lifecycle has been improved to prevent hanging during shutdown. The outer loop now properly checks both ``m_running`` and ``m_stop`` flags, ensuring threads exit cleanly when ``Stop()`` is called.
+
 Thread Lifecycle Methods
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -91,7 +94,7 @@ Thread Lifecycle Methods
 - **Start()**: Signals the thread to begin execution and calls OnceOnStart()
 - **Stop()**: Signals the thread to stop execution and calls OnceOnStop()
 - **Exit()**: Signals the thread to exit completely and calls OnceOnExit()
-- **Join()**: Waits for the thread to finish execution
+- **Join()**: Waits for the thread to finish execution. Automatically calls Stop() and Exit() if needed. Safely checks if thread is joinable before joining.
 - **Kill(int signal)**: Forcibly terminates the thread
 
 Extension Points
@@ -242,6 +245,43 @@ Best Practices
 3. **Thread Priority**: Use RT threads for time-critical operations
 4. **Signal Management**: Reset signals appropriately to avoid lost or stale signals
 5. **Error Handling**: Implement proper exception handling in the thread functions
+6. **Proper Shutdown**: Always call ``Stop()`` and ``Join()`` to ensure clean thread termination
+
+.. warning::
+   Prior to version 0.0.2, threads could hang during shutdown if ``Stop()`` was called during certain states. This has been fixed by improving the thread loop condition to check both ``m_running`` and ``m_stop`` flags.
+
+Common Pitfalls
+---------------
+
+**Thread Hanging on Join()**
+
+If your thread appears to hang when calling ``Join()``, ensure you have called ``Stop()`` first:
+
+.. code-block:: cpp
+
+    // Correct pattern
+    thread.Stop();  // Signal thread to stop
+    thread.Join();  // Wait for thread to finish
+    
+    // Join() will automatically call Stop() and Exit() if needed,
+    // but explicit Stop() is recommended for clarity
+
+**Thread Not Exiting**
+
+If your thread's ``RestartableThread()`` method blocks indefinitely, the thread will not exit even when ``Stop()`` is called. Ensure your implementation checks the thread state or uses timeouts:
+
+.. code-block:: cpp
+
+    void RestartableThread() override
+    {
+        // Bad: blocks indefinitely
+        // semaphore_wait(sem);
+        
+        // Good: use timeout or check running state
+        if (isRunning()) {
+            semaphore_wait_timeout(sem, timeout);
+        }
+    }
 
 Usage Example
 -------------

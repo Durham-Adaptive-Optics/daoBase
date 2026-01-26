@@ -105,21 +105,71 @@ To prevent race conditions when multiple readers access the same shared memory b
 * Statistics tracking (read count, timeout count) per reader
 * Thread-safe registry access with atomic locking
 
-**Registering as a Reader:**
+**Automatic Registration:**
+
+Starting from version 0.0.2, readers are automatically registered when opening shared memory:
+
+.. code-block:: python
+
+   # Python automatically registers as reader
+   reader = shm("/tmp/example.im.shm")
+   # Reader is now registered with auto-generated name
+   
+   # Access the auto-assigned semaphore
+   data = reader.get_data(check=True)  # Uses registered semaphore
+
+.. code-block:: cpp
+
+   // C++ automatically registers in constructor
+   Dao::Shm<float> reader(shmPath);
+   // Reader is registered as "cpp_reader"
+   
+   // The semaphore is automatically used
+   float* data = reader.get_frame(Dao::ShmSync::SEM);
+
+The automatic registration uses:
+- Python: Process name from ``sys.argv[0]`` or "python_reader"
+- C++: Default name "cpp_reader"
+- Automatic semaphore allocation (no preferred semaphore)
+
+If automatic registration fails (e.g., all semaphores in use), the library will attempt to clean up stale entries and retry.
+
+**Manual Registration:**
+
+You can also explicitly register with custom parameters:
+
+**Manual Registration:**
+
+You can also explicitly register with custom parameters:
 
 .. code-block:: python
 
    from daoShm import shm
    
-   # Open shared memory
+   # Open shared memory (auto-registers)
    reader = shm("/tmp/example.im.shm")
    
-   # Register with custom name (optional)
-   sem_index = reader.register_reader("my_reader_process")
+   # Re-register with custom name and preferred semaphore
+   sem_index = reader.register_reader("my_reader_process", preferred_sem=5)
    print(f"Allocated semaphore: {sem_index}")
+
+.. code-block:: cpp
+
+   // C++ auto-registers in constructor
+   Dao::Shm<float> reader(shmPath);
    
-   # Or request a specific semaphore (will get different one if taken)
-   sem_index = reader.register_reader("my_reader", preferred_sem=5)
+   // Optionally re-register with custom parameters
+   int sem_index = reader.register_reader("my_cpp_reader", 5);
+
+**Disabling Automatic Registration:**
+
+For writers or cases where you don't need synchronization, the C interface doesn't auto-register:
+
+.. code-block:: c
+
+   IMAGE image;
+   daoShmShm2Img("/tmp/example.im.shm", &image);
+   // Not auto-registered - call daoShmRegisterReader() if needed
 
 **Validating Registration:**
 
@@ -164,6 +214,53 @@ The system automatically unregisters readers when the object is destroyed:
    reader.register_reader("temp_reader")
    # ... use reader ...
    # Automatically unregisters on del or garbage collection
+
+**Re-registration:**
+
+Starting from version 0.0.2, the system supports re-registration, allowing you to change reader parameters:
+
+.. code-block:: python
+
+   # Initial registration
+   sem = reader.register_reader("reader_v1", preferred_sem=3)
+   
+   # Change process name or preferred semaphore
+   sem = reader.register_reader("reader_v2", preferred_sem=5)
+   
+   # The system automatically unregisters before re-registering
+
+In C++, the ``register_reader()`` method checks if already registered and automatically unregisters first:
+
+.. code-block:: cpp
+
+   Dao::Shm<float> reader(shmPath);
+   
+   // Initial registration
+   int sem1 = reader.register_reader("cpp_reader_v1");
+   
+   // Re-register with different name
+   int sem2 = reader.register_reader("cpp_reader_v2");
+   
+   // sem1 is automatically released, sem2 is now active
+
+**Automatic Stale Cleanup:**
+
+The system now automatically cleans up stale semaphore registrations from dead processes before each registration attempt. This prevents semaphore exhaustion from crashed processes:
+
+.. code-block:: python
+
+   # Python automatically retries registration after cleanup if needed
+   reader = shm("/tmp/example.im.shm")
+   sem = reader.register_reader("my_reader")
+   # If all semaphores were taken, system cleans up dead processes and retries
+
+In C, the cleanup happens automatically:
+
+.. code-block:: c
+
+   // Cleanup is called internally before registration
+   int32_t sem = daoShmRegisterReader(&image, "c_reader", -1);
+   // Stale entries from dead processes are cleaned up automatically
 
 **C++ Interface:**
 
