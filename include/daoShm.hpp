@@ -218,6 +218,7 @@ namespace Dao
          * 
          * Allocates a dedicated semaphore for this reader process, preventing
          * race conditions when multiple readers access the same buffer.
+         * If already registered, this will unregister and re-register with the new parameters.
          * 
          * @param process_name Custom name for this reader process (optional, null for auto-detection).
          * @param preferred_sem Preferred semaphore index (0-9), or -1 for automatic allocation.
@@ -225,6 +226,11 @@ namespace Dao
          * @throws std::runtime_error if registration fails.
          */
         int register_reader(const char* process_name = nullptr, int preferred_sem = -1) {
+            // If already registered, unregister first to allow re-registration
+            if (image_.my_semaphore_index >= 0) {
+                unregister_reader();
+            }
+            
             int sem_index = daoShmRegisterReader(&image_, process_name, preferred_sem);
             
             if(sem_index < 0) {

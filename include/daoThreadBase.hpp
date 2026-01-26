@@ -152,7 +152,10 @@ namespace Dao
                     Exit();
                 }
 
-                m_thread.join();
+                if(m_thread.joinable())
+                {
+                    m_thread.join();
+                }
                 m_spawned = false;
             };
 
@@ -279,7 +282,7 @@ namespace Dao
                     }
                     
                 }
-                while(m_running == true);
+                while(m_running == true && m_stop == false);
 
                 m_running = false;
             }

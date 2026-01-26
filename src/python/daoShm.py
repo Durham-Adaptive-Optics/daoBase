@@ -547,7 +547,23 @@ class shm:
                 import os
                 process_name = os.path.basename(sys.argv[0]) if sys.argv else "python_reader"
                 self._my_semaphore = self.register_reader(process_name)
-                log.info(f"Auto-registered as reader with semaphore {self._my_semaphore}")
+                # log.info(f"Auto-registered as reader with semaphore {self._my_semaphore}")
+            except RuntimeError as e:
+                # If registration failed due to no available semaphores, try cleanup and retry
+                if "No semaphores available" in str(e):
+                    log.warning(f"Initial registration failed, cleaning up stale semaphores...")
+                    cleaned = self.cleanup_stale_semaphores()
+                    # log.info(f"Cleaned up {cleaned} stale semaphore(s)")
+                    if cleaned > 0:
+                        try:
+                            self._my_semaphore = self.register_reader(process_name)
+                            # log.info(f"Auto-registered as reader with semaphore {self._my_semaphore} after cleanup")
+                        except Exception as retry_e:
+                            log.warning(f"Failed to auto-register reader after cleanup: {retry_e}")
+                    else:
+                        log.warning(f"Failed to auto-register reader: {e}")
+                else:
+                    log.warning(f"Failed to auto-register reader: {e}")
             except Exception as e:
                 log.warning(f"Failed to auto-register reader: {e}")
         # Publisher

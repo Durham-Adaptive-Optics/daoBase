@@ -2798,6 +2798,13 @@ int_fast8_t daoShmRegisterReader(IMAGE *image, const char *process_name, int32_t
         return image->my_semaphore_index;
     }
     
+    // Clean up stale semaphores from dead processes before registering
+    // This ensures all connections are validated on each new registration
+    int cleaned = daoShmCleanupStaleSemaphores(image);
+    if (cleaned > 0) {
+        daoInfo("Cleaned up %d stale semaphore(s) before registration\n", cleaned);
+    }
+    
     // Get current PID
 #ifdef _WIN32
     DWORD my_pid = GetCurrentProcessId();
