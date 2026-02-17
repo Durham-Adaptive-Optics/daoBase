@@ -475,6 +475,8 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
     long snb;
     long s;
 
+    uint32_t fifo_size;
+
 #ifdef _WIN32
     HANDLE shmFd; // shared memory file handle
 	HANDLE shmFm; // shared memory file mapping object
@@ -590,8 +592,12 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
             exit(0);
         }
 
+        /* Get the size of the FIFO */
+
+        fifo_size = image->md[0].fifo_size;
+
         mapv = (char*) map;
-        mapv += sizeof(IMAGE_METADATA);
+        mapv += fifo_size * sizeof(IMAGE_METADATA);
 
         daoDebug("atype = %d\n", (int) atype);
         fflush(stdout);
@@ -600,73 +606,73 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         {
             daoDebug("atype = UINT8\n");
             image->array.UI8 = (uint8_t*) mapv;
-            mapv += SIZEOF_DATATYPE_UINT8 * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_UINT8 * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_INT8)
         {
             daoDebug("atype = INT8\n");
             image->array.SI8 = (int8_t*) mapv;
-            mapv += SIZEOF_DATATYPE_INT8 * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_INT8 * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_UINT16)
         {
             daoDebug("atype = UINT16\n");
             image->array.UI16 = (uint16_t*) mapv;
-            mapv += SIZEOF_DATATYPE_UINT16 * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_UINT16 * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_INT16)
         {
             daoDebug("atype = INT16\n");
             image->array.SI16 = (int16_t*) mapv;
-            mapv += SIZEOF_DATATYPE_INT16 * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_INT16 * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_UINT32)
         {
             daoDebug("atype = UINT32\n");
             image->array.UI32 = (uint32_t*) mapv;
-            mapv += SIZEOF_DATATYPE_UINT32 * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_UINT32 * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_INT32)
         {
             daoDebug("atype = INT32\n");
             image->array.SI32 = (int32_t*) mapv;
-            mapv += SIZEOF_DATATYPE_INT32 * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_INT32 * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_UINT64)
         {
             daoDebug("atype = UINT64\n");
             image->array.UI64 = (uint64_t*) mapv;
-            mapv += SIZEOF_DATATYPE_UINT64 * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_UINT64 * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_INT64)
         {
             daoDebug("atype = INT64\n");
             image->array.SI64 = (int64_t*) mapv;
-            mapv += SIZEOF_DATATYPE_INT64 * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_INT64 * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_FLOAT)
         {
             daoDebug("atype = FLOAT\n");
             image->array.F = (float*) mapv;
-            mapv += SIZEOF_DATATYPE_FLOAT * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_FLOAT * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_DOUBLE)
         {
             daoDebug("atype = DOUBLE\n");
             image->array.D = (double*) mapv;
-            mapv += SIZEOF_DATATYPE_DOUBLE * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_DOUBLE * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_COMPLEX_FLOAT)
         {
             daoDebug("atype = COMPLEX_FLOAT\n");
             image->array.CF = (complex_float*) mapv;
-            mapv += SIZEOF_DATATYPE_COMPLEX_FLOAT * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_COMPLEX_FLOAT * fifo_size * image->md[0].nelement;
         }
         if(atype == _DATATYPE_COMPLEX_DOUBLE)
         {
             daoDebug("atype = COMPLEX_DOUBLE\n");
             image->array.CD = (complex_double*) mapv;
-            mapv += SIZEOF_DATATYPE_COMPLEX_DOUBLE * image->md[0].nelement;
+            mapv += SIZEOF_DATATYPE_COMPLEX_DOUBLE * fifo_size * image->md[0].nelement;
         }
         daoDebug("%ld keywords\n", (long) image->md[0].NBkw);
         fflush(stdout);
@@ -1180,8 +1186,8 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 /*
  * Create SHM
  */
-int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, 
-                              uint32_t *size, uint8_t atype, int shared, int NBkw)
+int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis, 
+                              uint32_t *size, uint8_t atype, int shared, int NBkw, uint32_t fifo_size)
 {
     daoTrace("\n");
     long i;//,ii;
@@ -1289,58 +1295,61 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
 #endif
 
-        sharedsize = sizeof(IMAGE_METADATA);
+        /* First, determine the space requirements for storing all copies of the image metadata */
+        sharedsize = fifo_size * sizeof(IMAGE_METADATA);
 
+        /* Now add the space requirements for the buffers themselves */
         if(atype == _DATATYPE_UINT8)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_UINT8;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_UINT8;
         }
         if(atype == _DATATYPE_INT8)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_INT8;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_INT8;
         }
         if(atype == _DATATYPE_UINT16)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_UINT16;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_UINT16;
         }
         if(atype == _DATATYPE_INT16)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_INT16;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_INT16;
         }
         if(atype == _DATATYPE_INT32)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_INT32;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_INT32;
         }
         if(atype == _DATATYPE_UINT32)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_UINT32;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_UINT32;
         }
         if(atype == _DATATYPE_INT64)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_INT64;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_INT64;
         }
         if(atype == _DATATYPE_UINT64)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_UINT64;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_UINT64;
         }
         if(atype == _DATATYPE_FLOAT)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_FLOAT;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_FLOAT;
         }
         if(atype == _DATATYPE_DOUBLE)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_DOUBLE;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_DOUBLE;
         }
         if(atype == _DATATYPE_COMPLEX_FLOAT)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_COMPLEX_FLOAT;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_COMPLEX_FLOAT;
         }
         if(atype == _DATATYPE_COMPLEX_DOUBLE)
         {
-            sharedsize += nelement*SIZEOF_DATATYPE_COMPLEX_DOUBLE;
+            sharedsize += fifo_size * nelement * SIZEOF_DATATYPE_COMPLEX_DOUBLE;
         }
 
-        sharedsize += NBkw*sizeof(IMAGE_KEYWORD);
+        /* And finally, set aside space for the keywords */
+        sharedsize += NBkw * sizeof(IMAGE_KEYWORD);
 
 #ifdef _WIN32
         sprintf(shmName, "%s", name);
@@ -1427,8 +1436,13 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 #endif
 	
         image->md = (IMAGE_METADATA*) map;
-        image->md[0].shared = 1;
-        image->md[0].sem = 0;
+
+        for (uint32_t fifo_idx = 0; fifo_idx < fifo_size; ++fifo_idx)
+        {
+            image->md[fifo_idx].shared = 1;
+            image->md[fifo_idx].sem = 0;
+        }
+
         free(nameCopy);
 
 #ifdef _WIN32
@@ -1437,8 +1451,13 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
     }
     else
     {
-        image->md = (IMAGE_METADATA*) malloc(sizeof(IMAGE_METADATA));
-        image->md[0].shared = 0;
+        image->md = (IMAGE_METADATA*) malloc(sizeof(IMAGE_METADATA) * fifo_size);
+
+        for (uint32_t fifo_idx = 0; fifo_idx < fifo_size; ++fifo_idx)
+        {
+            image->md[fifo_idx].shared = 0;
+        }
+
         if(NBkw>0)
         {
             image->kw = (IMAGE_KEYWORD*) malloc(sizeof(IMAGE_KEYWORD)*NBkw);
@@ -1449,16 +1468,20 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
     }
 
-    image->md[0].atype = atype;
-    image->md[0].naxis = (uint8_t)naxis;
-
     strcpy(image->name, name); // local name
-    strcpy(image->md[0].name, name);
-    for(i=0; i<naxis; i++)
+    for (uint32_t fifo_idx = 0; fifo_idx < fifo_size; ++fifo_idx)
     {
-        image->md[0].size[i] = size[i];
+        image->md[fifo_idx].atype = atype;
+        image->md[fifo_idx].naxis = (uint8_t)naxis;
+
+        strcpy(image->md[fifo_idx].name, name);
+
+        for(i=0; i<naxis; i++)
+        {
+            image->md[fifo_idx].size[i] = size[i];
+        }
+        image->md[fifo_idx].NBkw = NBkw;
     }
-    image->md[0].NBkw = NBkw;
 
 
     if(atype == _DATATYPE_UINT8)
@@ -1466,7 +1489,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
 			mapv = (char*) map;
-            mapv += sizeof(IMAGE_METADATA);
+            mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.UI8 = (uint8_t*) (mapv);
             memset(image->array.UI8, '\0', nelement*sizeof(uint8_t));
             mapv += sizeof(uint8_t)*nelement;
@@ -1474,7 +1497,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 		}
         else
         {
-            image->array.UI8 = (uint8_t*) calloc ((size_t) nelement, sizeof(uint8_t));
+            image->array.UI8 = (uint8_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint8_t));
         }
 
 
@@ -1488,7 +1511,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
             for(i=1; i<naxis; i++)
                 fprintf(stderr,"x%ld", (long) size[i]);
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(uint8_t));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(uint8_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1499,14 +1523,14 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
 			mapv = (char*) map;
-            mapv += sizeof(IMAGE_METADATA);
+            mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.SI8 = (int8_t*) (mapv);
             memset(image->array.SI8, '\0', nelement*sizeof(int8_t));
             mapv += sizeof(int8_t)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
 		}
         else
-            image->array.SI8 = (int8_t*) calloc ((size_t) nelement, sizeof(int8_t));
+            image->array.SI8 = (int8_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int8_t));
 
 
         if(image->array.SI8 == NULL)
@@ -1519,7 +1543,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
             for(i=1; i<naxis; i++)
                 fprintf(stderr,"x%ld", (long) size[i]);
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(int8_t));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(int8_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1532,7 +1557,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
             mapv = (char*) map;
-            mapv += sizeof(IMAGE_METADATA);
+            mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.UI16 = (uint16_t*) (mapv);
             memset(image->array.UI16, '\0', nelement*sizeof(uint16_t));
             mapv += sizeof(uint16_t)*nelement;
@@ -1540,7 +1565,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         else
         {
-            image->array.UI16 = (uint16_t*) calloc ((size_t) nelement, sizeof(uint16_t));
+            image->array.UI16 = (uint16_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint16_t));
         }
 
         if(image->array.UI16 == NULL)
@@ -1553,7 +1578,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
             for(i=1; i<naxis; i++)
                 fprintf(stderr,"x%ld", (long) size[i]);
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement, 1.0/1024/1024*nelement*sizeof(uint16_t));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(uint16_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1564,7 +1590,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
             mapv = (char*) map;
-            mapv += sizeof(IMAGE_METADATA);
+            mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.SI16 = (int16_t*) (mapv);
             memset(image->array.SI16, '\0', nelement*sizeof(int16_t));
             mapv += sizeof(int16_t)*nelement;
@@ -1572,7 +1598,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         else
         {
-            image->array.SI16 = (int16_t*) calloc ((size_t) nelement, sizeof(int16_t));
+            image->array.SI16 = (int16_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int16_t));
         }
 
         if(image->array.SI16 == NULL)
@@ -1587,7 +1613,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
                 fprintf(stderr,"x%ld", (long) size[i]);
             }
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement, 1.0/1024/1024*nelement*sizeof(int16_t));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(int16_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1599,7 +1626,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
 			mapv = (char*) map;
-            mapv += sizeof(IMAGE_METADATA);
+            mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.UI32 = (uint32_t*) (mapv);
             memset(image->array.UI32, '\0', nelement*sizeof(uint32_t));
             mapv += sizeof(uint32_t)*nelement;
@@ -1607,7 +1634,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         else
         {
-            image->array.UI32 = (uint32_t*) calloc ((size_t) nelement, sizeof(uint32_t));
+            image->array.UI32 = (uint32_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint32_t));
         }
 
         if(image->array.UI32 == NULL)
@@ -1622,7 +1649,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
                 fprintf(stderr,"x%ld", (long) size[i]);
             }
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(uint32_t));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(uint32_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1635,7 +1663,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
 			mapv = (char*) map;
-            mapv += sizeof(IMAGE_METADATA);
+            mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.SI32 = (int32_t*) (mapv);
             memset(image->array.SI32, '\0', nelement*sizeof(int32_t));
             mapv += sizeof(int32_t)*nelement;
@@ -1643,7 +1671,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         else
         {
-            image->array.SI32 = (int32_t*) calloc ((size_t) nelement, sizeof(int32_t));
+            image->array.SI32 = (int32_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int32_t));
         }
 
         if(image->array.SI32 == NULL)
@@ -1658,7 +1686,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
                 fprintf(stderr,"x%ld", (long) size[i]);
             }
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(int32_t));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(int32_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1671,7 +1700,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
 			mapv = (char*) map;
-            mapv += sizeof(IMAGE_METADATA);
+            mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.UI64 = (uint64_t*) (mapv);
             memset(image->array.UI64, '\0', nelement*sizeof(uint64_t));
             mapv += sizeof(uint64_t)*nelement;
@@ -1679,7 +1708,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         else
         {
-            image->array.UI64 = (uint64_t*) calloc ((size_t) nelement, sizeof(uint64_t));
+            image->array.UI64 = (uint64_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint64_t));
         }
 
         if(image->array.SI64 == NULL)
@@ -1694,7 +1723,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
                 fprintf(stderr,"x%ld", (long) size[i]);
             }
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(uint64_t));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(uint64_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1705,7 +1735,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
 			mapv = (char*) map;
-            mapv += sizeof(IMAGE_METADATA);
+            mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.SI64 = (int64_t*) (mapv);
             memset(image->array.SI64, '\0', nelement*sizeof(int64_t));
             mapv += sizeof(int64_t)*nelement;
@@ -1713,7 +1743,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         else
         {
-            image->array.SI64 = (int64_t*) calloc ((size_t) nelement, sizeof(int64_t));
+            image->array.SI64 = (int64_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int64_t));
         }
 
         if(image->array.SI64 == NULL)
@@ -1728,7 +1758,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
                 fprintf(stderr,"x%ld", (long) size[i]);
             }
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(int64_t));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(int64_t));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1740,7 +1771,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
             mapv = (char*) map;
-            mapv += sizeof(IMAGE_METADATA);
+            mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.F = (float*) (mapv);
             memset(image->array.F, '\0', nelement*sizeof(float));
             mapv += sizeof(float)*nelement;
@@ -1748,7 +1779,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         else
         {
-            image->array.F = (float*) calloc ((size_t) nelement, sizeof(float));
+            image->array.F = (float*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(float));
         }
 
         if(image->array.F == NULL)
@@ -1763,7 +1794,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
                 fprintf(stderr,"x%ld", (long) size[i]);
             }
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(float));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(float));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1774,7 +1806,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
 			mapv = (char*) map;
-			mapv += sizeof(IMAGE_METADATA);
+			mapv += sizeof(IMAGE_METADATA) * fifo_size;
 			image->array.D = (double*) (mapv);
             memset(image->array.D, '\0', nelement*sizeof(double));
             mapv += sizeof(double)*nelement;
@@ -1782,7 +1814,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         else
         {
-            image->array.D = (double*) calloc ((size_t) nelement, sizeof(double));
+            image->array.D = (double*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(double));
         }
   
         if(image->array.D == NULL)
@@ -1797,7 +1829,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
                 fprintf(stderr,"x%ld", (long) size[i]);
             }
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(double));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(double));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1808,7 +1841,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
 			mapv = (char*) map;
-			mapv += sizeof(IMAGE_METADATA);
+			mapv += sizeof(IMAGE_METADATA) * fifo_size;
 			image->array.CF = (complex_float*) (mapv);			
             memset(image->array.CF, '\0', nelement*sizeof(complex_float));
             mapv += sizeof(complex_float)*nelement;
@@ -1816,7 +1849,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         else
         {
-            image->array.CF = (complex_float*) calloc ((size_t) nelement, sizeof(complex_float));
+            image->array.CF = (complex_float*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(complex_float));
         }
 
         if(image->array.CF == NULL)
@@ -1831,7 +1864,8 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
                 fprintf(stderr,"x%ld", (long) size[i]);
             }
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(complex_float));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(complex_float));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
@@ -1842,7 +1876,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         if(shared==1)
         {
 			mapv = (char*) map;
-			mapv += sizeof(IMAGE_METADATA);
+			mapv += sizeof(IMAGE_METADATA) * fifo_size;
 			image->array.CD = (complex_double*) (mapv);			
             memset(image->array.CD, '\0', nelement*sizeof(complex_double));
             mapv += sizeof(complex_double)*nelement;
@@ -1850,7 +1884,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
         }
         else
         {
-            image->array.CD = (complex_double*) calloc ((size_t) nelement,sizeof(complex_double));
+            image->array.CD = (complex_double*) calloc ((size_t) nelement * (size_t) fifo_size,sizeof(complex_double));
         }
 
         if(image->array.CD == NULL)
@@ -1865,19 +1899,24 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
                 fprintf(stderr,"x%ld", (long) size[i]);
             }
             fprintf(stderr,"\n");
-            fprintf(stderr,"Requested memory size = %ld elements = %f Mb\n", (long) nelement,1.0/1024/1024*nelement*sizeof(complex_double));
+            fprintf(stderr,"Requested memory size = %ld elements * %ld buffers = %f Mb\n",
+                (long) nelement, (long) fifo_size, 1.0/1024/1024*nelement*fifo_size*sizeof(complex_double));
             fprintf(stderr," %c[%d;m",(char) 27, 0);
             exit(0);
         }
     }
 
     clock_gettime(CLOCK_REALTIME, &timenow);
-    image->md[0].last_access = 1.0*timenow.tv_sec + 0.000000001*timenow.tv_nsec;
-    image->md[0].creation_time = image->md[0].last_access;
-    image->md[0].write = 0;
-    image->md[0].cnt0 = 0;
-    image->md[0].cnt1 = 0;
-    image->md[0].nelement = nelement;
+
+    for (uint32_t fifo_idx = 0; fifo_idx < fifo_size; ++fifo_idx)
+    {
+        image->md[fifo_idx].last_access = 1.0*timenow.tv_sec + 0.000000001*timenow.tv_nsec;
+        image->md[fifo_idx].creation_time = image->md[0].last_access;
+        image->md[fifo_idx].write = 0;
+        image->md[fifo_idx].cnt0 = 0;
+        image->md[fifo_idx].cnt1 = 0;
+        image->md[fifo_idx].nelement = nelement;
+    }
 
     if(shared==1)
     {
@@ -2059,6 +2098,13 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
     daoShmImagePart2ShmFinalize(image);
 
     return DAO_SUCCESS;
+}
+
+/* Function for compatibility - creates 1-deep DAO SHM */
+int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, 
+                              uint32_t *size, uint8_t atype, int shared, int NBkw)
+{
+    return daoShmImageCreate_FIFO(image, name, naxis, size, atype, shared, NBkw, 1);
 }
 
 /**

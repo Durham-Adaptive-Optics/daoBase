@@ -332,6 +332,11 @@ typedef struct
         atomic_uint semCounter[IMAGE_NB_SEMAPHORE];
         atomic_uint semLogCounter;
 #endif
+
+    // FIFO members
+    uint32_t fifo_size;
+    uint32_t fifo_last_write;
+
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;
 #else
@@ -455,6 +460,9 @@ typedef struct          		/**< structure used to store data arrays              
 	HANDLE shmfm;						/**< shared memory file mapping view handle */
 #endif
 
+    // New FIFO member
+    uint32_t fifo_last_read;
+
     // total size is 152 byte = 1216 bit
     // (on Windows,  160 byte = 1280 bit)
 #ifdef DATA_PACKED
@@ -485,6 +493,8 @@ DLL_EXPORT int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *imag
                              uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber); 
 DLL_EXPORT int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image); 
 DLL_EXPORT int_fast8_t daoShmImageCreateSem(IMAGE *image, long NBsem);
+DLL_EXPORT int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis, uint32_t *size,
+                           uint8_t atype, int shared, int NBkw, uint32_t fifo_size);
 DLL_EXPORT int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
                            uint8_t atype, int shared, int NBkw);
 DLL_EXPORT int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal); 
