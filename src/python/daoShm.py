@@ -340,7 +340,7 @@ else:
         ]
 
 class shm:
-    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=1):
+    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=1, depth=1):
         # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
         self.daoShmInit1D = daoLib.daoShmInit1D
         self.daoShmInit1D.argtypes = [
@@ -399,6 +399,22 @@ class shm:
         self.daoShmImagePart2ShmFinalize.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmImagePart2ShmFinalize.restype = ctypes.c_int8
 
+
+        # int8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis, uint32_t *size,
+        #                              uint8_t atype, int shared, int NBkw);
+        self.daoShmImageCreate_FIFO = daoLib.daoShmImageCreate_FIFO
+        self.daoShmImageCreate_FIFO.argtypes = [
+            ctypes.POINTER(IMAGE),
+            ctypes.c_char_p,
+            ctypes.c_long,
+            ctypes.POINTER(ctypes.c_uint32),
+            ctypes.c_uint8,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_uint32
+        ]
+        self.daoShmImageCreate_FIFO.restype = ctypes.c_int8
+
         # int8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
         #                              uint8_t atype, int shared, int NBkw);
         self.daoShmImageCreate = daoLib.daoShmImageCreate
@@ -456,18 +472,21 @@ class shm:
         if fname == '':
             log.error("Need at least a SHM name")
         elif data is not None:
-            log.info("%s will be created or overwritten" % (fname,))
-            dataSize = data.shape
-            self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
-                                   (ctypes.c_uint32 * len(dataSize))(*dataSize),\
-                                   npType2DaoType(data), 1, 0)
-            if data.flags['C_CONTIGUOUS']:
-                cData = data.ctypes.data_as(ctypes.c_void_p)
+            if depth < 1:
+                log.error("Depth can't be less than 1")
             else:
-                cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
-            nbVal = ctypes.c_uint32(data.size)
-            # Call the daoShmImage2Shm function to feel the SHM
-            result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
+                log.info("%s will be created or overwritten" % (fname,))
+                dataSize = data.shape
+                self.daoShmImageCreate_FIFO(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
+                                    (ctypes.c_uint32 * len(dataSize))(*dataSize),\
+                                    npType2DaoType(data), 1, 0, depth)
+                if data.flags['C_CONTIGUOUS']:
+                    cData = data.ctypes.data_as(ctypes.c_void_p)
+                else:
+                    cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
+                nbVal = ctypes.c_uint32(data.size)
+                # Call the daoShmImage2Shm function to feel the SHM
+                result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         else:
             # log.info("loading existing %s " % (fname))
             result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
