@@ -340,7 +340,7 @@ else:
         ]
 
 class shm:
-    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=1):
+    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=0):
         # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
         self.daoShmInit1D = daoLib.daoShmInit1D
         self.daoShmInit1D.argtypes = [
