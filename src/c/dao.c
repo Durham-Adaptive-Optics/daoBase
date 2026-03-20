@@ -2273,28 +2273,57 @@ int_fast8_t daoShmWaitForCounter(IMAGE *image)
     daoTrace("\n");
     volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA *)image->md;
 
-    #ifdef _WIN32
-    volatile uint_fast64_t counter = md->cnt0;
-	while (md->cnt0 <= counter)
-	{
-		// Spin
-	}
-#else
-	uint_fast64_t counter = image->md[0].cnt0;
-    struct timespec req, rem;
-    req.tv_sec = 0;          // Seconds
-    req.tv_nsec = 0; // Nanoseconds
-    while (md->cnt0 <= counter)
+    if (md->fifo_size == 1) // Spin on our only cnt0 for 1-deep images
     {
-        // Spin
-        if (nanosleep(&req, &rem) < 0) 
+    #ifdef _WIN32
+        volatile uint_fast64_t counter = md->cnt0;
+        while (md->cnt0 <= counter)
         {
-            printf("Nanosleep interrupted\n");
-            return DAO_ERROR;
+            // Spin
         }
+    #else
+        uint_fast64_t counter = image->md[0].cnt0;
+        struct timespec req, rem;
+        req.tv_sec = 0;          // Seconds
+        req.tv_nsec = 0; // Nanoseconds
+        while (md->cnt0 <= counter)
+        {
+            // Spin
+            if (nanosleep(&req, &rem) < 0) 
+            {
+                printf("Nanosleep interrupted\n");
+                return DAO_ERROR;
+            }
+        }
+    #endif
+        return DAO_SUCCESS;
     }
-#endif
-    return DAO_SUCCESS;
+    else // Spin on writing position for everything else
+    {
+    #ifdef _WIN32
+        volatile uint32_t fifo_position = md->fifo_last_written;
+        while (md->fifo_last_written == fifo_position)
+        {
+            // Spin
+        }
+    #else
+        uint32_t fifo_position = md->fifo_last_written;
+        struct timespec req, rem;
+        req.tv_sec = 0;          // Seconds
+        req.tv_nsec = 0; // Nanoseconds
+        while (md->fifo_last_written == fifo_position)
+        {
+            // Spin
+            if (nanosleep(&req, &rem) < 0) 
+            {
+                printf("Nanosleep interrupted\n");
+                return DAO_ERROR;
+            }
+        }
+    #endif
+        return DAO_SUCCESS;
+    }
+
 }
 
 /**
@@ -2313,13 +2342,35 @@ int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
     req.tv_nsec = 0; // Nanoseconds
 
     volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA *)image->md;
-    while (md->cnt0 < targetCnt0)
+
+    if (md->fifo_size == 1) // Spin on our only cnt0 for 1-deep images
     {
-        // Spin
-        if (nanosleep(&req, &rem) < 0) 
+        while (md->cnt0 < targetCnt0)
         {
-            printf("Nanosleep interrupted\n");
-            return DAO_ERROR;
+            // Spin
+            if (nanosleep(&req, &rem) < 0) 
+            {
+                printf("Nanosleep interrupted\n");
+                return DAO_ERROR;
+            }
+        }
+    }
+    else // Keep checking writing position
+    {
+        while (1)
+        {
+            // Check counter of last position
+            uint32_t fifo_last_written = image->md[0].fifo_last_written;
+
+            if (md[fifo_last_written].cnt0 >= targetCnt0)
+                break;
+
+            // Spin
+            if (nanosleep(&req, &rem) < 0) 
+            {
+                printf("Nanosleep interrupted\n");
+                return DAO_ERROR;
+            }
         }
     }
 
@@ -2335,7 +2386,10 @@ int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
 uint_fast64_t daoShmGetCounter(IMAGE *image)
 {
     daoTrace("\n");
-    return image->md[0].cnt0;
+
+    uint32_t fifo_last_written = image->md[0].fifo_last_written;
+
+    return image->md[fifo_last_written].cnt0;
 }
 
 /**
