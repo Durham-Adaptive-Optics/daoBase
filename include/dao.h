@@ -335,7 +335,7 @@ typedef struct
 
     // FIFO members
     uint32_t fifo_size;
-    uint32_t fifo_last_write;
+    uint32_t fifo_last_written;
 
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;

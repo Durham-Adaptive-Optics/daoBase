@@ -875,32 +875,40 @@ int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
 int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image) 
 {
     daoTrace("\n");
-    image->md[0].write = 1;
 
-    if (image->md[0].atype == _DATATYPE_UINT8)
-        memcpy(image->array.UI8, (unsigned char *)im, nbVal*sizeof(unsigned char)); 
-    else if (image->md[0].atype == _DATATYPE_INT8)
-        memcpy(image->array.SI8, (char *)im, nbVal*sizeof(char));       
-    else if (image->md[0].atype == _DATATYPE_UINT16)
-        memcpy(image->array.UI16, (unsigned short *)im, nbVal*sizeof(unsigned short));
-    else if (image->md[0].atype == _DATATYPE_INT16)
-        memcpy(image->array.SI16, (short *)im, nbVal*sizeof(short));
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        memcpy(image->array.UI32, (unsigned int *)im, nbVal*sizeof(unsigned int));
-    else if (image->md[0].atype == _DATATYPE_UINT32)
-        memcpy(image->array.SI32, (int *)im, nbVal*sizeof(int));
-    else if (image->md[0].atype == _DATATYPE_UINT64)
-        memcpy(image->array.UI64, (unsigned long *)im, nbVal*sizeof(unsigned long));
-    else if (image->md[0].atype == _DATATYPE_INT64)
-        memcpy(image->array.SI64, (long *)im, nbVal*sizeof(long));
-    else if (image->md[0].atype == _DATATYPE_FLOAT)
-        memcpy(image->array.F, (float *)im, nbVal*sizeof(float));
-    else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        memcpy(image->array.D, (double *)im, nbVal*sizeof(double));
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        memcpy(image->array.CF, (complex_float *)im, nbVal*sizeof(complex_float));
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        memcpy(image->array.CD, (complex_double *)im, nbVal*sizeof(complex_double));
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+
+    uint32_t last_written = vol_md[0].fifo_last_written;
+    uint32_t writing_idx = (last_written + 1) % (image->md[0].fifo_size);
+
+    uint64_t fifo_writing_offset = image->md[0].nelement * (uint64_t)writing_idx;
+
+    vol_md[writing_idx].write = 1;
+
+    if (image->md[writing_idx].atype == _DATATYPE_UINT8)
+        memcpy(&image->array.UI8[fifo_writing_offset], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
+    else if (image->md[writing_idx].atype == _DATATYPE_INT8)
+        memcpy(&image->array.SI8[fifo_writing_offset], (char *)im, nbVal*sizeof(char));       
+    else if (image->md[writing_idx].atype == _DATATYPE_UINT16)
+        memcpy(&image->array.UI16[fifo_writing_offset], (unsigned short *)im, nbVal*sizeof(unsigned short));
+    else if (image->md[writing_idx].atype == _DATATYPE_INT16)
+        memcpy(&image->array.SI16[fifo_writing_offset], (short *)im, nbVal*sizeof(short));
+    else if (image->md[writing_idx].atype == _DATATYPE_INT32)
+        memcpy(&image->array.UI32[fifo_writing_offset], (unsigned int *)im, nbVal*sizeof(unsigned int));
+    else if (image->md[writing_idx].atype == _DATATYPE_UINT32)
+        memcpy(&image->array.SI32[fifo_writing_offset], (int *)im, nbVal*sizeof(int));
+    else if (image->md[writing_idx].atype == _DATATYPE_UINT64)
+        memcpy(&image->array.UI64[fifo_writing_offset], (unsigned long *)im, nbVal*sizeof(unsigned long));
+    else if (image->md[writing_idx].atype == _DATATYPE_INT64)
+        memcpy(&image->array.SI64[fifo_writing_offset], (long *)im, nbVal*sizeof(long));
+    else if (image->md[writing_idx].atype == _DATATYPE_FLOAT)
+        memcpy(&image->array.F[fifo_writing_offset], (float *)im, nbVal*sizeof(float));
+    else if (image->md[writing_idx].atype == _DATATYPE_DOUBLE)
+        memcpy(&image->array.D[fifo_writing_offset], (double *)im, nbVal*sizeof(double));
+    else if (image->md[writing_idx].atype == _DATATYPE_COMPLEX_FLOAT)
+        memcpy(&image->array.CF[fifo_writing_offset], (complex_float *)im, nbVal*sizeof(complex_float));
+    else if (image->md[writing_idx].atype == _DATATYPE_COMPLEX_DOUBLE)
+        memcpy(&image->array.CD[fifo_writing_offset], (complex_double *)im, nbVal*sizeof(complex_double));
 
     daoShmImagePart2ShmFinalize(image);
 
@@ -913,34 +921,42 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 int_fast8_t daoShmImage2ShmQuiet(void *im, uint32_t nbVal, IMAGE *image) 
 {
     daoTrace("\n");
-    image->md[0].write = 1;
+
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+
+    uint32_t last_written = vol_md[0].fifo_last_written;
+    uint32_t writing_idx = (last_written + 1) % (image->md[0].fifo_size);
+
+    uint64_t fifo_writing_offset = image->md[0].nelement * (uint64_t)writing_idx;
+
+    image->md[writing_idx].write = 1;
 
     if (image->md[0].atype == _DATATYPE_UINT8)
-        memcpy(image->array.UI8, (unsigned char *)im, nbVal*sizeof(unsigned char)); 
+        memcpy(&image->array.UI8[fifo_writing_offset], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
     else if (image->md[0].atype == _DATATYPE_INT8)
-        memcpy(image->array.SI8, (char *)im, nbVal*sizeof(char));       
+        memcpy(&image->array.SI8[fifo_writing_offset], (char *)im, nbVal*sizeof(char));       
     else if (image->md[0].atype == _DATATYPE_UINT16)
-        memcpy(image->array.UI16, (unsigned short *)im, nbVal*sizeof(unsigned short));
+        memcpy(&image->array.UI16[fifo_writing_offset], (unsigned short *)im, nbVal*sizeof(unsigned short));
     else if (image->md[0].atype == _DATATYPE_INT16)
-        memcpy(image->array.SI16, (short *)im, nbVal*sizeof(short));
+        memcpy(&image->array.SI16[fifo_writing_offset], (short *)im, nbVal*sizeof(short));
     else if (image->md[0].atype == _DATATYPE_INT32)
-        memcpy(image->array.UI32, (unsigned int *)im, nbVal*sizeof(unsigned int));
+        memcpy(&image->array.UI32[fifo_writing_offset], (unsigned int *)im, nbVal*sizeof(unsigned int));
     else if (image->md[0].atype == _DATATYPE_UINT32)
-        memcpy(image->array.SI32, (int *)im, nbVal*sizeof(int));
+        memcpy(&image->array.SI32[fifo_writing_offset], (int *)im, nbVal*sizeof(int));
     else if (image->md[0].atype == _DATATYPE_UINT64)
-        memcpy(image->array.UI64, (unsigned long *)im, nbVal*sizeof(unsigned long));
+        memcpy(&image->array.UI64[fifo_writing_offset], (unsigned long *)im, nbVal*sizeof(unsigned long));
     else if (image->md[0].atype == _DATATYPE_INT64)
-        memcpy(image->array.SI64, (long *)im, nbVal*sizeof(long));
+        memcpy(&image->array.SI64[fifo_writing_offset], (long *)im, nbVal*sizeof(long));
     else if (image->md[0].atype == _DATATYPE_FLOAT)
-        memcpy(image->array.F, (float *)im, nbVal*sizeof(float));
+        memcpy(&image->array.F[fifo_writing_offset], (float *)im, nbVal*sizeof(float));
     else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        memcpy(image->array.D, (double *)im, nbVal*sizeof(double));
+        memcpy(&image->array.D[fifo_writing_offset], (double *)im, nbVal*sizeof(double));
     else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        memcpy(image->array.CF, (complex_float *)im, nbVal*sizeof(complex_float));
+        memcpy(&image->array.CF[fifo_writing_offset], (complex_float *)im, nbVal*sizeof(complex_float));
     else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        memcpy(image->array.CD, (complex_double *)im, nbVal*sizeof(complex_double));
+        memcpy(&image->array.CD[fifo_writing_offset], (complex_double *)im, nbVal*sizeof(complex_double));
 	
-    image->md[0].write = 0;
+    image->md[writing_idx].write = 0;
 
     return DAO_SUCCESS;
 }
@@ -953,40 +969,49 @@ int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t
                              uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber) 
 {
     daoTrace("\n");
-    //int pp;
-    image->md[0].write = 1;
+
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+
+    uint32_t last_written = vol_md[0].fifo_last_written;
+    uint32_t writing_idx = (last_written + 1) % (image->md[0].fifo_size);
+
+    uint64_t fifo_writing_offset = image->md[0].nelement * (uint64_t)writing_idx;
+
+    uint64_t adjusted_position = (uint64_t)position + fifo_writing_offset;
+
+    image->md[writing_idx].write = 1;
 
     if (image->md[0].atype == _DATATYPE_UINT8)
-        memcpy(&image->array.UI8[position], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
+        memcpy(&image->array.UI8[adjusted_position], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
     else if (image->md[0].atype == _DATATYPE_INT8)
-        memcpy(&image->array.SI8[position], (char *)im, nbVal*sizeof(char));       
+        memcpy(&image->array.SI8[adjusted_position], (char *)im, nbVal*sizeof(char));       
     else if (image->md[0].atype == _DATATYPE_UINT16)
-        memcpy(&image->array.UI16[position], (unsigned short *)im, nbVal*sizeof(unsigned short));
+        memcpy(&image->array.UI16[adjusted_position], (unsigned short *)im, nbVal*sizeof(unsigned short));
     else if (image->md[0].atype == _DATATYPE_INT16)
-        memcpy(&image->array.SI16[position], (short *)im, nbVal*sizeof(short));
+        memcpy(&image->array.SI16[adjusted_position], (short *)im, nbVal*sizeof(short));
     else if (image->md[0].atype == _DATATYPE_INT32)
-        memcpy(&image->array.UI32[position], (unsigned int *)im, nbVal*sizeof(unsigned int));
+        memcpy(&image->array.UI32[adjusted_position], (unsigned int *)im, nbVal*sizeof(unsigned int));
     else if (image->md[0].atype == _DATATYPE_UINT32)
-        memcpy(&image->array.SI32[position], (int *)im, nbVal*sizeof(int));
+        memcpy(&image->array.SI32[adjusted_position], (int *)im, nbVal*sizeof(int));
     else if (image->md[0].atype == _DATATYPE_UINT64)
-        memcpy(&image->array.UI64[position], (unsigned long *)im, nbVal*sizeof(unsigned long));
+        memcpy(&image->array.UI64[adjusted_position], (unsigned long *)im, nbVal*sizeof(unsigned long));
     else if (image->md[0].atype == _DATATYPE_INT64)
-        memcpy(&image->array.SI64[position], (long *)im, nbVal*sizeof(long));
+        memcpy(&image->array.SI64[adjusted_position], (long *)im, nbVal*sizeof(long));
     else if (image->md[0].atype == _DATATYPE_FLOAT)
-        memcpy(&image->array.F[position], (float *)im, nbVal*sizeof(float));
+        memcpy(&image->array.F[adjusted_position], (float *)im, nbVal*sizeof(float));
     else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        memcpy(&image->array.D[position], (double *)im, nbVal*sizeof(double));
+        memcpy(&image->array.D[adjusted_position], (double *)im, nbVal*sizeof(double));
     else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        memcpy(&image->array.CF[position], (complex_float *)im, nbVal*sizeof(complex_float));
+        memcpy(&image->array.CF[adjusted_position], (complex_float *)im, nbVal*sizeof(complex_float));
     else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        memcpy(&image->array.CD[position], (complex_double *)im, nbVal*sizeof(complex_double));
+        memcpy(&image->array.CD[adjusted_position], (complex_double *)im, nbVal*sizeof(complex_double));
 
-    image->md[0].lastPos = position;
-    image->md[0].lastNb = nbVal;
-    image->md[0].packetNb = packetId;
-    image->md[0].packetTotal = packetTotal;
-    image->md[0].lastNbArray[packetId] = frameNumber;
-    image->md[0].write = 0;
+    image->md[writing_idx].lastPos = position;
+    image->md[writing_idx].lastNb = nbVal;
+    image->md[writing_idx].packetNb = packetId;
+    image->md[writing_idx].packetTotal = packetTotal;
+    image->md[writing_idx].lastNbArray[packetId] = frameNumber;
+    image->md[writing_idx].write = 0;
 
     return DAO_SUCCESS;
 }
@@ -999,7 +1024,14 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 {
     daoTrace("\n");
 
-    image->md[0].write = 0;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+
+    uint32_t last_written = vol_md[0].fifo_last_written;
+    uint32_t writing_idx = (last_written + 1) % (image->md[0].fifo_size);
+
+    image->md[writing_idx].write = 0;
+
+    image->md[0].fifo_last_written = writing_idx;
 
     daoShmTimestampShm(image);
     daoSemPostAll(image);
@@ -1436,6 +1468,7 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 #endif
 	
         image->md = (IMAGE_METADATA*) map;
+        image->md[0].fifo_size = fifo_size;
 
         for (uint32_t fifo_idx = 0; fifo_idx < fifo_size; ++fifo_idx)
         {
@@ -1452,6 +1485,7 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
     else
     {
         image->md = (IMAGE_METADATA*) malloc(sizeof(IMAGE_METADATA) * fifo_size);
+        image->md[0].fifo_size = fifo_size;
 
         for (uint32_t fifo_idx = 0; fifo_idx < fifo_size; ++fifo_idx)
         {
@@ -1941,6 +1975,9 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 		image->md[0].sem = 0; // no semaphores
     }
 
+    // set fifo last written position
+    image->md[0].fifo_size = fifo_size;
+    image->md[0].fifo_last_written = fifo_size - 1;
 
     // initialize keywords
     for(kw=0; kw<image->md[0].NBkw; kw++)
