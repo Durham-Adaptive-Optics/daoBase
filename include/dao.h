@@ -69,6 +69,7 @@ void daoLogSetLevel(int log_level);
 #define DAO_SUCCESS     0
 #define DAO_ERROR       1
 #define DAO_TIMEOUT     -1
+#define DAO_OVERWRITE   -2
 
 #define DAO_WARNING 0
 #define DAO_INFO 1
@@ -460,8 +461,9 @@ typedef struct          		/**< structure used to store data arrays              
 	HANDLE shmfm;						/**< shared memory file mapping view handle */
 #endif
 
-    // New FIFO member
+    // New FIFO members
     uint32_t fifo_last_read;
+    uint64_t fifo_last_read_cnt0;
 
     // total size is 152 byte = 1216 bit
     // (on Windows,  160 byte = 1280 bit)
@@ -497,12 +499,21 @@ DLL_EXPORT int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, lo
                            uint8_t atype, int shared, int NBkw, uint32_t fifo_size);
 DLL_EXPORT int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
                            uint8_t atype, int shared, int NBkw);
+
 DLL_EXPORT int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal); 
 DLL_EXPORT int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
 DLL_EXPORT int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const struct timespec *timeout);
 DLL_EXPORT int_fast8_t daoShmWaitForCounter(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0);
 DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE *image);
+
+DLL_EXPORT int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segmentPtr, uint32_t* segmentIdx);
+DLL_EXPORT int_fast8_t daoShmWaitForNextSegment(IMAGE *image);
+DLL_EXPORT int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segmentPtr, uint_fast32_t fifoIdx);
+DLL_EXPORT int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segmentPtr, uint32_t* segmentIdx);
+DLL_EXPORT int_fast8_t daoShmCheckSegmentOverwrite(IMAGE *image);
+DLL_EXPORT int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segmentIdx);
+
 DLL_EXPORT int_fast8_t daoShmCloseShm(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE *image);
 
