@@ -827,6 +827,12 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         }
 #endif
         free(nameCopy);
+
+        // Set up FIFO tail
+
+        uint32_t tmp32;
+        uint64_t tmp64;
+        daoShmResetTail(image, &tmp32, &tmp64);
     }
     return(rval);
 }
@@ -2341,11 +2347,11 @@ int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
     req.tv_sec = 0;          // Seconds
     req.tv_nsec = 0; // Nanoseconds
 
-    volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
-    if (md->fifo_size == 1) // Spin on our only cnt0 for 1-deep images
+    if (vol_md->fifo_size == 1) // Spin on our only cnt0 for 1-deep images
     {
-        while (md->cnt0 < targetCnt0)
+        while (vol_md->cnt0 < targetCnt0)
         {
             // Spin
             if (nanosleep(&req, &rem) < 0) 
@@ -2360,9 +2366,9 @@ int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
         while (1)
         {
             // Check counter of last position
-            uint32_t fifo_last_written = image->md[0].fifo_last_written;
+            uint32_t fifo_last_written = vol_md[0].fifo_last_written;
 
-            if (md[fifo_last_written].cnt0 >= targetCnt0)
+            if (vol_md[fifo_last_written].cnt0 >= targetCnt0)
                 break;
 
             // Spin
@@ -2396,18 +2402,18 @@ uint_fast64_t daoShmGetCounter(IMAGE *image)
  * @brief Get the next segment of this shared memory, or the newest if our tail position has been lapped.
  * 
  * @param image 
- * @param segmentPtr Pointer to start of the next segment's array
- * @param segmentIdx Numerical index of the next segment
+ * @param segment_ptr Pointer to start of the next segment's array
+ * @param segment_idx Numerical index of the next segment
  * @return int_fast8_t DAO_OVERWRITE if tail has been lapped, otherwise DAO_SUCCESS
  */
-int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segmentPtr, uint32_t* segmentIdx)
+int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
 {
     // Pseudocode
     // 1. get last_read_idx from IMAGE
     // 3. increment last_read_idx next segment
     // 4. get cnt0 from next segment
     // 5. if next segment_cnt0 != last_read_cnt0 + 1, we have been lapped, so reset tail
-    // 6. set segmentPtr and segmentIdx with last_read_idx
+    // 6. set segment_ptr and segment_idx with last_read_idx
     // 2. set to last_read_idx 
     // 7. return DAO_OVERWRITE if lapped, DAO_SUCCESS otherwise
 
@@ -2423,6 +2429,12 @@ int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segmentPtr, uint32_t* segm
     uint32_t next_segment_idx = (last_read_idx + 1) % vol_md[0].fifo_size;
     uint64_t next_segment_cnt0 = last_read_cnt0 + 1;
 
+    // Return if we haven't got any new data yet
+    if ((last_read_idx == vol_md[0].fifo_last_written) && (last_read_cnt0 == vol_md[last_read_idx].cnt0))
+    {
+        return DAO_NOTREADY;
+    }
+
     if (vol_md[next_segment_idx].cnt0 != next_segment_cnt0)
     { // We have been lapped by the writer. Set our position to the newest segment and signal the overwrite condition
         return_val = DAO_OVERWRITE;
@@ -2432,31 +2444,32 @@ int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segmentPtr, uint32_t* segm
 
     // Set the segment pointer and index
     if (image->md[0].atype == _DATATYPE_UINT8)
-        *segmentPtr = &(image->array.UI8[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI8[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT8)
-        *segmentPtr = &(image->array.SI8[next_segment_idx * image->md[0].nelement]);      
+        *segment_ptr = &(image->array.SI8[next_segment_idx * image->md[0].nelement]);      
     else if (image->md[0].atype == _DATATYPE_UINT16)
-        *segmentPtr = &(image->array.UI16[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI16[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT16)
-        *segmentPtr = &(image->array.SI16[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.SI16[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT32)
-        *segmentPtr = &(image->array.UI32[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI32[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT32)
-        *segmentPtr = &(image->array.SI32[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.SI32[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT64)
-        *segmentPtr = &(image->array.UI64[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI64[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT64)
-        *segmentPtr = &(image->array.SI64[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.SI64[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_FLOAT)
-        *segmentPtr = &(image->array.F[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.F[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        *segmentPtr = &(image->array.D[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.D[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        *segmentPtr = &(image->array.CF[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.CF[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        *segmentPtr = &(image->array.CD[next_segment_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.CD[next_segment_idx * image->md[0].nelement]);
 
-    *segmentIdx = next_segment_idx;
+    *segment_idx = next_segment_idx;
+    *segment_cnt0 = next_segment_cnt0;
 
     // Update the bookkeeping variables for this FIFO tail our IMAGE struct
     vol_image->fifo_last_read = next_segment_idx;
@@ -2466,41 +2479,52 @@ int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segmentPtr, uint32_t* segm
 }
 
 /**
+ * @brief Wait until the next segment is written to the DAO shared memory.
+ * 
+ * @param image 
+ * @return int_fast8_t
+ */
+int_fast8_t daoShmWaitForNextSegment(IMAGE *image)
+{
+    return daoShmWaitForTargetCounter(image, image->fifo_last_read_cnt0 + 1);
+}
+
+/**
  * @brief Get the specified segment of this shared memory.
  * 
  * @param image 
- * @param segmentPtr Pointer to start of the given segment's array
- * @param segmentIdx Numerical index of the segment to get
+ * @param segment_ptr Pointer to start of the given segment's array
+ * @param segment_idx Numerical index of the segment to get
  * @return int_fast8_t
  */
-int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segmentPtr, uint_fast32_t fifoIdx)
+int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segment_ptr, uint_fast32_t fifo_idx)
 {
-    uint32_t actual_idx = (uint32_t)(fifoIdx % image->md[0].fifo_size);
+    uint32_t actual_idx = (uint32_t)(fifo_idx % image->md[0].fifo_size);
 
     if (image->md[0].atype == _DATATYPE_UINT8)
-        *segmentPtr = &(image->array.UI8[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI8[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT8)
-        *segmentPtr = &(image->array.SI8[actual_idx * image->md[0].nelement]);      
+        *segment_ptr = &(image->array.SI8[actual_idx * image->md[0].nelement]);      
     else if (image->md[0].atype == _DATATYPE_UINT16)
-        *segmentPtr = &(image->array.UI16[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI16[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT16)
-        *segmentPtr = &(image->array.SI16[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.SI16[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT32)
-        *segmentPtr = &(image->array.UI32[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI32[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT32)
-        *segmentPtr = &(image->array.SI32[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.SI32[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT64)
-        *segmentPtr = &(image->array.UI64[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI64[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT64)
-        *segmentPtr = &(image->array.SI64[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.SI64[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_FLOAT)
-        *segmentPtr = &(image->array.F[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.F[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        *segmentPtr = &(image->array.D[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.D[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        *segmentPtr = &(image->array.CF[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.CF[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        *segmentPtr = &(image->array.CD[actual_idx * image->md[0].nelement]);
+        *segment_ptr = &(image->array.CD[actual_idx * image->md[0].nelement]);
 
     return DAO_SUCCESS;
 }
@@ -2509,42 +2533,44 @@ int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segmentPtr, uint_fast
  * @brief Get the segment of this shared memory which was last written to.
  * 
  * @param image 
- * @param segmentPtr Pointer to start of the newest segment's array
- * @param segmentIdx Numerical index of the newest segment
+ * @param segment_ptr Pointer to start of the newest segment's array
+ * @param segment_idx Numerical index of the newest segment
  * @return int_fast8_t
  */
-int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segmentPtr, uint32_t* segment_idx)
+int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
 {
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
     uint32_t last_written = vol_md[0].fifo_last_written;
+    uint64_t cnt0 = vol_md[last_written].cnt0;
 
     if (image->md[0].atype == _DATATYPE_UINT8)
-        *segmentPtr = &(image->array.UI8[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI8[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT8)
-        *segmentPtr = &(image->array.SI8[last_written * image->md[0].nelement]);      
+        *segment_ptr = &(image->array.SI8[last_written * image->md[0].nelement]);      
     else if (image->md[0].atype == _DATATYPE_UINT16)
-        *segmentPtr = &(image->array.UI16[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI16[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT16)
-        *segmentPtr = &(image->array.SI16[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.SI16[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT32)
-        *segmentPtr = &(image->array.UI32[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI32[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT32)
-        *segmentPtr = &(image->array.SI32[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.SI32[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT64)
-        *segmentPtr = &(image->array.UI64[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.UI64[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT64)
-        *segmentPtr = &(image->array.SI64[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.SI64[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_FLOAT)
-        *segmentPtr = &(image->array.F[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.F[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        *segmentPtr = &(image->array.D[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.D[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        *segmentPtr = &(image->array.CF[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.CF[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        *segmentPtr = &(image->array.CD[last_written * image->md[0].nelement]);
+        *segment_ptr = &(image->array.CD[last_written * image->md[0].nelement]);
 
     *segment_idx = last_written;
+    *segment_cnt0 = cnt0;
 
     return DAO_SUCCESS;
 }
@@ -2583,17 +2609,22 @@ int_fast8_t daoShmCheckSegmentOverwrite(IMAGE *image)
  * @brief Reset the reading tail on this SHM image struct to the current newest segment.
  * 
  * @param image 
- * @param segmentIdx Index to which the tail was reset
+ * @param segment_idx Segment to which the tail was reset
+ * @param segment_cnt0 Current CNT0 of the segment to which the tail was reset
  * @return int_fast8_t
  */
-int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segmentIdx)
+int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segment_idx, uint64_t *segment_cnt0)
 {
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
     uint32_t new_segment_idx = vol_md[0].fifo_last_written;
+    uint64_t new_segment_cnt0 = vol_md[new_segment_idx].cnt0;
 
-    *segmentIdx = new_segment_idx;
+    *segment_idx = new_segment_idx;
+    *segment_cnt0 = new_segment_cnt0;
+
     image->fifo_last_read = new_segment_idx;
+    image->fifo_last_read_cnt0 = new_segment_cnt0;
 
     return DAO_SUCCESS;
 }
@@ -2702,10 +2733,15 @@ int_fast8_t daoShmTimestampShm(IMAGE *image)
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
 
-    uint32_t fifo_last_written = image->md[0].fifo_last_written;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
-    image->md[fifo_last_written].atime.tsfixed.secondlong = ((int64_t)(1e9 * t.tv_sec) + t.tv_nsec);
-    image->md[fifo_last_written].cnt0++;
+    uint32_t fifo_last_written = vol_md[0].fifo_last_written;
+    uint32_t fifo_prior_write = (fifo_last_written == 0)
+                                ? vol_md[0].fifo_size - 1
+                                : fifo_last_written - 1;
+
+    vol_md[fifo_last_written].atime.tsfixed.secondlong = ((int64_t)(1e9 * t.tv_sec) + t.tv_nsec);
+    vol_md[fifo_last_written].cnt0 = vol_md[fifo_prior_write].cnt0 + 1;
 
     return DAO_SUCCESS;
 }

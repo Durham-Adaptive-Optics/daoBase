@@ -232,7 +232,11 @@ if sys.platform == "Darwin":
             ("lastNb", ctypes.c_uint32),
             ("packetNb", ctypes.c_uint32),
             ("packetTotal", ctypes.c_uint32),
-            ("lastNbArray", ctypes.c_uint64 * 512)
+            ("lastNbArray", ctypes.c_uint64 * 512),
+            ("semCounter", ctypes.c_uint32 * 10),
+            ("semLogCounter", ctypes.c_uint32),
+            ("fifo_size", ctypes.c_uint32),
+            ("fifo_last_written", ctypes.c_uint32)
         ]
 else:
     # Define the IMAGE_METADATA structure
@@ -266,8 +270,8 @@ else:
             ("packetNb", ctypes.c_uint32),
             ("packetTotal", ctypes.c_uint32),
             ("lastNbArray", ctypes.c_uint64 * 512),
-            ("semCounter", ctypes.c_uint32 * 10),
-            ("semLogCounter", ctypes.c_uint32)
+            ("fifo_size", ctypes.c_uint32),
+            ("fifo_last_written", ctypes.c_uint32)
         ]
     
 
@@ -303,7 +307,9 @@ if sys.platform == "win32":
             ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
             ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
             ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
-            ('shmfm', ctypes.POINTER(ctypes.c_void_p))
+            ('shmfm', ctypes.POINTER(ctypes.c_void_p)),
+            ('fifo_last_read', ctypes.c_uint32),
+            ('fifo_last_read_cnt0', ctypes.c_uint64)
         ]
 else:
     # Define the IMAGE structure
@@ -336,10 +342,18 @@ else:
             ('semptr', ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))),
             ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
             ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
-            ('semWritePID', ctypes.POINTER(ctypes.c_int32))
+            ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
+            ('fifo_last_read', ctypes.c_uint32),
+            ('fifo_last_read_cnt0', ctypes.c_uint64)
         ]
 
 class shm:
+    DAO_SUCCESS = 0
+    DAO_ERROR = 1
+    DAO_TIMEOUT = -1
+    DAO_OVERWRITE = -2
+    DAO_NOTREADY = -3
+
     def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=1, depth=1):
         # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
         self.daoShmInit1D = daoLib.daoShmInit1D
@@ -462,6 +476,33 @@ class shm:
         self.daoShmWaitForCounter = daoLib.daoShmWaitForCounter
         self.daoShmWaitForCounter.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmWaitForCounter.restype = ctypes.c_int8
+
+        # new FIFO functions
+        self.daoShmGetNextSegment = daoLib.daoShmGetNextSegment
+        self.daoShmGetNextSegment.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p),\
+                                              ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint64)]
+        self.daoShmGetNextSegment.restype = ctypes.c_int8
+
+        self.daoShmWaitForNextSegment = daoLib.daoShmWaitForNextSegment
+        self.daoShmWaitForNextSegment.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmWaitForNextSegment.restype = ctypes.c_int8
+
+        self.daoShmGetArbitrarySegment = daoLib.daoShmGetArbitrarySegment
+        self.daoShmGetArbitrarySegment.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint32]
+        self.daoShmGetArbitrarySegment.restype = ctypes.c_int8
+
+        self.daoShmGetNewestSegment = daoLib.daoShmGetNewestSegment
+        self.daoShmGetNewestSegment.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p),\
+                                              ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint64)]
+        self.daoShmGetNewestSegment.restype = ctypes.c_int8
+
+        self.daoShmCheckSegmentOverwrite = daoLib.daoShmCheckSegmentOverwrite
+        self.daoShmCheckSegmentOverwrite.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmCheckSegmentOverwrite.restype = ctypes.c_int8
+
+        self.daoShmResetTail = daoLib.daoShmResetTail
+        self.daoShmResetTail.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint64)]
+        self.daoShmResetTail.restype = ctypes.c_int8
         
         # int8_t daoShmCloseShm(IMAGE *image);
         self.daoShmCloseShm = daoLib.daoShmCloseShm
@@ -474,6 +515,7 @@ class shm:
         elif data is not None:
             if depth < 1:
                 log.error("Depth can't be less than 1")
+                depth = 1
             else:
                 log.info("%s will be created or overwritten" % (fname,))
                 dataSize = data.shape
@@ -524,6 +566,56 @@ class shm:
 
         nbVal = ctypes.c_uint32(data.size)
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
+
+    def get_data_next(self, wait=False, reform=True, semNb=0, timeout=0):
+        ''' --------------------------------------------------------------
+        Reads and returns the next data part of the SHM file
+
+        Parameters:
+        ----------
+        - check: integer (last index) if not False, waits image update
+        - reform: boolean, if True, reshapes the array in a 2-3D format
+        -------------------------------------------------------------- '''
+
+        if wait == True:
+            result = self.daoShmWaitForNextSegment(ctypes.byref(self.image))
+            if result != 0:
+                log.error("Error waiting for counter")
+                return None
+        
+        arrayPtr = ctypes.c_void_p(None)
+        temp32 = ctypes.c_uint32()
+        temp64 = ctypes.c_uint64()
+        
+        result = self.daoShmGetNextSegment(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
+                                           ctypes.byref(temp32),  ctypes.byref(temp64))
+        
+        data = None
+        
+        if result == self.DAO_SUCCESS or result == self.DAO_OVERWRITE:
+            arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+                                                        ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
+
+            arrayPtr = ctypes.cast(arrayPtr,\
+                                ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
+            #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
+            if arraySize[2] == 0:
+                if arraySize[1] == 0:
+                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
+                else:
+                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+            else:
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+
+            # Check if the dtype is structured (i.e., for complex types)
+            if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
+                # Reconstruct complex array by combining real and imaginary parts
+                data = data['real'] + 1j * data['imag']
+            
+            # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
+            data = data.astype(daoType2NpType(self.image.md.contents.atype))
+        
+        return (result, data)
 
     def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False):
         ''' --------------------------------------------------------------

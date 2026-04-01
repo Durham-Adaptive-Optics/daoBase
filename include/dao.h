@@ -70,6 +70,7 @@ void daoLogSetLevel(int log_level);
 #define DAO_ERROR       1
 #define DAO_TIMEOUT     -1
 #define DAO_OVERWRITE   -2
+#define DAO_NOTREADY    -3
 
 #define DAO_WARNING 0
 #define DAO_INFO 1
@@ -507,12 +508,12 @@ DLL_EXPORT int_fast8_t daoShmWaitForCounter(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0);
 DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE *image);
 
-DLL_EXPORT int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segmentPtr, uint32_t* segmentIdx);
+DLL_EXPORT int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0);
 DLL_EXPORT int_fast8_t daoShmWaitForNextSegment(IMAGE *image);
-DLL_EXPORT int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segmentPtr, uint_fast32_t fifoIdx);
-DLL_EXPORT int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segmentPtr, uint32_t* segmentIdx);
+DLL_EXPORT int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segment_ptr, uint_fast32_t fifo_idx);
+DLL_EXPORT int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0);
 DLL_EXPORT int_fast8_t daoShmCheckSegmentOverwrite(IMAGE *image);
-DLL_EXPORT int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segmentIdx);
+DLL_EXPORT int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segment_idx, uint64_t *segment_cnt0);
 
 DLL_EXPORT int_fast8_t daoShmCloseShm(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE *image);
