@@ -617,9 +617,57 @@ class shm:
         
         return (result, data)
     
+
+    def get_data_arbitrary(self, index):
+        ''' --------------------------------------------------------------
+        Reads and returns the requested data segment of the SHM file
+
+        Parameters:
+        ----------
+        - wait: integer (last index) if not False, waits image update
+        - reform: boolean, if True, reshapes the array in a 2-3D format
+        -------------------------------------------------------------- '''
+
+        # First, check the requested number of items is valid
+        fifo_size = self.image.md[0].fifo_size
+        fifo_idx = index % fifo_size
+        
+        arrayPtr = ctypes.c_void_p(None)
+        
+        result = self.daoShmGetArbitrarySegment(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
+                                           ctypes.c_uint32(fifo_idx))
+
+        # Cast our void pointer to the desired type
+        arrayPtr = ctypes.cast(arrayPtr.value,\
+                               ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
+
+        # Get the array size
+        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+                                                      ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
+
+        #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
+        if arraySize[2] == 0:
+            if arraySize[1] == 0:
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
+            else:
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+        else:
+            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+
+        # Check if the dtype is structured (i.e., for complex types)
+        if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
+            # Reconstruct complex array by combining real and imaginary parts
+            data = data['real'] + 1j * data['imag']
+        
+        # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
+        data = data.astype(daoType2NpType(self.image.md.contents.atype))
+
+        return data
+    
+
     def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False):
         ''' --------------------------------------------------------------
-        Reads and returns the data part of the SHM file
+        Reads and returns the newest data segment of the SHM file
 
         Parameters:
         ----------
@@ -639,11 +687,21 @@ class shm:
                         log.error("Timeout waiting for semaphore")
                         return None
 
+        arrayPtr = ctypes.c_void_p(None)
+        seg_idx = ctypes.c_uint32(0)
+        seg_cnt0 = ctypes.c_uint64(0)
+        
+        result = self.daoShmGetNewestSegment(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
+                                           ctypes.byref(seg_idx), ctypes.byref(seg_cnt0))
+        
+        # Cast our void pointer to the desired type
+        arrayPtr = ctypes.cast(arrayPtr.value,\
+                               ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
+
+        # Get the array size
         arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
                                                       ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
 
-        arrayPtr = ctypes.cast(self.image.array,\
-                               ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
         #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
         if arraySize[2] == 0:
             if arraySize[1] == 0:
@@ -729,7 +787,7 @@ class shm:
 
 
 
-    def get_meta_data(self):
+    def get_meta_data(self, index=None):
         ''' --------------------------------------------------------------
         Get the metadata fraction of the SHM file.
         Populate the shm object mtdata dictionary.
@@ -738,15 +796,22 @@ class shm:
         ----------
         - verbose: (boolean, default: True), prints its findings
         -------------------------------------------------------------- '''
-        # get latest metadata from FIFO
-        seg_ptr = ctypes.c_void_p(None)
-        seg_idx = ctypes.c_uint32(0)
-        seg_cnt0 = ctypes.c_uint64(0)
 
-        self.daoShmGetNewestSegment(ctypes.byref(self.image),\
-                                    ctypes.byref(seg_ptr),\
-                                    ctypes.byref(seg_idx),
-                                    ctypes.byref(seg_cnt0))
+        if (index == None):
+            # get latest metadata from FIFO
+            seg_ptr = ctypes.c_void_p(None)
+            seg_idx = ctypes.c_uint32(0)
+            seg_cnt0 = ctypes.c_uint64(0)
+
+            self.daoShmGetNewestSegment(ctypes.byref(self.image),\
+                                        ctypes.byref(seg_ptr),\
+                                        ctypes.byref(seg_idx),
+                                        ctypes.byref(seg_cnt0))
+        else:
+            # get requested metadata from FIFO
+            fifo_size = self.image.md.contents.fifo_size
+            adjusted_index = index % fifo_size
+            seg_idx = ctypes.c_uint32(adjusted_index)
 
         md = self.image.md[seg_idx.value]
         self.mtdata=struct2Dict(md)
