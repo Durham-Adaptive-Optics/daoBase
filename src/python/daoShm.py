@@ -567,13 +567,13 @@ class shm:
         nbVal = ctypes.c_uint32(data.size)
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
 
-    def get_data_next(self, wait=False, reform=True, semNb=0, timeout=0):
+    def get_data_next(self, wait=False, reform=True):
         ''' --------------------------------------------------------------
         Reads and returns the next data part of the SHM file
 
         Parameters:
         ----------
-        - check: integer (last index) if not False, waits image update
+        - wait: integer (last index) if not False, waits image update
         - reform: boolean, if True, reshapes the array in a 2-3D format
         -------------------------------------------------------------- '''
 
@@ -616,7 +616,7 @@ class shm:
             data = data.astype(daoType2NpType(self.image.md.contents.atype))
         
         return (result, data)
-
+    
     def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False):
         ''' --------------------------------------------------------------
         Reads and returns the data part of the SHM file
@@ -662,6 +662,72 @@ class shm:
         data = data.astype(daoType2NpType(self.image.md.contents.atype))
 
         return data
+
+
+
+    def get_history(self, num_items=1):
+        ''' --------------------------------------------------------------
+        Reads and returns the last N segments written to the SHM
+
+        Parameters:
+        ----------
+        - num_items: Number of items to return
+        -------------------------------------------------------------- '''
+
+        # First, check the requested number of items is valid
+        fifo_size = self.image.md[0].fifo_size
+
+        if (num_items < 1):
+            log.error("Cannot read less than 1 item")
+            return None
+        elif (num_items > fifo_size):
+            log.error("Cannot read more segments than exist")
+            return None
+
+        # Now determine the size of array to reserve
+        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+                                                      ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
+        
+        if arraySize[2] == 0:
+            if arraySize[1] == 0:
+                result_shape = (num_items, arraySize[0],)
+            else:
+                result_shape = (num_items, arraySize[0], arraySize[1],)
+        else:
+            result_shape = (num_items, arraySize[0], arraySize[1], arraySize[2])
+
+        history_data = np.empty(result_shape, dtype=daoType2NpType(self.image.md.contents.atype))
+
+        # Determine the index to read backwards from
+        idx_base = self.image.md[0].fifo_last_written - num_items + 1
+
+        array_base = self.image.array
+        
+        element_ctype = daoType2CtypesType(self.image.md.contents.atype)
+        element_size = ctypes.sizeof(element_ctype)
+        nelement = self.image.md.contents.nelement
+
+        for idx_offset in range(num_items):
+            # Calculate index
+            current_idx = (idx_base + idx_offset) % fifo_size
+
+            # Get corresponding segment pointer
+            array_ptr = element_ctype.from_address(array_base + (current_idx * nelement * element_size))
+            
+            current_data = np.ctypeslib.as_array(array_ptr, shape=result_shape[1:])
+
+            if current_data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in current_data.dtype.fields:
+                # Reconstruct complex array by combining real and imaginary parts
+                data = data['real'] + 1j * data['imag']
+
+            history_data[idx_offset] = current_data
+
+        # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
+        history_data = history_data.astype(daoType2NpType(self.image.md.contents.atype))
+
+        return history_data
+
+
 
     def get_meta_data(self):
         ''' --------------------------------------------------------------
