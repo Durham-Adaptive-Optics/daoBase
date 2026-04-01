@@ -672,7 +672,17 @@ class shm:
         ----------
         - verbose: (boolean, default: True), prints its findings
         -------------------------------------------------------------- '''
-        md=self.image.md.contents
+        # get latest metadata from FIFO
+        seg_ptr = ctypes.c_void_p(None)
+        seg_idx = ctypes.c_uint32(0)
+        seg_cnt0 = ctypes.c_uint64(0)
+
+        self.daoShmGetNewestSegment(ctypes.byref(self.image),\
+                                    ctypes.byref(seg_ptr),\
+                                    ctypes.byref(seg_idx),
+                                    ctypes.byref(seg_cnt0))
+
+        md = self.image.md[seg_idx.value]
         self.mtdata=struct2Dict(md)
 
         #decode time
@@ -689,6 +699,10 @@ class shm:
         mdts['tsfixed'] = mdt2s
 
         self.mtdata['atime'] = mdts
+
+        # Graft current FIFO values into this metadata from image->md[0]
+        self.mtdata['fifo_last_written'] = self.image.md.contents.fifo_last_written
+        self.mtdata['fifo_size'] = self.image.md.contents.fifo_size
 
         return self.mtdata
 
@@ -711,6 +725,13 @@ class shm:
 
         # now I have tv_sec and tv_nsec we convert to a datetime
         return datetime.datetime.fromtimestamp(tv_sec) + datetime.timedelta(microseconds=tv_nsec/1000)
+
+    def reset_tail(self, ):
+        ''' --------------------------------------------------------------
+        Reset the reading tail for this instance of the SHM
+        -------------------------------------------------------------- '''
+        result = self.daoShmResetTail(ctypes.byref(self.image))
+        return result
 
     def publish(self):
         self.pubContext = zmq.Context()
