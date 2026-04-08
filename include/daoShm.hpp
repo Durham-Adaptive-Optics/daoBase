@@ -39,18 +39,20 @@ namespace Dao
          * @param shape Dao::Shape containing number of elements in each axis.
          * @param frame Initial shared memory data frame.
          */
-        Shm(const std::string &name, const Dao::Shape &shape, T *frame = nullptr) {
+        Shm(const std::string &name, const Dao::Shape &shape, T *frame = nullptr,
+            uint32_t depth = 1) {
             if(shape.size() != 2 && shape.size() != 3)
                 throw std::runtime_error("invalid dao shape");
 
-            const auto status = daoShmImageCreate(
+            const auto status = daoShmImageCreate_FIFO(
                 &image_,
                 name.c_str(),
                 shape.size(),
                 (uint32_t*)shape.data(),
                 inferDaoType(),
                 1, // shared memory
-                0 // no keywords
+                0, // no keywords
+                depth
             );
             md_ = (volatile IMAGE_METADATA *)image_.md;
             
@@ -115,7 +117,7 @@ namespace Dao
         }
 
         /**
-         * @brief Retrieve a pointer to the shared memory frame array.
+         * @brief Retrieve a pointer to the newest segment of the shared memory frame array.
          * Optionally blocks until the next frame is written to shared memory.
          * @param sync Synchronization option (see Dao::ShmSync).
          * @param syncValue Specifies the timeout (seconds) for the semaphore sync options, or the cnt0 value to sync on when using the SPIN sync option.
@@ -141,7 +143,56 @@ namespace Dao
                         return nullptr;
                 } break;
             }
-            return (T*)image_.array.V;
+
+            void *newest_data;
+            uint32_t segment_idx;
+            uint64_t segment_cnt0;
+            daoShmGetNewestSegment(&image_, &newest_data, &segment_idx, &segment_cnt0);
+
+            return (T*)newest_data;
+        }
+
+        /**
+         * @brief Retrieve a pointer to the next segment of the shared memory frame array.
+         * Optionally blocks until the next frame is written to shared memory.
+         * @param bool Flag to enable spinning until new frame is ready
+         * @param overwrite Reference to flag indicating frame overwrite (optional)
+         * @return Pointer to the shared memory frame array, or nullptr if synchronization failed (wait enabled),
+         * or if frame is not yet ready (wait disabled)
+         */
+        T* get_next_frame(bool wait, uint_fast8_t &status) {
+            // Wait for the next frame if requested
+            if (wait) {
+                if (daoShmWaitForNextSegment(&image_) != DAO_SUCCESS)
+                    status = DAO_ERROR;
+                    return nullptr;
+            }
+
+            // Get the next frame
+            void *segment_ptr;
+            uint32_t segment_idx;
+            uint64_t segment_cnt0;
+
+            status = daoShmGetNextSegment(&image_, &segment_ptr, &segment_idx, &segment_cnt0);
+
+            return (T*)segment_ptr;
+        }
+
+        /**
+         * @brief Retrieve a pointer to a given segment of the shared memory frame array.
+         * @param bool Flag to enable spinning until new frame is ready
+         * @param overwrite Reference to flag indicating frame overwrite (optional)
+         * @return Pointer to the shared memory frame array, or nullptr if synchronization failed (wait enabled),
+         * or if frame is not yet ready (wait disabled)
+         */
+        T* get_arbitrary_frame(uint32_t segment_idx) {
+            // Get the next frame
+            void *segment_ptr;
+            uint64_t *segment_cnt0;
+
+            daoShmGetArbitrarySegment(&image_, &segment_ptr, segment_idx);
+
+            return segment_ptr;
         }
 
         /**
@@ -165,7 +216,17 @@ namespace Dao
          * @return cnt0.
          */
         uint64_t get_counter() const {
-            return md_->cnt0;
+            return this->get_counter(md_->fifo_last_written);
+        }
+
+        /**
+         * @brief Get arbitrary metadata cnt0 value.
+         * @return cnt0.
+         */
+        uint64_t get_counter(uint32_t fifo_idx) const {
+            volatile IMAGE_METADATA *segment_md_ = &(md_[fifo_idx % (md_->fifo_size)]);
+
+            return segment_md_->cnt0;
         }
 
         /**
@@ -173,7 +234,17 @@ namespace Dao
          * @return cnt1.
          */
         uint64_t get_cnt1() const {
-            return md_->cnt1;
+            return this->get_cnt1(md_->fifo_last_written);
+        }
+
+        /**
+         * @brief Get arbitrary cnt1 value.
+         * @return cnt1.
+         */
+        uint64_t get_cnt1(uint32_t fifo_idx) const {
+            volatile IMAGE_METADATA *segment_md_ = &(md_[fifo_idx % (md_->fifo_size)]);
+
+            return segment_md_->cnt1;
         }
 
         /**
@@ -181,7 +252,17 @@ namespace Dao
          * @return frame id (cnt2).
          */
         uint64_t get_frame_id() const {
-            return md_->cnt2;
+            return this->get_frame_id(md_->fifo_last_written);
+        }
+
+        /**
+         * @brief Get arbitrary frame id (cnt2).
+         * @return frame id (cnt2).
+         */
+        uint64_t get_frame_id(uint32_t fifo_idx) const {
+            volatile IMAGE_METADATA *segment_md_ = &(md_[fifo_idx % (md_->fifo_size)]);
+
+            return segment_md_->cnt2;
         }
 
         /**
@@ -189,14 +270,34 @@ namespace Dao
          * @return Seconds since Unix epoch.
          */
         int64_t get_timestamp() const {
+            return this->get_timestamp(md_->fifo_last_written);
+        }
+
+        /**
+         * @brief Get arbitrary timestamp value.
+         * @return Seconds since Unix epoch.
+         */
+        int64_t get_timestamp(uint32_t fifo_idx) const {
             return md_->atime.tsfixed.secondlong;
         }
 
         /**
          * @brief Get shared memory metadata.
-         * @return Poiter to shared memory metadata structure.
+         * @return Pointer to shared memory metadata structure.
          */
-        IMAGE_METADATA* get_meta_data() const { return image_.md; }
+        IMAGE_METADATA* get_meta_data() const {
+            return this->get_meta_data(md_->fifo_last_written);
+        }
+
+        /**
+         * @brief Get shared memory metadata.
+         * @return Pointer to shared memory metadata structure.
+         */
+        IMAGE_METADATA* get_meta_data(uint32_t fifo_idx) const {
+            volatile IMAGE_METADATA *segment_md_ = &(md_[fifo_idx % (md_->fifo_size)]);
+
+            return segment_md_;
+        }
 
         private:
         /**
