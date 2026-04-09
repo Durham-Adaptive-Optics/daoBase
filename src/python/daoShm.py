@@ -774,9 +774,11 @@ class shm:
             
             current_data = np.ctypeslib.as_array(array_ptr, shape=result_shape[1:])
 
-            if current_data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in current_data.dtype.fields:
+            if current_data.dtype.fields is not None \
+                    and 'real' in current_data.dtype.fields \
+                    and 'imag' in current_data.dtype.fields:
                 # Reconstruct complex array by combining real and imaginary parts
-                data = data['real'] + 1j * data['imag']
+                current_data = current_data['real'] + 1j * current_data['imag']
 
             history_data[idx_offset] = current_data
 
