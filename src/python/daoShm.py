@@ -201,7 +201,7 @@ class IMAGE_KEYWORD(ctypes.Structure):
     ]
 
 # Define the IMAGE_METADATA structure
-if sys.platform == "Darwin":
+if sys.platform == "darwin":
     # Define the IMAGE_METADATA structure
     class IMAGE_METADATA(ctypes.Structure):
         class ATIME(ctypes.Union):
