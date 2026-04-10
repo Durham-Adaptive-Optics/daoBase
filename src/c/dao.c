@@ -1985,6 +1985,12 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
     image->md[0].fifo_size = fifo_size;
     image->md[0].fifo_last_written = fifo_size - 1;
 
+    // set up FIFO tail
+
+    uint32_t tmp32;
+    uint64_t tmp64;
+    daoShmResetTail(image, &tmp32, &tmp64);
+
     // initialize keywords
     for(kw=0; kw<image->md[0].NBkw; kw++)
     {

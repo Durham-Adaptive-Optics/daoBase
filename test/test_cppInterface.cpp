@@ -250,6 +250,77 @@ TEST_F(Suite, GetShape)
     ASSERT_EQ(std::memcmp(shape.data(), shape_.data(), shape.size() * sizeof(uint32_t)), 0);
 }
 
+/**
+ * @brief Ensure correct FIFO frame sync.
+ */
+TEST_F(Suite, FifoSync)
+{
+    bool syncDone = false;
+    int16_t frame_a[] = { 128 };
+    int16_t frame_b[] = { 129 };
+
+    Dao::Shm<int16_t> smem(shmPath_, { 1,1 }, frame_a, 4);
+
+    std::thread waiter ([&]() {
+        int_fast8_t status;
+        uint64_t cnt0_a, cnt0_b;
+
+        int16_t *frame_ = smem.get_next_frame(true, status, cnt0_a);
+        ASSERT_EQ(*frame_, 128);
+
+        frame_ = smem.get_next_frame(true, status, cnt0_b);
+        ASSERT_EQ(*frame_, 129);
+
+        ASSERT_EQ(cnt0_a + 1, cnt0_b);
+        ASSERT_EQ(status, DAO_SUCCESS);
+        syncDone = true;
+    });
+
+    sleep(1);
+    smem.set_frame(frame_b);
+
+    sleep(1);
+    ASSERT_EQ(syncDone, true);
+    waiter.join();
+}
+
+/**
+ * @brief Ensure correct FIFO overwrite detection
+ */
+TEST_F(Suite, FifoOverwrite)
+{
+    bool syncDone = false;
+    int16_t frame_a[] = { 128 };
+    int16_t frame_b[] = { 129 };
+
+    Dao::Shm<int16_t> smem(shmPath_, { 1,1 }, frame_a, 4);
+
+    std::thread waiter ([&]() {
+        int_fast8_t status;
+        uint64_t cnt0_a, cnt0_b;
+
+        int16_t *frame_ = smem.get_next_frame(true, status, cnt0_a);
+        ASSERT_EQ(*frame_, 128);
+
+        frame_ = smem.get_next_frame(true, status, cnt0_b);
+        ASSERT_EQ(*frame_, 129);
+
+        ASSERT_EQ(cnt0_a + 10, cnt0_b);
+        ASSERT_EQ(status, DAO_OVERWRITE);
+        syncDone = true;
+    });
+
+    sleep(1);
+
+    for (int i = 0; i < 10; ++i)
+        smem.set_frame(frame_b);
+
+    sleep(2);
+
+    ASSERT_EQ(syncDone, true);
+    waiter.join();
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

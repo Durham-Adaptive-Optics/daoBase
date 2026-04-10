@@ -160,12 +160,13 @@ namespace Dao
          * @return Pointer to the shared memory frame array, or nullptr if synchronization failed (wait enabled),
          * or if frame is not yet ready (wait disabled)
          */
-        T* get_next_frame(bool wait, uint_fast8_t &status) {
+        T* get_next_frame(bool wait, int_fast8_t &status) {
             // Wait for the next frame if requested
             if (wait) {
-                if (daoShmWaitForNextSegment(&image_) != DAO_SUCCESS)
+                if (daoShmWaitForNextSegment(&image_) != DAO_SUCCESS) {
                     status = DAO_ERROR;
                     return nullptr;
+                }
             }
 
             // Get the next frame
@@ -187,12 +188,13 @@ namespace Dao
          * @return Pointer to the shared memory frame array, or nullptr if either synchronization
          * failed (wait enabled), or if frame is not yet ready (wait disabled)
          */
-        T* get_next_frame(bool wait, uint_fast8_t &status, uint64_t &segment_cnt0) {
+        T* get_next_frame(bool wait, int_fast8_t &status, uint64_t &segment_cnt0) {
             // Wait for the next frame if requested
             if (wait) {
-                if (daoShmWaitForNextSegment(&image_) != DAO_SUCCESS)
+                if (daoShmWaitForNextSegment(&image_) != DAO_SUCCESS) {
                     status = DAO_ERROR;
                     return nullptr;
+                }
             }
 
             // Get the next frame
@@ -208,7 +210,7 @@ namespace Dao
          * @brief Check if the last frame read from the FIFO has been overwritten.
          * @return Status code, either DAO_SUCCESS if not overwritten, or DAO_OVERWRITE otherwise.
          */
-        uint_fast8_t check_segment_overwrite() {
+        int_fast8_t check_segment_overwrite() {
             return daoShmCheckSegmentOverwrite(&image_);
         }
 
@@ -312,7 +314,9 @@ namespace Dao
          * @return Seconds since Unix epoch.
          */
         int64_t get_timestamp(uint32_t fifo_idx) const {
-            return md_->atime.tsfixed.secondlong;
+            volatile IMAGE_METADATA *segment_md_ = &(md_[fifo_idx % (md_->fifo_size)]);
+
+            return segment_md_->atime.tsfixed.secondlong;
         }
 
         /**
