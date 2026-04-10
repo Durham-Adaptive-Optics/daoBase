@@ -156,7 +156,7 @@ namespace Dao
          * @brief Retrieve a pointer to the next segment of the shared memory frame array.
          * Optionally blocks until the next frame is written to shared memory.
          * @param bool Flag to enable spinning until new frame is ready
-         * @param overwrite Reference to flag indicating frame overwrite (optional)
+         * @param status Reference to variable for holding status information
          * @return Pointer to the shared memory frame array, or nullptr if synchronization failed (wait enabled),
          * or if frame is not yet ready (wait disabled)
          */
@@ -176,6 +176,40 @@ namespace Dao
             status = daoShmGetNextSegment(&image_, &segment_ptr, &segment_idx, &segment_cnt0);
 
             return (T*)segment_ptr;
+        }
+
+        /**
+         * @brief Retrieve a pointer to the next segment of the shared memory frame array.
+         * Optionally blocks until the next frame is written to shared memory.
+         * @param bool Flag to enable spinning until new frame is ready
+         * @param status Reference to variable for holding status information
+         * @param segment_cnt0 CNT0 value of the segment at the time of reading
+         * @return Pointer to the shared memory frame array, or nullptr if either synchronization
+         * failed (wait enabled), or if frame is not yet ready (wait disabled)
+         */
+        T* get_next_frame(bool wait, uint_fast8_t &status, uint64_t &segment_cnt0) {
+            // Wait for the next frame if requested
+            if (wait) {
+                if (daoShmWaitForNextSegment(&image_) != DAO_SUCCESS)
+                    status = DAO_ERROR;
+                    return nullptr;
+            }
+
+            // Get the next frame
+            void *segment_ptr;
+            uint32_t segment_idx;
+
+            status = daoShmGetNextSegment(&image_, &segment_ptr, &segment_idx, &segment_cnt0);
+
+            return (T*)segment_ptr;
+        }
+
+        /**
+         * @brief Check if the last frame read from the FIFO has been overwritten.
+         * @return Status code, either DAO_SUCCESS if not overwritten, or DAO_OVERWRITE otherwise.
+         */
+        uint_fast8_t check_segment_overwrite() {
+            return daoShmCheckSegmentOverwrite(&image_);
         }
 
         /**
