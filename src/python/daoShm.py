@@ -759,20 +759,17 @@ class shm:
         # Determine the index to read backwards from
         idx_base = self.image.md[0].fifo_last_written - num_items + 1
 
-        array_base = self.image.array
-        
         element_ctype = daoType2CtypesType(self.image.md.contents.atype)
-        element_size = ctypes.sizeof(element_ctype)
-        nelement = self.image.md.contents.nelement
 
         for idx_offset in range(num_items):
             # Calculate index
             current_idx = (idx_base + idx_offset) % fifo_size
 
-            # Get corresponding segment pointer
-            array_ptr = element_ctype.from_address(array_base + (current_idx * nelement * element_size))
+            arrayPtr = ctypes.c_void_p(None)
+            self.daoShmGetArbitrarySegment(ctypes.byref(self.image), ctypes.byref(arrayPtr), ctypes.c_uint32(current_idx))
+            arrayPtr = ctypes.cast(arrayPtr.value, ctypes.POINTER(element_ctype))
             
-            current_data = np.ctypeslib.as_array(array_ptr, shape=result_shape[1:])
+            current_data = np.ctypeslib.as_array(arrayPtr, shape=result_shape[1:])
 
             if current_data.dtype.fields is not None \
                     and 'real' in current_data.dtype.fields \
@@ -780,7 +777,7 @@ class shm:
                 # Reconstruct complex array by combining real and imaginary parts
                 current_data = current_data['real'] + 1j * current_data['imag']
 
-            history_data[idx_offset] = current_data
+            history_data[idx_offset] = current_data 
 
         # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
         history_data = history_data.astype(daoType2NpType(self.image.md.contents.atype))
