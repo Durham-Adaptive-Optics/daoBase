@@ -13,6 +13,7 @@
 #include <thread>
 #include <future>
 #include <sstream>
+#include <chrono>
 
  /**
   * @brief Test fixture for providing and cleaning up a shared memory file path.
@@ -143,10 +144,10 @@ TEST_F(Suite, SpinSync)
         syncDone = true;
     });
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     smem.set_frame(frame);
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     ASSERT_EQ(syncDone, true);
     waiter.join();
 }
@@ -165,10 +166,10 @@ TEST_F(Suite, SpinSyncTimeout)
         syncDone = true;
     });
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     smem.set_frame(frame);
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     ASSERT_EQ(syncDone, true);
     waiter.join();
 }
@@ -187,10 +188,10 @@ TEST_F(Suite, SemSync)
         syncDone = true;
     });
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     smem.set_frame(frame);
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     ASSERT_EQ(syncDone, true);
     waiter.join();
 }
@@ -210,7 +211,7 @@ TEST_F(Suite, SemSyncTimeout)
         syncDone = true;
     });
 
-    sleep(timeout + 2);
+    std::this_thread::sleep_for(std::chrono::seconds(timeout + 2));
     ASSERT_EQ(syncDone, true);
     waiter.join();
 }
@@ -229,10 +230,10 @@ TEST_F(Suite, SemXSync)
         syncDone = true;
     });
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     smem.set_frame(frame);
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     ASSERT_EQ(syncDone, true);
     waiter.join();
 }
@@ -276,10 +277,10 @@ TEST_F(Suite, FifoSync)
         syncDone = true;
     });
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     smem.set_frame(frame_b);
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     ASSERT_EQ(syncDone, true);
     waiter.join();
 }
@@ -302,6 +303,9 @@ TEST_F(Suite, FifoOverwrite)
         int16_t *frame_ = smem.get_next_frame(true, status, cnt0_a);
         ASSERT_EQ(*frame_, 128);
 
+        // Wait for all writes to complete by spinning until cnt0 = cnt0_a + 10
+        smem.get_frame(Dao::ShmSync::SPIN, cnt0_a + 10);
+
         frame_ = smem.get_next_frame(true, status, cnt0_b);
         ASSERT_EQ(*frame_, 129);
 
@@ -310,12 +314,12 @@ TEST_F(Suite, FifoOverwrite)
         syncDone = true;
     });
 
-    sleep(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     for (int i = 0; i < 10; ++i)
         smem.set_frame(frame_b);
 
-    sleep(2);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     ASSERT_EQ(syncDone, true);
     waiter.join();

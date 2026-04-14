@@ -334,7 +334,7 @@ namespace Dao
         IMAGE_METADATA* get_meta_data(uint32_t fifo_idx) const {
             volatile IMAGE_METADATA *segment_md_ = &(md_[fifo_idx % (md_->fifo_size)]);
 
-            return segment_md_;
+            return const_cast<IMAGE_METADATA*>(segment_md_);
         }
 
         private:
