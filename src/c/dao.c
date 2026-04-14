@@ -2004,7 +2004,9 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
     daoTrace("\n");
     int pp;
     int k;
+    uint64_t fifo_reading_offset[DAO_MAX_COMBINE_CHANNELS];
 
+    // Get output image writing position
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
     uint32_t last_written = vol_md[0].fifo_last_written;
@@ -2013,6 +2015,25 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
     uint64_t fifo_writing_offset = image->md[0].nelement * (uint64_t)writing_idx;
 
     vol_md[writing_idx].write = 1;
+
+    // Fail if we are trying to combine too many channels
+    if (nbChannel > DAO_MAX_COMBINE_CHANNELS)
+    {
+        daoError("Attempted to combine more channels than is supported (%d > %d)\n",
+            nbChannel, DAO_MAX_COMBINE_CHANNELS);
+        return DAO_ERROR;
+    }
+
+    // Get input image reading positions
+    for (int k = 0; k < nbChannel; ++k)
+    {
+        volatile IMAGE_METADATA *reading_md = (volatile IMAGE_METADATA *)imageCube[k]->md;
+
+        uint32_t last_written = reading_md[0].fifo_last_written;
+        uint32_t writing_idx = (last_written + 1) % (imageCube[k]->md[0].fifo_size);
+
+        fifo_reading_offset[k] = imageCube[k]->md[0].nelement * (uint64_t)writing_idx;
+    }
     
     // check type and use proper array
     if (image->md[0].atype == _DATATYPE_UINT8)
@@ -2022,7 +2043,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.UI8[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.UI8[fifo_writing_offset + pp] += imageCube[k][0].array.UI8[pp];
+                image[0].array.UI8[fifo_writing_offset + pp]
+                    += imageCube[k][0].array.UI8[fifo_reading_offset[k] + pp];
             }
         }
     }
@@ -2033,7 +2055,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.SI8[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.SI8[fifo_writing_offset + pp] += imageCube[k][0].array.SI8[pp];
+                image[0].array.SI8[fifo_writing_offset + pp]
+                    += imageCube[k][0].array.SI8[fifo_reading_offset[k] + pp];
             }
         }
     }
@@ -2044,7 +2067,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.UI16[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.UI16[fifo_writing_offset + pp] += imageCube[k][0].array.UI16[pp];
+                image[0].array.UI16[fifo_writing_offset + pp]
+                    += imageCube[k][0].array.UI16[fifo_reading_offset[k] + pp];
             }
         }
     }
@@ -2055,7 +2079,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.SI16[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.SI16[fifo_writing_offset + pp] += imageCube[k][0].array.SI16[pp];
+                image[0].array.SI16[fifo_writing_offset + pp]
+                    += imageCube[k][0].array.SI16[fifo_reading_offset[k] + pp];
             }
         }
     }
@@ -2066,7 +2091,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.UI32[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.UI32[fifo_writing_offset + pp] += imageCube[k][0].array.UI32[pp];
+                image[0].array.UI32[fifo_writing_offset + pp]
+                    += imageCube[k][0].array.UI32[fifo_reading_offset[k] + pp];
             }
         }
     }
@@ -2077,7 +2103,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.SI32[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.SI32[fifo_writing_offset + pp] += imageCube[k][0].array.SI32[pp];
+                image[0].array.SI32[fifo_writing_offset + pp]
+                    += imageCube[k][0].array.SI32[fifo_reading_offset[k] + pp];
             }
         }
     }
@@ -2088,7 +2115,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.UI64[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.UI64[fifo_writing_offset + pp] += imageCube[k][0].array.UI64[pp];
+                image[0].array.UI64[fifo_writing_offset + pp]
+                    += imageCube[k][0].array.UI64[fifo_reading_offset[k] + pp];
             }
         }
     }
@@ -2099,7 +2127,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.SI64[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.SI64[fifo_writing_offset + pp] += imageCube[k][0].array.SI64[pp];
+                image[0].array.SI64[fifo_writing_offset + pp]
+                    += imageCube[k][0].array.SI64[fifo_reading_offset[k] + pp];
             }
         }
     }
@@ -2110,7 +2139,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.F[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.F[fifo_writing_offset + pp] += imageCube[k][0].array.F[pp];
+                image[0].array.F[fifo_writing_offset + pp]
+                    += imageCube[k][0].array.F[fifo_reading_offset[k] + pp];
             }
         }
     }
@@ -2121,7 +2151,8 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.D[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.D[fifo_writing_offset + pp] += imageCube[k][0].array.D[pp];
+                image[0].array.D[fifo_writing_offset + pp]
+                    += imageCube[k][0].array.D[fifo_reading_offset[k] + pp];
             }
         }
     }
@@ -2133,8 +2164,10 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.CF[fifo_writing_offset + pp].im = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.CF[fifo_writing_offset + pp].re += imageCube[k][0].array.CF[pp].re;
-                image[0].array.CF[fifo_writing_offset + pp].im += imageCube[k][0].array.CF[pp].im;
+                image[0].array.CF[fifo_writing_offset + pp].re
+                    += imageCube[k][0].array.CF[fifo_reading_offset[k] + pp].re;
+                image[0].array.CF[fifo_writing_offset + pp].im
+                    += imageCube[k][0].array.CF[fifo_reading_offset[k] + pp].im;
             }
         }
     }
@@ -2146,8 +2179,10 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
             image[0].array.CD[fifo_writing_offset + pp].im = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.CD[fifo_writing_offset + pp].re += imageCube[k][0].array.CD[pp].re;
-                image[0].array.CD[fifo_writing_offset + pp].im += imageCube[k][0].array.CD[pp].im;
+                image[0].array.CD[fifo_writing_offset + pp].re
+                    += imageCube[k][0].array.CD[fifo_reading_offset[k] + pp].re;
+                image[0].array.CD[fifo_writing_offset + pp].im
+                    += imageCube[k][0].array.CD[fifo_reading_offset[k] + pp].im;
             }
         }
     }

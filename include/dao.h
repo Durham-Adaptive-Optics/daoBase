@@ -121,6 +121,8 @@ extern "C"
 #define IMAGE_NB_SEMAPHORE  10            /**< Number of semaphores per image */
 #define CIRCULAR_BUFFER_SIZE 1000         /**< Number of data in the cuircular buffer */
 
+#define DAO_MAX_COMBINE_CHANNELS 1024     /**< Maximum number of channels that can be combined by daoShmCombineShm2Shm */
+
 // Data types are defined as machine-independent types for portability
 
 #define _DATATYPE_UINT8                                1  /**< uint8_t       = char */
