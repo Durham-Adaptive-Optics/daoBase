@@ -53,8 +53,9 @@ A FIFO SHM object allocates contiguous memory for all *N* segments in one go:
 * Each ``IMAGE_METADATA[i]`` holds the counters and flags for segment *i*.
 
 For a depth-1 FIFO the layout is identical to the legacy format, so existing code that was compiled
-against the new headers will continue to work as before — **as long as it uses the FIFO-aware API
-functions**.
+against the new headers will continue to work as before, **as long as it only interacts with
+depth-1 SHMs**. To use SHMs with FIFOs deeper than 1 segment, the code must be updated to use the
+new FIFO-aware functions.
 
 Return Codes
 ------------
