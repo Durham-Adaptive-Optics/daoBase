@@ -309,7 +309,9 @@ if sys.platform == "win32":
             ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
             ('shmfm', ctypes.POINTER(ctypes.c_void_p)),
             ('fifo_last_read', ctypes.c_uint32),
-            ('fifo_last_read_cnt0', ctypes.c_uint64)
+            ('fifo_last_read_cnt0', ctypes.c_uint64),
+            ('base_array', ctypes.c_void_p)
+            ('base_md', ctypes.c_void_p)
         ]
 else:
     # Define the IMAGE structure
@@ -344,7 +346,9 @@ else:
             ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
             ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
             ('fifo_last_read', ctypes.c_uint32),
-            ('fifo_last_read_cnt0', ctypes.c_uint64)
+            ('fifo_last_read_cnt0', ctypes.c_uint64),
+            ('base_array', ctypes.c_void_p),
+            ('base_md', ctypes.c_void_p)
         ]
 
 class shm:
@@ -593,19 +597,19 @@ class shm:
         data = None
         
         if result == self.DAO_SUCCESS or result == self.DAO_OVERWRITE:
-            arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+            arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.base_md.contents.size,\
                                                         ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
 
             arrayPtr = ctypes.cast(arrayPtr,\
-                                ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
-            #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
+                                ctypes.POINTER(daoType2CtypesType(self.image.base_md.contents.atype)))
+            #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.base_md.contents.nelement,)).astype(daoType2NpType(self.image.base_md.contents.atype))
             if arraySize[2] == 0:
                 if arraySize[1] == 0:
-                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
+                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.base_md.contents.atype))
                 else:
-                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.base_md.contents.atype))
             else:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.base_md.contents.atype))
 
             # Check if the dtype is structured (i.e., for complex types)
             if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
@@ -613,7 +617,7 @@ class shm:
                 data = data['real'] + 1j * data['imag']
             
             # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
-            data = data.astype(daoType2NpType(self.image.md.contents.atype))
+            data = data.astype(daoType2NpType(self.image.base_md.contents.atype))
         
         return (result, data)
     
@@ -629,7 +633,7 @@ class shm:
         -------------------------------------------------------------- '''
 
         # First, check the requested number of items is valid
-        fifo_size = self.image.md[0].fifo_size
+        fifo_size = self.image.base_md[0].fifo_size
         fifo_idx = index % fifo_size
         
         arrayPtr = ctypes.c_void_p(None)
@@ -639,20 +643,20 @@ class shm:
 
         # Cast our void pointer to the desired type
         arrayPtr = ctypes.cast(arrayPtr.value,\
-                               ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
+                               ctypes.POINTER(daoType2CtypesType(self.image.base_md.contents.atype)))
 
         # Get the array size
-        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.base_md.contents.size,\
                                                       ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
 
-        #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
+        #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.base_md.contents.nelement,)).astype(daoType2NpType(self.image.base_md.contents.atype))
         if arraySize[2] == 0:
             if arraySize[1] == 0:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.base_md.contents.atype))
             else:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.base_md.contents.atype))
         else:
-            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.base_md.contents.atype))
 
         # Check if the dtype is structured (i.e., for complex types)
         if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
@@ -660,7 +664,7 @@ class shm:
             data = data['real'] + 1j * data['imag']
         
         # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
-        data = data.astype(daoType2NpType(self.image.md.contents.atype))
+        data = data.astype(daoType2NpType(self.image.base_md.contents.atype))
 
         return data
     
@@ -696,20 +700,20 @@ class shm:
         
         # Cast our void pointer to the desired type
         arrayPtr = ctypes.cast(arrayPtr.value,\
-                               ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
+                               ctypes.POINTER(daoType2CtypesType(self.image.base_md.contents.atype)))
 
         # Get the array size
-        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.base_md.contents.size,\
                                                       ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
 
-        #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
+        #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.base_md.contents.nelement,)).astype(daoType2NpType(self.image.base_md.contents.atype))
         if arraySize[2] == 0:
             if arraySize[1] == 0:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.base_md.contents.atype))
             else:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.base_md.contents.atype))
         else:
-            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.base_md.contents.atype))
 
         # Check if the dtype is structured (i.e., for complex types)
         if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
@@ -717,7 +721,7 @@ class shm:
             data = data['real'] + 1j * data['imag']
         
         # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
-        data = data.astype(daoType2NpType(self.image.md.contents.atype))
+        data = data.astype(daoType2NpType(self.image.base_md.contents.atype))
 
         return data
 
@@ -733,7 +737,7 @@ class shm:
         -------------------------------------------------------------- '''
 
         # First, check the requested number of items is valid
-        fifo_size = self.image.md[0].fifo_size
+        fifo_size = self.image.base_md[0].fifo_size
 
         if (num_items < 1):
             log.error("Cannot read less than 1 item")
@@ -743,7 +747,7 @@ class shm:
             return None
 
         # Now determine the size of array to reserve
-        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.base_md.contents.size,\
                                                       ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
         
         if arraySize[2] == 0:
@@ -754,12 +758,12 @@ class shm:
         else:
             result_shape = (num_items, arraySize[0], arraySize[1], arraySize[2])
 
-        history_data = np.empty(result_shape, dtype=daoType2NpType(self.image.md.contents.atype))
+        history_data = np.empty(result_shape, dtype=daoType2NpType(self.image.base_md.contents.atype))
 
         # Determine the index to read backwards from
-        idx_base = self.image.md[0].fifo_last_written - num_items + 1
+        idx_base = self.image.base_md[0].fifo_last_written - num_items + 1
 
-        element_ctype = daoType2CtypesType(self.image.md.contents.atype)
+        element_ctype = daoType2CtypesType(self.image.base_md.contents.atype)
 
         for idx_offset in range(num_items):
             # Calculate index
@@ -780,7 +784,7 @@ class shm:
             history_data[idx_offset] = current_data 
 
         # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
-        history_data = history_data.astype(daoType2NpType(self.image.md.contents.atype))
+        history_data = history_data.astype(daoType2NpType(self.image.base_md.contents.atype))
 
         return history_data
 
@@ -808,11 +812,11 @@ class shm:
                                         ctypes.byref(seg_cnt0))
         else:
             # get requested metadata from FIFO
-            fifo_size = self.image.md.contents.fifo_size
+            fifo_size = self.image.base_md.contents.fifo_size
             adjusted_index = index % fifo_size
             seg_idx = ctypes.c_uint32(adjusted_index)
 
-        md = self.image.md[seg_idx.value]
+        md = self.image.base_md[seg_idx.value]
         self.mtdata=struct2Dict(md)
 
         #decode time
@@ -831,8 +835,8 @@ class shm:
         self.mtdata['atime'] = mdts
 
         # Graft current FIFO values into this metadata from image->md[0]
-        self.mtdata['fifo_last_written'] = self.image.md.contents.fifo_last_written
-        self.mtdata['fifo_size'] = self.image.md.contents.fifo_size
+        self.mtdata['fifo_last_written'] = self.image.base_md.contents.fifo_last_written
+        self.mtdata['fifo_size'] = self.image.base_md.contents.fifo_size
 
         return self.mtdata
 

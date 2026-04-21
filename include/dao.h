@@ -468,6 +468,31 @@ typedef struct          		/**< structure used to store data arrays              
     uint32_t fifo_last_read;
     uint64_t fifo_last_read_cnt0;
 
+    union
+    {
+        uint8_t *UI8;  // char
+        int8_t  *SI8;   
+
+        uint16_t *UI16; // unsigned short
+        int16_t *SI16;  
+
+        uint32_t *UI32;
+        int32_t *SI32;   // int
+
+        uint64_t *UI64;        
+        int64_t *SI64; // long
+
+        float *F;
+        double *D;
+        
+        complex_float *CF;
+        complex_double *CD;
+
+        void * V; // add so the cpp interface and reinterpret cast using templaces to required type.
+    } base_array;                 	/**< pointer to base of FIFO array */
+
+    IMAGE_METADATA *base_md;        /**< pointer to base of metadata array */
+
     // total size is 152 byte = 1216 bit
     // (on Windows,  160 byte = 1280 bit)
 #ifdef DATA_PACKED

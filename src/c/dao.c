@@ -87,6 +87,41 @@ static int clock_gettime(int clk_id, struct timespec *t)
 #include "dao.h"
 static int current_log_level = DEFAULT_LOG_LEVEL;
 
+#define IMAGE_PTR_UPDATE(atype, array, base_array, idx, nelement) { \
+    if ((atype) == _DATATYPE_UINT8) \
+        (array).UI8 = &((base_array).UI8[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_INT8) \
+        (array).SI8 = &((base_array).SI8[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_UINT16) \
+        (array).UI16 = &((base_array).UI16[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_INT16) \
+        (array).SI16 = &((base_array).SI16[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_INT32) \
+        (array).UI32 = &((base_array).UI32[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_UINT32) \
+        (array).SI32 = &((base_array).SI32[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_UINT64) \
+        (array).UI64 = &((base_array).UI64[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_INT64) \
+        (array).SI64 = &((base_array).SI64[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_FLOAT) \
+        (array).F = &((base_array).F[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_DOUBLE) \
+        (array).D = &((base_array).D[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_COMPLEX_FLOAT) \
+        (array).CF = &((base_array).CF[(idx) * (nelement)]); \
+    else if (atype == _DATATYPE_COMPLEX_DOUBLE) \
+        (array).CD = &((base_array).CD[(idx) * (nelement)]); \
+}
+
+#define IMAGE_PTR_UPDATE_DIRECT(array, new_ptr) { \
+    (array).V = (void*)new_ptr; \
+}
+
+#define IMAGE_MD_PTR_UPDATE_IDX(image, new_md_idx) { \
+    image->md = &(image->base_md[new_md_idx]); \
+}
+
 /**
  * @brief Return a time stamp string with microsecond precision 
  * 
@@ -542,7 +577,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 		image->memsize = (int64_t)fileSizeLow | ((int64_t)fileSizeHigh << 32);
 		image->shmfd = shmFd;
 		image->shmfm = shmFm;
-		image->md = map;
+		image->base_md = map;
 
 #else
 		
@@ -563,29 +598,29 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 
         image->memsize = file_stat.st_size;
         image->shmfd = shmFd;
-        image->md = map;
-        //        image->md[0].sem = 0;
+        image->base_md = map;
+        //        image->base_md[0].sem = 0;
 
 #endif
-        atype = image->md[0].atype;
-        image->md[0].shared = 1;
+        atype = image->base_md[0].atype;
+        image->base_md[0].shared = 1;
 
-        daoDebug("image size = %ld %ld\n", (long) image->md[0].size[0], (long) image->md[0].size[1]);
+        daoDebug("image size = %ld %ld\n", (long) image->base_md[0].size[0], (long) image->base_md[0].size[1]);
         fflush(stdout);
         // some verification
-//        if(image->md[0].size[0]*image->md[0].size[1]>10000000000)
+//        if(image->base_md[0].size[0]*image->base_md[0].size[1]>10000000000)
 //        {
 //            daoDebug("IMAGE \"%s\" SEEMS BIG... ABORTING\n", name);
 //            rval = DAO_ERROR;
 //            exit(0);
 //        }
-        if(image->md[0].size[0]<1)
+        if(image->base_md[0].size[0]<1)
         {
             daoError("IMAGE \"%s\" AXIS SIZE < 1... ABORTING\n", name);
             rval = DAO_ERROR;
             exit(0);
         }
-        if(image->md[0].size[1]<1)
+        if(image->base_md[0].size[1]<1)
         {
             daoError("IMAGE \"%s\" AXIS SIZE < 1... ABORTING\n", name);
             rval = DAO_ERROR;
@@ -594,7 +629,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 
         /* Get the size of the FIFO */
 
-        fifo_size = image->md[0].fifo_size;
+        fifo_size = image->base_md[0].fifo_size;
 
         mapv = (char*) map;
         mapv += fifo_size * sizeof(IMAGE_METADATA);
@@ -605,80 +640,80 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
         if(atype == _DATATYPE_UINT8)
         {
             daoDebug("atype = UINT8\n");
-            image->array.UI8 = (uint8_t*) mapv;
-            mapv += SIZEOF_DATATYPE_UINT8 * fifo_size * image->md[0].nelement;
+            image->base_array.UI8 = (uint8_t*) mapv;
+            mapv += SIZEOF_DATATYPE_UINT8 * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_INT8)
         {
             daoDebug("atype = INT8\n");
-            image->array.SI8 = (int8_t*) mapv;
-            mapv += SIZEOF_DATATYPE_INT8 * fifo_size * image->md[0].nelement;
+            image->base_array.SI8 = (int8_t*) mapv;
+            mapv += SIZEOF_DATATYPE_INT8 * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_UINT16)
         {
             daoDebug("atype = UINT16\n");
-            image->array.UI16 = (uint16_t*) mapv;
-            mapv += SIZEOF_DATATYPE_UINT16 * fifo_size * image->md[0].nelement;
+            image->base_array.UI16 = (uint16_t*) mapv;
+            mapv += SIZEOF_DATATYPE_UINT16 * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_INT16)
         {
             daoDebug("atype = INT16\n");
-            image->array.SI16 = (int16_t*) mapv;
-            mapv += SIZEOF_DATATYPE_INT16 * fifo_size * image->md[0].nelement;
+            image->base_array.SI16 = (int16_t*) mapv;
+            mapv += SIZEOF_DATATYPE_INT16 * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_UINT32)
         {
             daoDebug("atype = UINT32\n");
-            image->array.UI32 = (uint32_t*) mapv;
-            mapv += SIZEOF_DATATYPE_UINT32 * fifo_size * image->md[0].nelement;
+            image->base_array.UI32 = (uint32_t*) mapv;
+            mapv += SIZEOF_DATATYPE_UINT32 * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_INT32)
         {
             daoDebug("atype = INT32\n");
-            image->array.SI32 = (int32_t*) mapv;
-            mapv += SIZEOF_DATATYPE_INT32 * fifo_size * image->md[0].nelement;
+            image->base_array.SI32 = (int32_t*) mapv;
+            mapv += SIZEOF_DATATYPE_INT32 * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_UINT64)
         {
             daoDebug("atype = UINT64\n");
-            image->array.UI64 = (uint64_t*) mapv;
-            mapv += SIZEOF_DATATYPE_UINT64 * fifo_size * image->md[0].nelement;
+            image->base_array.UI64 = (uint64_t*) mapv;
+            mapv += SIZEOF_DATATYPE_UINT64 * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_INT64)
         {
             daoDebug("atype = INT64\n");
-            image->array.SI64 = (int64_t*) mapv;
-            mapv += SIZEOF_DATATYPE_INT64 * fifo_size * image->md[0].nelement;
+            image->base_array.SI64 = (int64_t*) mapv;
+            mapv += SIZEOF_DATATYPE_INT64 * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_FLOAT)
         {
             daoDebug("atype = FLOAT\n");
-            image->array.F = (float*) mapv;
-            mapv += SIZEOF_DATATYPE_FLOAT * fifo_size * image->md[0].nelement;
+            image->base_array.F = (float*) mapv;
+            mapv += SIZEOF_DATATYPE_FLOAT * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_DOUBLE)
         {
             daoDebug("atype = DOUBLE\n");
-            image->array.D = (double*) mapv;
-            mapv += SIZEOF_DATATYPE_DOUBLE * fifo_size * image->md[0].nelement;
+            image->base_array.D = (double*) mapv;
+            mapv += SIZEOF_DATATYPE_DOUBLE * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_COMPLEX_FLOAT)
         {
             daoDebug("atype = COMPLEX_FLOAT\n");
-            image->array.CF = (complex_float*) mapv;
-            mapv += SIZEOF_DATATYPE_COMPLEX_FLOAT * fifo_size * image->md[0].nelement;
+            image->base_array.CF = (complex_float*) mapv;
+            mapv += SIZEOF_DATATYPE_COMPLEX_FLOAT * fifo_size * image->base_md[0].nelement;
         }
         if(atype == _DATATYPE_COMPLEX_DOUBLE)
         {
             daoDebug("atype = COMPLEX_DOUBLE\n");
-            image->array.CD = (complex_double*) mapv;
-            mapv += SIZEOF_DATATYPE_COMPLEX_DOUBLE * fifo_size * image->md[0].nelement;
+            image->base_array.CD = (complex_double*) mapv;
+            mapv += SIZEOF_DATATYPE_COMPLEX_DOUBLE * fifo_size * image->base_md[0].nelement;
         }
-        daoDebug("%ld keywords\n", (long) image->md[0].NBkw);
+        daoDebug("%ld keywords\n", (long) image->base_md[0].NBkw);
         fflush(stdout);
 
         image->kw = (IMAGE_KEYWORD*) (mapv);
-        for(kw=0; kw<image->md[0].NBkw; kw++)
+        for(kw=0; kw<image->base_md[0].NBkw; kw++)
         {
             if(image->kw[kw].type == 'L')
                 #if defined(_WIN32) || defined(__APPLE__)
@@ -692,7 +727,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
                 daoDebug("%d  %s %s %s\n", kw, image->kw[kw].name, image->kw[kw].value.valstr, image->kw[kw].comment);
         }
 
-        mapv += sizeof(IMAGE_KEYWORD)*image->md[0].NBkw;
+        mapv += sizeof(IMAGE_KEYWORD)*image->base_md[0].NBkw;
         strcpy(image->name, name);
         // to get rid off warning
         char * nameCopy = (char *)malloc((strlen(name)+1)*sizeof(char));
@@ -766,9 +801,9 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
                 snb++;
             }
 		}
-        daoDebug("%ld semaphores detected  (image->md[0].sem = %d)\n", snb, (int) image->md[0].sem);
-        //        image->md[0].sem = snb;
-        image->semptr = (HANDLE*) malloc(sizeof(HANDLE) * image->md[0].sem);
+        daoDebug("%ld semaphores detected  (image->base_md[0].sem = %d)\n", snb, (int) image->base_md[0].sem);
+        //        image->base_md[0].sem = snb;
+        image->semptr = (HANDLE*) malloc(sizeof(HANDLE) * image->base_md[0].sem);
         for(s=0; s<snb; s++)
         {
             sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, s);
@@ -808,9 +843,9 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
                 snb++;
             }
         }
-        daoDebug("%ld semaphores detected  (image->md[0].sem = %d)\n", snb, (int) image->md[0].sem);
-        //        image->md[0].sem = snb;
-        image->semptr = (sem_t**) malloc(sizeof(sem_t*) * image->md[0].sem);
+        daoDebug("%ld semaphores detected  (image->base_md[0].sem = %d)\n", snb, (int) image->base_md[0].sem);
+        //        image->base_md[0].sem = snb;
+        image->semptr = (sem_t**) malloc(sizeof(sem_t*) * image->base_md[0].sem);
         for(s=0; s<snb; s++)
         {
             sprintf(shmSemName, "%s_sem%02ld", localName, s);
@@ -830,9 +865,15 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 
         // Set up FIFO tail
 
-        uint32_t tmp32;
-        uint64_t tmp64;
-        daoShmResetTail(image, &tmp32, &tmp64);
+        uint32_t tail_idx;
+        uint64_t tail_cnt0;
+        daoShmResetTail(image, &tail_idx, &tail_cnt0);
+
+        // Set up array pointer for writing the one after our current position - this step is crucial for SHM writers, and
+        // has no effect on SHM reading, as long as the application always calls wait before the update
+
+        tail_idx = ((tail_idx + 1) >= image->base_md[0].fifo_size) ? 0 : tail_idx + 1;
+        IMAGE_MD_PTR_UPDATE_IDX(image, tail_idx);
     }
     return(rval);
 }
@@ -882,39 +923,39 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 {
     daoTrace("\n");
 
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     uint32_t last_written = vol_md[0].fifo_last_written;
-    uint32_t writing_idx = (last_written + 1) % (image->md[0].fifo_size);
+    uint32_t writing_idx = (last_written + 1) % (image->base_md[0].fifo_size);
 
-    uint64_t fifo_writing_offset = image->md[0].nelement * (uint64_t)writing_idx;
+    uint64_t fifo_writing_offset = image->base_md[0].nelement * (uint64_t)writing_idx;
 
     vol_md[writing_idx].write = 1;
 
-    if (image->md[writing_idx].atype == _DATATYPE_UINT8)
-        memcpy(&image->array.UI8[fifo_writing_offset], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
-    else if (image->md[writing_idx].atype == _DATATYPE_INT8)
-        memcpy(&image->array.SI8[fifo_writing_offset], (char *)im, nbVal*sizeof(char));       
-    else if (image->md[writing_idx].atype == _DATATYPE_UINT16)
-        memcpy(&image->array.UI16[fifo_writing_offset], (unsigned short *)im, nbVal*sizeof(unsigned short));
-    else if (image->md[writing_idx].atype == _DATATYPE_INT16)
-        memcpy(&image->array.SI16[fifo_writing_offset], (short *)im, nbVal*sizeof(short));
-    else if (image->md[writing_idx].atype == _DATATYPE_INT32)
-        memcpy(&image->array.UI32[fifo_writing_offset], (unsigned int *)im, nbVal*sizeof(unsigned int));
-    else if (image->md[writing_idx].atype == _DATATYPE_UINT32)
-        memcpy(&image->array.SI32[fifo_writing_offset], (int *)im, nbVal*sizeof(int));
-    else if (image->md[writing_idx].atype == _DATATYPE_UINT64)
-        memcpy(&image->array.UI64[fifo_writing_offset], (unsigned long *)im, nbVal*sizeof(unsigned long));
-    else if (image->md[writing_idx].atype == _DATATYPE_INT64)
-        memcpy(&image->array.SI64[fifo_writing_offset], (long *)im, nbVal*sizeof(long));
-    else if (image->md[writing_idx].atype == _DATATYPE_FLOAT)
-        memcpy(&image->array.F[fifo_writing_offset], (float *)im, nbVal*sizeof(float));
-    else if (image->md[writing_idx].atype == _DATATYPE_DOUBLE)
-        memcpy(&image->array.D[fifo_writing_offset], (double *)im, nbVal*sizeof(double));
-    else if (image->md[writing_idx].atype == _DATATYPE_COMPLEX_FLOAT)
-        memcpy(&image->array.CF[fifo_writing_offset], (complex_float *)im, nbVal*sizeof(complex_float));
-    else if (image->md[writing_idx].atype == _DATATYPE_COMPLEX_DOUBLE)
-        memcpy(&image->array.CD[fifo_writing_offset], (complex_double *)im, nbVal*sizeof(complex_double));
+    if (image->base_md[writing_idx].atype == _DATATYPE_UINT8)
+        memcpy(&image->base_array.UI8[fifo_writing_offset], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
+    else if (image->base_md[writing_idx].atype == _DATATYPE_INT8)
+        memcpy(&image->base_array.SI8[fifo_writing_offset], (char *)im, nbVal*sizeof(char));       
+    else if (image->base_md[writing_idx].atype == _DATATYPE_UINT16)
+        memcpy(&image->base_array.UI16[fifo_writing_offset], (unsigned short *)im, nbVal*sizeof(unsigned short));
+    else if (image->base_md[writing_idx].atype == _DATATYPE_INT16)
+        memcpy(&image->base_array.SI16[fifo_writing_offset], (short *)im, nbVal*sizeof(short));
+    else if (image->base_md[writing_idx].atype == _DATATYPE_INT32)
+        memcpy(&image->base_array.UI32[fifo_writing_offset], (unsigned int *)im, nbVal*sizeof(unsigned int));
+    else if (image->base_md[writing_idx].atype == _DATATYPE_UINT32)
+        memcpy(&image->base_array.SI32[fifo_writing_offset], (int *)im, nbVal*sizeof(int));
+    else if (image->base_md[writing_idx].atype == _DATATYPE_UINT64)
+        memcpy(&image->base_array.UI64[fifo_writing_offset], (unsigned long *)im, nbVal*sizeof(unsigned long));
+    else if (image->base_md[writing_idx].atype == _DATATYPE_INT64)
+        memcpy(&image->base_array.SI64[fifo_writing_offset], (long *)im, nbVal*sizeof(long));
+    else if (image->base_md[writing_idx].atype == _DATATYPE_FLOAT)
+        memcpy(&image->base_array.F[fifo_writing_offset], (float *)im, nbVal*sizeof(float));
+    else if (image->base_md[writing_idx].atype == _DATATYPE_DOUBLE)
+        memcpy(&image->base_array.D[fifo_writing_offset], (double *)im, nbVal*sizeof(double));
+    else if (image->base_md[writing_idx].atype == _DATATYPE_COMPLEX_FLOAT)
+        memcpy(&image->base_array.CF[fifo_writing_offset], (complex_float *)im, nbVal*sizeof(complex_float));
+    else if (image->base_md[writing_idx].atype == _DATATYPE_COMPLEX_DOUBLE)
+        memcpy(&image->base_array.CD[fifo_writing_offset], (complex_double *)im, nbVal*sizeof(complex_double));
 
     daoShmImagePart2ShmFinalize(image);
 
@@ -928,41 +969,41 @@ int_fast8_t daoShmImage2ShmQuiet(void *im, uint32_t nbVal, IMAGE *image)
 {
     daoTrace("\n");
 
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     uint32_t last_written = vol_md[0].fifo_last_written;
-    uint32_t writing_idx = (last_written + 1) % (image->md[0].fifo_size);
+    uint32_t writing_idx = (last_written + 1) % (image->base_md[0].fifo_size);
 
-    uint64_t fifo_writing_offset = image->md[0].nelement * (uint64_t)writing_idx;
+    uint64_t fifo_writing_offset = image->base_md[0].nelement * (uint64_t)writing_idx;
 
-    image->md[writing_idx].write = 1;
+    image->base_md[writing_idx].write = 1;
 
-    if (image->md[0].atype == _DATATYPE_UINT8)
-        memcpy(&image->array.UI8[fifo_writing_offset], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
-    else if (image->md[0].atype == _DATATYPE_INT8)
-        memcpy(&image->array.SI8[fifo_writing_offset], (char *)im, nbVal*sizeof(char));       
-    else if (image->md[0].atype == _DATATYPE_UINT16)
-        memcpy(&image->array.UI16[fifo_writing_offset], (unsigned short *)im, nbVal*sizeof(unsigned short));
-    else if (image->md[0].atype == _DATATYPE_INT16)
-        memcpy(&image->array.SI16[fifo_writing_offset], (short *)im, nbVal*sizeof(short));
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        memcpy(&image->array.UI32[fifo_writing_offset], (unsigned int *)im, nbVal*sizeof(unsigned int));
-    else if (image->md[0].atype == _DATATYPE_UINT32)
-        memcpy(&image->array.SI32[fifo_writing_offset], (int *)im, nbVal*sizeof(int));
-    else if (image->md[0].atype == _DATATYPE_UINT64)
-        memcpy(&image->array.UI64[fifo_writing_offset], (unsigned long *)im, nbVal*sizeof(unsigned long));
-    else if (image->md[0].atype == _DATATYPE_INT64)
-        memcpy(&image->array.SI64[fifo_writing_offset], (long *)im, nbVal*sizeof(long));
-    else if (image->md[0].atype == _DATATYPE_FLOAT)
-        memcpy(&image->array.F[fifo_writing_offset], (float *)im, nbVal*sizeof(float));
-    else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        memcpy(&image->array.D[fifo_writing_offset], (double *)im, nbVal*sizeof(double));
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        memcpy(&image->array.CF[fifo_writing_offset], (complex_float *)im, nbVal*sizeof(complex_float));
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        memcpy(&image->array.CD[fifo_writing_offset], (complex_double *)im, nbVal*sizeof(complex_double));
+    if (image->base_md[0].atype == _DATATYPE_UINT8)
+        memcpy(&image->base_array.UI8[fifo_writing_offset], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
+    else if (image->base_md[0].atype == _DATATYPE_INT8)
+        memcpy(&image->base_array.SI8[fifo_writing_offset], (char *)im, nbVal*sizeof(char));       
+    else if (image->base_md[0].atype == _DATATYPE_UINT16)
+        memcpy(&image->base_array.UI16[fifo_writing_offset], (unsigned short *)im, nbVal*sizeof(unsigned short));
+    else if (image->base_md[0].atype == _DATATYPE_INT16)
+        memcpy(&image->base_array.SI16[fifo_writing_offset], (short *)im, nbVal*sizeof(short));
+    else if (image->base_md[0].atype == _DATATYPE_INT32)
+        memcpy(&image->base_array.UI32[fifo_writing_offset], (unsigned int *)im, nbVal*sizeof(unsigned int));
+    else if (image->base_md[0].atype == _DATATYPE_UINT32)
+        memcpy(&image->base_array.SI32[fifo_writing_offset], (int *)im, nbVal*sizeof(int));
+    else if (image->base_md[0].atype == _DATATYPE_UINT64)
+        memcpy(&image->base_array.UI64[fifo_writing_offset], (unsigned long *)im, nbVal*sizeof(unsigned long));
+    else if (image->base_md[0].atype == _DATATYPE_INT64)
+        memcpy(&image->base_array.SI64[fifo_writing_offset], (long *)im, nbVal*sizeof(long));
+    else if (image->base_md[0].atype == _DATATYPE_FLOAT)
+        memcpy(&image->base_array.F[fifo_writing_offset], (float *)im, nbVal*sizeof(float));
+    else if (image->base_md[0].atype == _DATATYPE_DOUBLE)
+        memcpy(&image->base_array.D[fifo_writing_offset], (double *)im, nbVal*sizeof(double));
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_FLOAT)
+        memcpy(&image->base_array.CF[fifo_writing_offset], (complex_float *)im, nbVal*sizeof(complex_float));
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
+        memcpy(&image->base_array.CD[fifo_writing_offset], (complex_double *)im, nbVal*sizeof(complex_double));
 	
-    image->md[writing_idx].write = 0;
+    image->base_md[writing_idx].write = 0;
 
     return DAO_SUCCESS;
 }
@@ -976,48 +1017,48 @@ int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t
 {
     daoTrace("\n");
 
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     uint32_t last_written = vol_md[0].fifo_last_written;
-    uint32_t writing_idx = (last_written + 1) % (image->md[0].fifo_size);
+    uint32_t writing_idx = (last_written + 1) % (image->base_md[0].fifo_size);
 
-    uint64_t fifo_writing_offset = image->md[0].nelement * (uint64_t)writing_idx;
+    uint64_t fifo_writing_offset = image->base_md[0].nelement * (uint64_t)writing_idx;
 
     uint64_t adjusted_position = (uint64_t)position + fifo_writing_offset;
 
-    image->md[writing_idx].write = 1;
+    image->base_md[writing_idx].write = 1;
 
-    if (image->md[0].atype == _DATATYPE_UINT8)
-        memcpy(&image->array.UI8[adjusted_position], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
-    else if (image->md[0].atype == _DATATYPE_INT8)
-        memcpy(&image->array.SI8[adjusted_position], (char *)im, nbVal*sizeof(char));       
-    else if (image->md[0].atype == _DATATYPE_UINT16)
-        memcpy(&image->array.UI16[adjusted_position], (unsigned short *)im, nbVal*sizeof(unsigned short));
-    else if (image->md[0].atype == _DATATYPE_INT16)
-        memcpy(&image->array.SI16[adjusted_position], (short *)im, nbVal*sizeof(short));
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        memcpy(&image->array.UI32[adjusted_position], (unsigned int *)im, nbVal*sizeof(unsigned int));
-    else if (image->md[0].atype == _DATATYPE_UINT32)
-        memcpy(&image->array.SI32[adjusted_position], (int *)im, nbVal*sizeof(int));
-    else if (image->md[0].atype == _DATATYPE_UINT64)
-        memcpy(&image->array.UI64[adjusted_position], (unsigned long *)im, nbVal*sizeof(unsigned long));
-    else if (image->md[0].atype == _DATATYPE_INT64)
-        memcpy(&image->array.SI64[adjusted_position], (long *)im, nbVal*sizeof(long));
-    else if (image->md[0].atype == _DATATYPE_FLOAT)
-        memcpy(&image->array.F[adjusted_position], (float *)im, nbVal*sizeof(float));
-    else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        memcpy(&image->array.D[adjusted_position], (double *)im, nbVal*sizeof(double));
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        memcpy(&image->array.CF[adjusted_position], (complex_float *)im, nbVal*sizeof(complex_float));
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        memcpy(&image->array.CD[adjusted_position], (complex_double *)im, nbVal*sizeof(complex_double));
+    if (image->base_md[0].atype == _DATATYPE_UINT8)
+        memcpy(&image->base_array.UI8[adjusted_position], (unsigned char *)im, nbVal*sizeof(unsigned char)); 
+    else if (image->base_md[0].atype == _DATATYPE_INT8)
+        memcpy(&image->base_array.SI8[adjusted_position], (char *)im, nbVal*sizeof(char));       
+    else if (image->base_md[0].atype == _DATATYPE_UINT16)
+        memcpy(&image->base_array.UI16[adjusted_position], (unsigned short *)im, nbVal*sizeof(unsigned short));
+    else if (image->base_md[0].atype == _DATATYPE_INT16)
+        memcpy(&image->base_array.SI16[adjusted_position], (short *)im, nbVal*sizeof(short));
+    else if (image->base_md[0].atype == _DATATYPE_INT32)
+        memcpy(&image->base_array.UI32[adjusted_position], (unsigned int *)im, nbVal*sizeof(unsigned int));
+    else if (image->base_md[0].atype == _DATATYPE_UINT32)
+        memcpy(&image->base_array.SI32[adjusted_position], (int *)im, nbVal*sizeof(int));
+    else if (image->base_md[0].atype == _DATATYPE_UINT64)
+        memcpy(&image->base_array.UI64[adjusted_position], (unsigned long *)im, nbVal*sizeof(unsigned long));
+    else if (image->base_md[0].atype == _DATATYPE_INT64)
+        memcpy(&image->base_array.SI64[adjusted_position], (long *)im, nbVal*sizeof(long));
+    else if (image->base_md[0].atype == _DATATYPE_FLOAT)
+        memcpy(&image->base_array.F[adjusted_position], (float *)im, nbVal*sizeof(float));
+    else if (image->base_md[0].atype == _DATATYPE_DOUBLE)
+        memcpy(&image->base_array.D[adjusted_position], (double *)im, nbVal*sizeof(double));
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_FLOAT)
+        memcpy(&image->base_array.CF[adjusted_position], (complex_float *)im, nbVal*sizeof(complex_float));
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
+        memcpy(&image->base_array.CD[adjusted_position], (complex_double *)im, nbVal*sizeof(complex_double));
 
-    image->md[writing_idx].lastPos = position;
-    image->md[writing_idx].lastNb = nbVal;
-    image->md[writing_idx].packetNb = packetId;
-    image->md[writing_idx].packetTotal = packetTotal;
-    image->md[writing_idx].lastNbArray[packetId] = frameNumber;
-    image->md[writing_idx].write = 0;
+    image->base_md[writing_idx].lastPos = position;
+    image->base_md[writing_idx].lastNb = nbVal;
+    image->base_md[writing_idx].packetNb = packetId;
+    image->base_md[writing_idx].packetTotal = packetTotal;
+    image->base_md[writing_idx].lastNbArray[packetId] = frameNumber;
+    image->base_md[writing_idx].write = 0;
 
     return DAO_SUCCESS;
 }
@@ -1030,14 +1071,18 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
 {
     daoTrace("\n");
 
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     uint32_t last_written = vol_md[0].fifo_last_written;
-    uint32_t writing_idx = (last_written + 1) % (image->md[0].fifo_size);
+    uint32_t writing_idx = (last_written + 1) % (image->base_md[0].fifo_size);
 
-    image->md[writing_idx].write = 0;
+    // idx to update current image array pointer with (for FIFO compatibility)
+    uint32_t next_writing_idx = ((writing_idx + 1) < image->base_md[0].fifo_size) ?
+        writing_idx + 1 : 0;
 
-    image->md[0].fifo_last_written = writing_idx;
+    image->base_md[writing_idx].write = 0;
+
+    image->base_md[0].fifo_last_written = writing_idx;
 
     daoShmTimestampShm(image);
     daoSemPostAll(image);
@@ -1046,7 +1091,11 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
     {
         daoSemLogPost(image);
     }
-	 
+
+    IMAGE_PTR_UPDATE(image->base_md[0].atype, image->array, image->base_array,
+        next_writing_idx, image->base_md[0].nelement);
+    
+    IMAGE_MD_PTR_UPDATE_IDX(image, next_writing_idx);
 
     return DAO_SUCCESS;
 }
@@ -1076,14 +1125,14 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 #endif
 
 	//printf("%p\n", image);
-	//printf("%p\n", &(image->md[0]));
-	//printf("%p\n", &(image->md[0].name));
-	//printf("%s\n", image->md[0].name);
+	//printf("%p\n", &(image->base_md[0]));
+	//printf("%p\n", &(image->base_md[0].name));
+	//printf("%s\n", image->base_md[0].name);
 	//printf("%p\n", &strlen);
 
     // to get rid off warning
-    char * nameCopy = (char *)malloc((strlen(image->md[0].name)+1)*sizeof(char));
-    strcpy(nameCopy, image->md[0].name);
+    char * nameCopy = (char *)malloc((strlen(image->base_md[0].name)+1)*sizeof(char));
+    strcpy(nameCopy, image->base_md[0].name);
 	
     char *token = strtok(nameCopy, PATH_SEPARATOR);
 
@@ -1127,30 +1176,30 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 		return DAO_ERROR;
 	}
 	
-    if(image->md[0].sem != NBsem)
+    if(image->base_md[0].sem != NBsem)
     {
         // Close existing semaphores ...
         daoInfo("Closing semaphore\n");
-        for(s=0; s < image->md[0].sem; s++)
+        for(s=0; s < image->base_md[0].sem; s++)
         {
             CloseHandle(image->semptr[s]);
         }
-        image->md[0].sem = 0;
+        image->base_md[0].sem = 0;
 
         daoInfo("Done\n");
         //free(image->semptr);
         image->semptr = NULL;
     }
 #else
-    if(image->md[0].sem != NBsem)
+    if(image->base_md[0].sem != NBsem)
     {
         // Close existing semaphores ...
         daoInfo("Closing semaphore\n");
-        for(s=0; s < image->md[0].sem; s++)
+        for(s=0; s < image->base_md[0].sem; s++)
         {
             sem_close(image->semptr[s]);
         }
-        image->md[0].sem = 0;
+        image->base_md[0].sem = 0;
 
         daoInfo("Remove associated files\n");
 		// ... and remove associated files
@@ -1167,18 +1216,18 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 #endif
 
 
-    if(image->md[0].sem == 0)
+    if(image->base_md[0].sem == 0)
     {
         if(image->semptr!=NULL)
             free(image->semptr);
 
-        image->md[0].sem = (uint16_t)NBsem;
-        daoInfo("malloc semptr %d entries\n", image->md[0].sem);
+        image->base_md[0].sem = (uint16_t)NBsem;
+        daoInfo("malloc semptr %d entries\n", image->base_md[0].sem);
 
 #ifdef _WIN32
-        image->semptr = (HANDLE*) malloc(sizeof(HANDLE*)*image->md[0].sem);
+        image->semptr = (HANDLE*) malloc(sizeof(HANDLE*)*image->base_md[0].sem);
 #else
-        image->semptr = (sem_t**) malloc(sizeof(sem_t**)*image->md[0].sem);
+        image->semptr = (sem_t**) malloc(sizeof(sem_t**)*image->base_md[0].sem);
 #endif
         
         for(s=0; s<NBsem; s++)
@@ -1473,13 +1522,13 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         }
 #endif
 	
-        image->md = (IMAGE_METADATA*) map;
-        image->md[0].fifo_size = fifo_size;
+        image->base_md = (IMAGE_METADATA*) map;
+        image->base_md[0].fifo_size = fifo_size;
 
         for (uint32_t fifo_idx = 0; fifo_idx < fifo_size; ++fifo_idx)
         {
-            image->md[fifo_idx].shared = 1;
-            image->md[fifo_idx].sem = 0;
+            image->base_md[fifo_idx].shared = 1;
+            image->base_md[fifo_idx].sem = 0;
         }
 
         free(nameCopy);
@@ -1490,12 +1539,12 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
     }
     else
     {
-        image->md = (IMAGE_METADATA*) malloc(sizeof(IMAGE_METADATA) * fifo_size);
-        image->md[0].fifo_size = fifo_size;
+        image->base_md = (IMAGE_METADATA*) malloc(sizeof(IMAGE_METADATA) * fifo_size);
+        image->base_md[0].fifo_size = fifo_size;
 
         for (uint32_t fifo_idx = 0; fifo_idx < fifo_size; ++fifo_idx)
         {
-            image->md[fifo_idx].shared = 0;
+            image->base_md[fifo_idx].shared = 0;
         }
 
         if(NBkw>0)
@@ -1511,16 +1560,16 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
     strcpy(image->name, name); // local name
     for (uint32_t fifo_idx = 0; fifo_idx < fifo_size; ++fifo_idx)
     {
-        image->md[fifo_idx].atype = atype;
-        image->md[fifo_idx].naxis = (uint8_t)naxis;
+        image->base_md[fifo_idx].atype = atype;
+        image->base_md[fifo_idx].naxis = (uint8_t)naxis;
 
-        strcpy(image->md[fifo_idx].name, name);
+        strcpy(image->base_md[fifo_idx].name, name);
 
         for(i=0; i<naxis; i++)
         {
-            image->md[fifo_idx].size[i] = size[i];
+            image->base_md[fifo_idx].size[i] = size[i];
         }
-        image->md[fifo_idx].NBkw = NBkw;
+        image->base_md[fifo_idx].NBkw = NBkw;
     }
 
 
@@ -1530,18 +1579,18 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
-            image->array.UI8 = (uint8_t*) (mapv);
-            memset(image->array.UI8, '\0', nelement*sizeof(uint8_t));
+            image->base_array.UI8 = (uint8_t*) (mapv);
+            memset(image->base_array.UI8, '\0', nelement*sizeof(uint8_t));
             mapv += sizeof(uint8_t)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
 		}
         else
         {
-            image->array.UI8 = (uint8_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint8_t));
+            image->base_array.UI8 = (uint8_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint8_t));
         }
 
 
-        if(image->array.UI8 == NULL)
+        if(image->base_array.UI8 == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1564,16 +1613,16 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
-            image->array.SI8 = (int8_t*) (mapv);
-            memset(image->array.SI8, '\0', nelement*sizeof(int8_t));
+            image->base_array.SI8 = (int8_t*) (mapv);
+            memset(image->base_array.SI8, '\0', nelement*sizeof(int8_t));
             mapv += sizeof(int8_t)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
 		}
         else
-            image->array.SI8 = (int8_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int8_t));
+            image->base_array.SI8 = (int8_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int8_t));
 
 
-        if(image->array.SI8 == NULL)
+        if(image->base_array.SI8 == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1598,17 +1647,17 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
             mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
-            image->array.UI16 = (uint16_t*) (mapv);
-            memset(image->array.UI16, '\0', nelement*sizeof(uint16_t));
+            image->base_array.UI16 = (uint16_t*) (mapv);
+            memset(image->base_array.UI16, '\0', nelement*sizeof(uint16_t));
             mapv += sizeof(uint16_t)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
         {
-            image->array.UI16 = (uint16_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint16_t));
+            image->base_array.UI16 = (uint16_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint16_t));
         }
 
-        if(image->array.UI16 == NULL)
+        if(image->base_array.UI16 == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1631,17 +1680,17 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
             mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
-            image->array.SI16 = (int16_t*) (mapv);
-            memset(image->array.SI16, '\0', nelement*sizeof(int16_t));
+            image->base_array.SI16 = (int16_t*) (mapv);
+            memset(image->base_array.SI16, '\0', nelement*sizeof(int16_t));
             mapv += sizeof(int16_t)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
         {
-            image->array.SI16 = (int16_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int16_t));
+            image->base_array.SI16 = (int16_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int16_t));
         }
 
-        if(image->array.SI16 == NULL)
+        if(image->base_array.SI16 == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1667,17 +1716,17 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
-            image->array.UI32 = (uint32_t*) (mapv);
-            memset(image->array.UI32, '\0', nelement*sizeof(uint32_t));
+            image->base_array.UI32 = (uint32_t*) (mapv);
+            memset(image->base_array.UI32, '\0', nelement*sizeof(uint32_t));
             mapv += sizeof(uint32_t)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
         {
-            image->array.UI32 = (uint32_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint32_t));
+            image->base_array.UI32 = (uint32_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint32_t));
         }
 
-        if(image->array.UI32 == NULL)
+        if(image->base_array.UI32 == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1704,17 +1753,17 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
-            image->array.SI32 = (int32_t*) (mapv);
-            memset(image->array.SI32, '\0', nelement*sizeof(int32_t));
+            image->base_array.SI32 = (int32_t*) (mapv);
+            memset(image->base_array.SI32, '\0', nelement*sizeof(int32_t));
             mapv += sizeof(int32_t)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
         {
-            image->array.SI32 = (int32_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int32_t));
+            image->base_array.SI32 = (int32_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int32_t));
         }
 
-        if(image->array.SI32 == NULL)
+        if(image->base_array.SI32 == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1741,17 +1790,17 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
-            image->array.UI64 = (uint64_t*) (mapv);
-            memset(image->array.UI64, '\0', nelement*sizeof(uint64_t));
+            image->base_array.UI64 = (uint64_t*) (mapv);
+            memset(image->base_array.UI64, '\0', nelement*sizeof(uint64_t));
             mapv += sizeof(uint64_t)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
         {
-            image->array.UI64 = (uint64_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint64_t));
+            image->base_array.UI64 = (uint64_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(uint64_t));
         }
 
-        if(image->array.SI64 == NULL)
+        if(image->base_array.SI64 == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1776,17 +1825,17 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
-            image->array.SI64 = (int64_t*) (mapv);
-            memset(image->array.SI64, '\0', nelement*sizeof(int64_t));
+            image->base_array.SI64 = (int64_t*) (mapv);
+            memset(image->base_array.SI64, '\0', nelement*sizeof(int64_t));
             mapv += sizeof(int64_t)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
         {
-            image->array.SI64 = (int64_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int64_t));
+            image->base_array.SI64 = (int64_t*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(int64_t));
         }
 
-        if(image->array.SI64 == NULL)
+        if(image->base_array.SI64 == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1812,17 +1861,17 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
             mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
-            image->array.F = (float*) (mapv);
-            memset(image->array.F, '\0', nelement*sizeof(float));
+            image->base_array.F = (float*) (mapv);
+            memset(image->base_array.F, '\0', nelement*sizeof(float));
             mapv += sizeof(float)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
         {
-            image->array.F = (float*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(float));
+            image->base_array.F = (float*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(float));
         }
 
-        if(image->array.F == NULL)
+        if(image->base_array.F == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1847,17 +1896,17 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
 			mapv = (char*) map;
 			mapv += sizeof(IMAGE_METADATA) * fifo_size;
-			image->array.D = (double*) (mapv);
-            memset(image->array.D, '\0', nelement*sizeof(double));
+			image->base_array.D = (double*) (mapv);
+            memset(image->base_array.D, '\0', nelement*sizeof(double));
             mapv += sizeof(double)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
         {
-            image->array.D = (double*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(double));
+            image->base_array.D = (double*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(double));
         }
   
-        if(image->array.D == NULL)
+        if(image->base_array.D == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1882,17 +1931,17 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
 			mapv = (char*) map;
 			mapv += sizeof(IMAGE_METADATA) * fifo_size;
-			image->array.CF = (complex_float*) (mapv);			
-            memset(image->array.CF, '\0', nelement*sizeof(complex_float));
+			image->base_array.CF = (complex_float*) (mapv);			
+            memset(image->base_array.CF, '\0', nelement*sizeof(complex_float));
             mapv += sizeof(complex_float)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
         {
-            image->array.CF = (complex_float*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(complex_float));
+            image->base_array.CF = (complex_float*) calloc ((size_t) nelement * (size_t) fifo_size, sizeof(complex_float));
         }
 
-        if(image->array.CF == NULL)
+        if(image->base_array.CF == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1917,17 +1966,17 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         {
 			mapv = (char*) map;
 			mapv += sizeof(IMAGE_METADATA) * fifo_size;
-			image->array.CD = (complex_double*) (mapv);			
-            memset(image->array.CD, '\0', nelement*sizeof(complex_double));
+			image->base_array.CD = (complex_double*) (mapv);			
+            memset(image->base_array.CD, '\0', nelement*sizeof(complex_double));
             mapv += sizeof(complex_double)*nelement;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
         {
-            image->array.CD = (complex_double*) calloc ((size_t) nelement * (size_t) fifo_size,sizeof(complex_double));
+            image->base_array.CD = (complex_double*) calloc ((size_t) nelement * (size_t) fifo_size,sizeof(complex_double));
         }
 
-        if(image->array.CD == NULL)
+        if(image->base_array.CD == NULL)
         {
             daoError("memory allocation failed\n");
             fprintf(stderr,"%c[%d;%dm", (char) 27, 1, 31);
@@ -1950,12 +1999,12 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 
     for (uint32_t fifo_idx = 0; fifo_idx < fifo_size; ++fifo_idx)
     {
-        image->md[fifo_idx].last_access = 1.0*timenow.tv_sec + 0.000000001*timenow.tv_nsec;
-        image->md[fifo_idx].creation_time = image->md[0].last_access;
-        image->md[fifo_idx].write = 0;
-        image->md[fifo_idx].cnt0 = 0;
-        image->md[fifo_idx].cnt1 = 0;
-        image->md[fifo_idx].nelement = nelement;
+        image->base_md[fifo_idx].last_access = 1.0*timenow.tv_sec + 0.000000001*timenow.tv_nsec;
+        image->base_md[fifo_idx].creation_time = image->base_md[0].last_access;
+        image->base_md[fifo_idx].write = 0;
+        image->base_md[fifo_idx].cnt0 = 0;
+        image->base_md[fifo_idx].cnt1 = 0;
+        image->base_md[fifo_idx].nelement = nelement;
     }
 
     if(shared==1)
@@ -1965,34 +2014,40 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
         daoInfo("Semaphores created\n");
 
 #ifdef __APPLE__
-        for (int i = 0; i < image->md[0].sem; i++)
+        for (int i = 0; i < image->base_md[0].sem; i++)
         {
             while (sem_trywait(image->semptr[i]) == 0) 
             {
                 // Draining kernel-level semaphore
             }
-            atomic_store(&image->md[0].semCounter[i], 0);
+            atomic_store(&image->base_md[0].semCounter[i], 0);
         }
-        atomic_store(&image->md[0].semLogCounter, 0);
+        atomic_store(&image->base_md[0].semLogCounter, 0);
 #endif
     }
     else
     {
-		image->md[0].sem = 0; // no semaphores
+		image->base_md[0].sem = 0; // no semaphores
     }
 
     // set fifo last written position
-    image->md[0].fifo_size = fifo_size;
-    image->md[0].fifo_last_written = fifo_size - 1;
+    image->base_md[0].fifo_size = fifo_size;
+    image->base_md[0].fifo_last_written = fifo_size - 1;
 
     // set up FIFO tail
 
-    uint32_t tmp32;
-    uint64_t tmp64;
-    daoShmResetTail(image, &tmp32, &tmp64);
+    uint32_t tail_idx;
+    uint64_t tail_cnt0;
+    daoShmResetTail(image, &tail_idx, &tail_cnt0);
+
+    // Set up array pointer for writing the one after our current position - this step is crucial for SHM writers, and
+    // has no effect on SHM reading, as long as the application always calls wait before the update
+
+    tail_idx = ((tail_idx + 1) >= image->base_md[0].fifo_size) ? 0 : tail_idx + 1;
+    IMAGE_MD_PTR_UPDATE_IDX(image, tail_idx);
 
     // initialize keywords
-    for(kw=0; kw<image->md[0].NBkw; kw++)
+    for(kw=0; kw<image->base_md[0].NBkw; kw++)
     {
         image->kw[kw].type = 'N';
     }
@@ -2007,12 +2062,12 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
     uint64_t fifo_reading_offset[DAO_MAX_COMBINE_CHANNELS];
 
     // Get output image writing position
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     uint32_t last_written = vol_md[0].fifo_last_written;
-    uint32_t writing_idx = (last_written + 1) % (image->md[0].fifo_size);
+    uint32_t writing_idx = (last_written + 1) % (image->base_md[0].fifo_size);
 
-    uint64_t fifo_writing_offset = image->md[0].nelement * (uint64_t)writing_idx;
+    uint64_t fifo_writing_offset = image->base_md[0].nelement * (uint64_t)writing_idx;
 
     vol_md[writing_idx].write = 1;
 
@@ -2036,153 +2091,153 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
     }
     
     // check type and use proper array
-    if (image->md[0].atype == _DATATYPE_UINT8)
+    if (image->base_md[0].atype == _DATATYPE_UINT8)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.UI8[fifo_writing_offset + pp] = 0;
+            image[0].base_array.UI8[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.UI8[fifo_writing_offset + pp]
-                    += imageCube[k][0].array.UI8[fifo_reading_offset[k] + pp];
+                image[0].base_array.UI8[fifo_writing_offset + pp]
+                    += imageCube[k][0].base_array.UI8[fifo_reading_offset[k] + pp];
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_INT8)
+    else if (image->base_md[0].atype == _DATATYPE_INT8)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.SI8[fifo_writing_offset + pp] = 0;
+            image[0].base_array.SI8[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.SI8[fifo_writing_offset + pp]
-                    += imageCube[k][0].array.SI8[fifo_reading_offset[k] + pp];
+                image[0].base_array.SI8[fifo_writing_offset + pp]
+                    += imageCube[k][0].base_array.SI8[fifo_reading_offset[k] + pp];
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_UINT16)
+    else if (image->base_md[0].atype == _DATATYPE_UINT16)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.UI16[fifo_writing_offset + pp] = 0;
+            image[0].base_array.UI16[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.UI16[fifo_writing_offset + pp]
-                    += imageCube[k][0].array.UI16[fifo_reading_offset[k] + pp];
+                image[0].base_array.UI16[fifo_writing_offset + pp]
+                    += imageCube[k][0].base_array.UI16[fifo_reading_offset[k] + pp];
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_INT16)
+    else if (image->base_md[0].atype == _DATATYPE_INT16)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.SI16[fifo_writing_offset + pp] = 0;
+            image[0].base_array.SI16[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.SI16[fifo_writing_offset + pp]
-                    += imageCube[k][0].array.SI16[fifo_reading_offset[k] + pp];
+                image[0].base_array.SI16[fifo_writing_offset + pp]
+                    += imageCube[k][0].base_array.SI16[fifo_reading_offset[k] + pp];
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_UINT32)
+    else if (image->base_md[0].atype == _DATATYPE_UINT32)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.UI32[fifo_writing_offset + pp] = 0;
+            image[0].base_array.UI32[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.UI32[fifo_writing_offset + pp]
-                    += imageCube[k][0].array.UI32[fifo_reading_offset[k] + pp];
+                image[0].base_array.UI32[fifo_writing_offset + pp]
+                    += imageCube[k][0].base_array.UI32[fifo_reading_offset[k] + pp];
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_INT32)
+    else if (image->base_md[0].atype == _DATATYPE_INT32)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.SI32[fifo_writing_offset + pp] = 0;
+            image[0].base_array.SI32[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.SI32[fifo_writing_offset + pp]
-                    += imageCube[k][0].array.SI32[fifo_reading_offset[k] + pp];
+                image[0].base_array.SI32[fifo_writing_offset + pp]
+                    += imageCube[k][0].base_array.SI32[fifo_reading_offset[k] + pp];
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_UINT64)
+    else if (image->base_md[0].atype == _DATATYPE_UINT64)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.UI64[fifo_writing_offset + pp] = 0;
+            image[0].base_array.UI64[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.UI64[fifo_writing_offset + pp]
-                    += imageCube[k][0].array.UI64[fifo_reading_offset[k] + pp];
+                image[0].base_array.UI64[fifo_writing_offset + pp]
+                    += imageCube[k][0].base_array.UI64[fifo_reading_offset[k] + pp];
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_INT64)
+    else if (image->base_md[0].atype == _DATATYPE_INT64)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.SI64[fifo_writing_offset + pp] = 0;
+            image[0].base_array.SI64[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.SI64[fifo_writing_offset + pp]
-                    += imageCube[k][0].array.SI64[fifo_reading_offset[k] + pp];
+                image[0].base_array.SI64[fifo_writing_offset + pp]
+                    += imageCube[k][0].base_array.SI64[fifo_reading_offset[k] + pp];
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_FLOAT)
+    else if (image->base_md[0].atype == _DATATYPE_FLOAT)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.F[fifo_writing_offset + pp] = 0;
+            image[0].base_array.F[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.F[fifo_writing_offset + pp]
-                    += imageCube[k][0].array.F[fifo_reading_offset[k] + pp];
+                image[0].base_array.F[fifo_writing_offset + pp]
+                    += imageCube[k][0].base_array.F[fifo_reading_offset[k] + pp];
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_DOUBLE)
+    else if (image->base_md[0].atype == _DATATYPE_DOUBLE)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.D[fifo_writing_offset + pp] = 0;
+            image[0].base_array.D[fifo_writing_offset + pp] = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.D[fifo_writing_offset + pp]
-                    += imageCube[k][0].array.D[fifo_reading_offset[k] + pp];
+                image[0].base_array.D[fifo_writing_offset + pp]
+                    += imageCube[k][0].base_array.D[fifo_reading_offset[k] + pp];
             }
         }
     }
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_FLOAT)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.CF[fifo_writing_offset + pp].re = 0;
-            image[0].array.CF[fifo_writing_offset + pp].im = 0;
+            image[0].base_array.CF[fifo_writing_offset + pp].re = 0;
+            image[0].base_array.CF[fifo_writing_offset + pp].im = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.CF[fifo_writing_offset + pp].re
-                    += imageCube[k][0].array.CF[fifo_reading_offset[k] + pp].re;
-                image[0].array.CF[fifo_writing_offset + pp].im
-                    += imageCube[k][0].array.CF[fifo_reading_offset[k] + pp].im;
+                image[0].base_array.CF[fifo_writing_offset + pp].re
+                    += imageCube[k][0].base_array.CF[fifo_reading_offset[k] + pp].re;
+                image[0].base_array.CF[fifo_writing_offset + pp].im
+                    += imageCube[k][0].base_array.CF[fifo_reading_offset[k] + pp].im;
             }
         }
     }
-        else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
+        else if (image->base_md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
     {
         for (pp=0; pp<nbVal; pp++)
         {   
-            image[0].array.CD[fifo_writing_offset + pp].re = 0;
-            image[0].array.CD[fifo_writing_offset + pp].im = 0;
+            image[0].base_array.CD[fifo_writing_offset + pp].re = 0;
+            image[0].base_array.CD[fifo_writing_offset + pp].im = 0;
             for(k=0;k<nbChannel;k++) 
             {
-                image[0].array.CD[fifo_writing_offset + pp].re
-                    += imageCube[k][0].array.CD[fifo_reading_offset[k] + pp].re;
-                image[0].array.CD[fifo_writing_offset + pp].im
-                    += imageCube[k][0].array.CD[fifo_reading_offset[k] + pp].im;
+                image[0].base_array.CD[fifo_writing_offset + pp].re
+                    += imageCube[k][0].base_array.CD[fifo_reading_offset[k] + pp].re;
+                image[0].base_array.CD[fifo_writing_offset + pp].im
+                    += imageCube[k][0].base_array.CD[fifo_reading_offset[k] + pp].im;
             }
         }
     }
@@ -2222,10 +2277,10 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
     if (sem_wait(image->semptr[semNb]) == 0) 
     {
         // Safely decrement the counter, but only if > 0
-        unsigned int val = atomic_load(&image->md[0].semCounter[semNb]);
+        unsigned int val = atomic_load(&image->base_md[0].semCounter[semNb]);
         while (val > 0)
         {
-            if (atomic_compare_exchange_weak(&image->md[0].semCounter[semNb], &val, val - 1))
+            if (atomic_compare_exchange_weak(&image->base_md[0].semCounter[semNb], &val, val - 1))
                 break;
             // If CAS fails, val is updated, loop again
         }
@@ -2238,6 +2293,12 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
 #else
     sem_wait(image->semptr[semNb]);
 #endif
+
+    // Update the current array pointer
+    IMAGE_PTR_UPDATE(image->base_md[0].atype, image->array, image->base_array,
+        image->base_md[0].fifo_last_written, image->base_md[0].nelement);
+
+    IMAGE_MD_PTR_UPDATE_IDX(image, image->base_md[0].fifo_last_written);
 
     return DAO_SUCCESS;
 }
@@ -2283,12 +2344,19 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
 
     while (now_ns < end_ns)
     {
-        unsigned int val = atomic_load(&image->md[0].semCounter[semNb]);
+        unsigned int val = atomic_load(&image->base_md[0].semCounter[semNb]);
         if (val > 0)
         {
             if (sem_wait(image->semptr[semNb]) == 0)
             {
-                atomic_fetch_sub(&image->md[0].semCounter[semNb], 1);
+                atomic_fetch_sub(&image->base_md[0].semCounter[semNb], 1);
+
+                // Update the current array pointer
+                IMAGE_PTR_UPDATE(image->base_md[0].atype, image->array, image->base_array,
+                    image->base_md[0].fifo_last_written, image->base_md[0].nelement);
+
+                IMAGE_MD_PTR_UPDATE_IDX(image, image->base_md[0].fifo_last_written);
+
                 return DAO_SUCCESS;
             }
             else
@@ -2314,6 +2382,12 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
     }
 #endif
 
+    // Update the current array pointer
+    IMAGE_PTR_UPDATE(image->base_md[0].atype, image->array, image->base_array,
+        image->base_md[0].fifo_last_written, image->base_md[0].nelement);
+
+    IMAGE_MD_PTR_UPDATE_IDX(image, image->base_md[0].fifo_last_written);
+
     return DAO_SUCCESS;
 }
 
@@ -2326,7 +2400,7 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
 int_fast8_t daoShmWaitForCounter(IMAGE *image)
 {
     daoTrace("\n");
-    volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA *)image->base_md;
 
     if (md->fifo_size == 1) // Spin on our only cnt0 for 1-deep images
     {
@@ -2337,7 +2411,7 @@ int_fast8_t daoShmWaitForCounter(IMAGE *image)
             // Spin
         }
     #else
-        uint_fast64_t counter = image->md[0].cnt0;
+        uint_fast64_t counter = image->base_md[0].cnt0;
         struct timespec req, rem;
         req.tv_sec = 0;          // Seconds
         req.tv_nsec = 0; // Nanoseconds
@@ -2375,10 +2449,16 @@ int_fast8_t daoShmWaitForCounter(IMAGE *image)
                 return DAO_ERROR;
             }
         }
-    #endif
+        #endif
+
+        // Update the current array pointer
+        IMAGE_PTR_UPDATE(image->base_md[0].atype, image->array, image->base_array,
+            fifo_position, image->base_md[0].nelement);
+
+        IMAGE_MD_PTR_UPDATE_IDX(image, fifo_position);
+
         return DAO_SUCCESS;
     }
-
 }
 
 /**
@@ -2396,7 +2476,7 @@ int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
     req.tv_sec = 0;          // Seconds
     req.tv_nsec = 0; // Nanoseconds
 
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     if (vol_md->fifo_size == 1) // Spin on our only cnt0 for 1-deep images
     {
@@ -2429,6 +2509,12 @@ int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
         }
     }
 
+    // Update the current array pointer
+    IMAGE_PTR_UPDATE(image->base_md[0].atype, image->array, image->base_array,
+        image->base_md[0].fifo_last_written, image->base_md[0].nelement);
+
+    IMAGE_MD_PTR_UPDATE_IDX(image, image->base_md[0].fifo_last_written);
+
     return DAO_SUCCESS;
 }
 
@@ -2442,9 +2528,9 @@ uint_fast64_t daoShmGetCounter(IMAGE *image)
 {
     daoTrace("\n");
 
-    uint32_t fifo_last_written = image->md[0].fifo_last_written;
+    uint32_t fifo_last_written = image->base_md[0].fifo_last_written;
 
-    return image->md[fifo_last_written].cnt0;
+    return image->base_md[fifo_last_written].cnt0;
 }
 
 /**
@@ -2469,7 +2555,7 @@ int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segment_ptr, uint32_t* seg
     int_fast8_t return_val = DAO_SUCCESS;
 
     volatile IMAGE *vol_image = (volatile IMAGE *)image;
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     uint32_t last_read_idx  = vol_image->fifo_last_read;
     uint64_t last_read_cnt0 = vol_image->fifo_last_read_cnt0;
@@ -2492,37 +2578,41 @@ int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segment_ptr, uint32_t* seg
     }
 
     // Set the segment pointer and index
-    if (image->md[0].atype == _DATATYPE_UINT8)
-        *segment_ptr = &(image->array.UI8[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT8)
-        *segment_ptr = &(image->array.SI8[next_segment_idx * image->md[0].nelement]);      
-    else if (image->md[0].atype == _DATATYPE_UINT16)
-        *segment_ptr = &(image->array.UI16[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT16)
-        *segment_ptr = &(image->array.SI16[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        *segment_ptr = &(image->array.UI32[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_UINT32)
-        *segment_ptr = &(image->array.SI32[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_UINT64)
-        *segment_ptr = &(image->array.UI64[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT64)
-        *segment_ptr = &(image->array.SI64[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_FLOAT)
-        *segment_ptr = &(image->array.F[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        *segment_ptr = &(image->array.D[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        *segment_ptr = &(image->array.CF[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        *segment_ptr = &(image->array.CD[next_segment_idx * image->md[0].nelement]);
+    if (image->base_md[0].atype == _DATATYPE_UINT8)
+        *segment_ptr = &(image->base_array.UI8[next_segment_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT8)
+        *segment_ptr = &(image->base_array.SI8[next_segment_idx * image->base_md[0].nelement]);      
+    else if (image->base_md[0].atype == _DATATYPE_UINT16)
+        *segment_ptr = &(image->base_array.UI16[next_segment_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT16)
+        *segment_ptr = &(image->base_array.SI16[next_segment_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT32)
+        *segment_ptr = &(image->base_array.UI32[next_segment_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_UINT32)
+        *segment_ptr = &(image->base_array.SI32[next_segment_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_UINT64)
+        *segment_ptr = &(image->base_array.UI64[next_segment_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT64)
+        *segment_ptr = &(image->base_array.SI64[next_segment_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_FLOAT)
+        *segment_ptr = &(image->base_array.F[next_segment_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_DOUBLE)
+        *segment_ptr = &(image->base_array.D[next_segment_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_FLOAT)
+        *segment_ptr = &(image->base_array.CF[next_segment_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
+        *segment_ptr = &(image->base_array.CD[next_segment_idx * image->base_md[0].nelement]);
 
     *segment_idx = next_segment_idx;
     *segment_cnt0 = next_segment_cnt0;
 
     // Update the bookkeeping variables for this FIFO tail our IMAGE struct
-    vol_image->fifo_last_read = next_segment_idx;
-    vol_image->fifo_last_read_cnt0 = next_segment_cnt0;
+    image->fifo_last_read = next_segment_idx;
+    image->fifo_last_read_cnt0 = next_segment_cnt0;
+
+    IMAGE_PTR_UPDATE_DIRECT(image->array, segment_ptr);
+
+    IMAGE_MD_PTR_UPDATE_IDX(image, next_segment_idx);
 
     return return_val;
 }
@@ -2548,32 +2638,36 @@ int_fast8_t daoShmWaitForNextSegment(IMAGE *image)
  */
 int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segment_ptr, uint_fast32_t fifo_idx)
 {
-    uint32_t actual_idx = (uint32_t)(fifo_idx % image->md[0].fifo_size);
+    uint32_t actual_idx = (uint32_t)(fifo_idx % image->base_md[0].fifo_size);
 
-    if (image->md[0].atype == _DATATYPE_UINT8)
-        *segment_ptr = &(image->array.UI8[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT8)
-        *segment_ptr = &(image->array.SI8[actual_idx * image->md[0].nelement]);      
-    else if (image->md[0].atype == _DATATYPE_UINT16)
-        *segment_ptr = &(image->array.UI16[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT16)
-        *segment_ptr = &(image->array.SI16[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        *segment_ptr = &(image->array.UI32[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_UINT32)
-        *segment_ptr = &(image->array.SI32[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_UINT64)
-        *segment_ptr = &(image->array.UI64[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT64)
-        *segment_ptr = &(image->array.SI64[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_FLOAT)
-        *segment_ptr = &(image->array.F[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        *segment_ptr = &(image->array.D[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        *segment_ptr = &(image->array.CF[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        *segment_ptr = &(image->array.CD[actual_idx * image->md[0].nelement]);
+    if (image->base_md[0].atype == _DATATYPE_UINT8)
+        *segment_ptr = &(image->base_array.UI8[actual_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT8)
+        *segment_ptr = &(image->base_array.SI8[actual_idx * image->base_md[0].nelement]);      
+    else if (image->base_md[0].atype == _DATATYPE_UINT16)
+        *segment_ptr = &(image->base_array.UI16[actual_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT16)
+        *segment_ptr = &(image->base_array.SI16[actual_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT32)
+        *segment_ptr = &(image->base_array.UI32[actual_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_UINT32)
+        *segment_ptr = &(image->base_array.SI32[actual_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_UINT64)
+        *segment_ptr = &(image->base_array.UI64[actual_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT64)
+        *segment_ptr = &(image->base_array.SI64[actual_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_FLOAT)
+        *segment_ptr = &(image->base_array.F[actual_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_DOUBLE)
+        *segment_ptr = &(image->base_array.D[actual_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_FLOAT)
+        *segment_ptr = &(image->base_array.CF[actual_idx * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
+        *segment_ptr = &(image->base_array.CD[actual_idx * image->base_md[0].nelement]);
+
+    IMAGE_PTR_UPDATE_DIRECT(image->array, segment_ptr);
+
+    IMAGE_MD_PTR_UPDATE_IDX(image, actual_idx);
 
     return DAO_SUCCESS;
 }
@@ -2588,38 +2682,42 @@ int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segment_ptr, uint_fas
  */
 int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
 {
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     uint32_t last_written = vol_md[0].fifo_last_written;
     uint64_t cnt0 = vol_md[last_written].cnt0;
 
-    if (image->md[0].atype == _DATATYPE_UINT8)
-        *segment_ptr = &(image->array.UI8[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT8)
-        *segment_ptr = &(image->array.SI8[last_written * image->md[0].nelement]);      
-    else if (image->md[0].atype == _DATATYPE_UINT16)
-        *segment_ptr = &(image->array.UI16[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT16)
-        *segment_ptr = &(image->array.SI16[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        *segment_ptr = &(image->array.UI32[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_UINT32)
-        *segment_ptr = &(image->array.SI32[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_UINT64)
-        *segment_ptr = &(image->array.UI64[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT64)
-        *segment_ptr = &(image->array.SI64[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_FLOAT)
-        *segment_ptr = &(image->array.F[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_DOUBLE)
-        *segment_ptr = &(image->array.D[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_FLOAT)
-        *segment_ptr = &(image->array.CF[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
-        *segment_ptr = &(image->array.CD[last_written * image->md[0].nelement]);
+    if (image->base_md[0].atype == _DATATYPE_UINT8)
+        *segment_ptr = &(image->base_array.UI8[last_written * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT8)
+        *segment_ptr = &(image->base_array.SI8[last_written * image->base_md[0].nelement]);      
+    else if (image->base_md[0].atype == _DATATYPE_UINT16)
+        *segment_ptr = &(image->base_array.UI16[last_written * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT16)
+        *segment_ptr = &(image->base_array.SI16[last_written * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT32)
+        *segment_ptr = &(image->base_array.UI32[last_written * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_UINT32)
+        *segment_ptr = &(image->base_array.SI32[last_written * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_UINT64)
+        *segment_ptr = &(image->base_array.UI64[last_written * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_INT64)
+        *segment_ptr = &(image->base_array.SI64[last_written * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_FLOAT)
+        *segment_ptr = &(image->base_array.F[last_written * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_DOUBLE)
+        *segment_ptr = &(image->base_array.D[last_written * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_FLOAT)
+        *segment_ptr = &(image->base_array.CF[last_written * image->base_md[0].nelement]);
+    else if (image->base_md[0].atype == _DATATYPE_COMPLEX_DOUBLE)
+        *segment_ptr = &(image->base_array.CD[last_written * image->base_md[0].nelement]);
 
     *segment_idx = last_written;
     *segment_cnt0 = cnt0;
+
+    IMAGE_PTR_UPDATE_DIRECT(image->array, segment_ptr);
+
+    IMAGE_MD_PTR_UPDATE_IDX(image, last_written);
 
     return DAO_SUCCESS;
 }
@@ -2641,7 +2739,7 @@ int_fast8_t daoShmCheckSegmentOverwrite(IMAGE *image)
     int_fast8_t return_val = DAO_SUCCESS;
 
     volatile IMAGE *vol_image = (volatile IMAGE *)image;
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     uint32_t last_read_idx = vol_image->fifo_last_read;
     uint64_t last_read_cnt0 = vol_image->fifo_last_read_cnt0;
@@ -2664,7 +2762,7 @@ int_fast8_t daoShmCheckSegmentOverwrite(IMAGE *image)
  */
 int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segment_idx, uint64_t *segment_cnt0)
 {
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     uint32_t new_segment_idx = vol_md[0].fifo_last_written;
     uint64_t new_segment_cnt0 = vol_md[new_segment_idx].cnt0;
@@ -2674,6 +2772,12 @@ int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segment_idx, uint64_t *segme
 
     image->fifo_last_read = new_segment_idx;
     image->fifo_last_read_cnt0 = new_segment_cnt0;
+
+    // Update the current array pointer
+    IMAGE_PTR_UPDATE(image->base_md[0].atype, image->array, image->base_array,
+        new_segment_idx, image->base_md[0].nelement);
+
+    IMAGE_MD_PTR_UPDATE_IDX(image, new_segment_idx);
 
     return DAO_SUCCESS;
 }
@@ -2696,7 +2800,7 @@ int_fast8_t daoShmCloseShm(IMAGE *image)
 
     // Release all semaphores
     if (image->semptr) {
-        for(s = 0; s < image->md[0].sem; s++) {
+        for(s = 0; s < image->base_md[0].sem; s++) {
 #ifdef _WIN32
             if (image->semptr[s]) {
                 CloseHandle(image->semptr[s]);
@@ -2737,12 +2841,12 @@ int_fast8_t daoShmCloseShm(IMAGE *image)
     }
 
     // Unmap memory and close file descriptor if shared
-    if (image->md[0].shared) {
+    if (image->base_md[0].shared) {
 #ifdef _WIN32
         // Windows: Unmap the view and close handles
-        if (image->md) {
-            UnmapViewOfFile((LPVOID)image->md);
-            image->md = NULL;
+        if (image->base_md) {
+            UnmapViewOfFile((LPVOID)image->base_md);
+            image->base_md = NULL;
         }
         if (image->shmfm) {
             CloseHandle(image->shmfm);
@@ -2754,9 +2858,9 @@ int_fast8_t daoShmCloseShm(IMAGE *image)
         }
 #else
         // Unix: Unmap memory and close file descriptor
-        if (image->md) {
-            munmap(image->md, image->memsize);
-            image->md = NULL;
+        if (image->base_md) {
+            munmap(image->base_md, image->memsize);
+            image->base_md = NULL;
         }
         if (image->shmfd > 0) {
             close(image->shmfd);
@@ -2782,7 +2886,7 @@ int_fast8_t daoShmTimestampShm(IMAGE *image)
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
 
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
+    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->base_md;
 
     uint32_t fifo_last_written = vol_md[0].fifo_last_written;
     uint32_t fifo_prior_write = (fifo_last_written == 0)
@@ -2809,24 +2913,24 @@ int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
 #ifdef _WIN32
     ReleaseSemaphore(image->semptr[semNb], 1, NULL);
 #elif defined(__APPLE__)
-    unsigned int oldval = atomic_load(&image->md[0].semCounter[semNb]);
+    unsigned int oldval = atomic_load(&image->base_md[0].semCounter[semNb]);
 
     while (oldval < SEMAPHORE_MAXVAL)
     {
         // Try to increment semCounter atomically
-        if (atomic_compare_exchange_weak(&image->md[0].semCounter[semNb], &oldval, oldval + 1))
+        if (atomic_compare_exchange_weak(&image->base_md[0].semCounter[semNb], &oldval, oldval + 1))
         {
             // Only post if we managed to reserve a "slot" in semCounter
             if (sem_post(image->semptr[semNb]) == 0)
             {
                 daoDebug("Posted sem %d, new semCounter = %u (pid=%d)\n",
-                         semNb, atomic_load(&image->md[0].semCounter[semNb]), getpid());
+                         semNb, atomic_load(&image->base_md[0].semCounter[semNb]), getpid());
                 return DAO_SUCCESS;
             }
             else
             {
                 // Rollback the counter change
-                atomic_fetch_sub(&image->md[0].semCounter[semNb], 1);
+                atomic_fetch_sub(&image->base_md[0].semCounter[semNb], 1);
                 daoError("sem_post failed on sem %d: %s\n", semNb, strerror(errno));
                 return DAO_ERROR;
             }
@@ -2856,7 +2960,7 @@ int_fast8_t daoSemPostAll(IMAGE *image)
 {
     daoTrace("\n");
     int ss;
-    for(ss = 0; ss < image->md[0].sem; ss++)
+    for(ss = 0; ss < image->base_md[0].sem; ss++)
     {
         daoSemPost(image, ss);
     }
@@ -2876,12 +2980,12 @@ int_fast8_t daoSemLogPost(IMAGE *image)
 #ifdef _WIN32
     ReleaseSemaphore(image->semlog, 1, NULL);
 #elif defined(__APPLE__)
-    unsigned int val = atomic_load(&image->md[0].semLogCounter);
+    unsigned int val = atomic_load(&image->base_md[0].semLogCounter);
     if (val < SEMAPHORE_MAXVAL)
     {
         if (sem_post(image->semlog) == 0)
         {
-            atomic_fetch_add(&image->md[0].semLogCounter, 1);
+            atomic_fetch_add(&image->base_md[0].semLogCounter, 1);
         }
         else
         {
