@@ -310,8 +310,8 @@ if sys.platform == "win32":
             ('shmfm', ctypes.POINTER(ctypes.c_void_p)),
             ('fifo_last_read', ctypes.c_uint32),
             ('fifo_last_read_cnt0', ctypes.c_uint64),
-            ('base_array', ctypes.c_void_p)
-            ('base_md', ctypes.c_void_p)
+            ('base_array', ctypes.c_void_p),
+            ('base_md', ctypes.POINTER(IMAGE_METADATA))
         ]
 else:
     # Define the IMAGE structure
@@ -348,7 +348,7 @@ else:
             ('fifo_last_read', ctypes.c_uint32),
             ('fifo_last_read_cnt0', ctypes.c_uint64),
             ('base_array', ctypes.c_void_p),
-            ('base_md', ctypes.c_void_p)
+            ('base_md', ctypes.POINTER(IMAGE_METADATA))
         ]
 
 class shm:
