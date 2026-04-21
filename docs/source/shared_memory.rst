@@ -149,6 +149,22 @@ To properly clean up resources:
 
 Additionally, the `__del__` method ensures resources are freed when the object is garbage collected.
 
+FIFO (Circular Buffer) Mode
+---------------------------
+
+.. warning::
+
+   FIFO mode is **experimental** and is **not enabled by default**.  A standard shared memory
+   segment has a FIFO depth of 1 (single-frame behaviour).  When a depth greater than 1 is
+   requested, the **new FIFO-specific API must be used** — mixing legacy direct array access with a
+   depth-N segment will produce undefined behaviour.
+
+The DAO shared memory system supports an optional FIFO (circular buffer) mode that retains the last
+*N* frames inside a single shared memory object.  This is useful when the reader may occasionally
+stall, or when historical frames need to be inspected.
+
+See :doc:`fifo` for a complete description of the FIFO API, memory layout, and usage examples.
+
 ZeroMQ Integration
 ------------------
 
@@ -169,26 +185,32 @@ The shared memory system can optionally integrate with ZeroMQ for network commun
    remote_shm.subThread.start()
 
 C++ Interface
------------
+-------------
 
 For C++ developers, including the ``daoShm.hpp`` header provides access
 to the following shared memory interface:
 
 .. code-block:: cpp
 
-   // Create a shared memory segment.
-   Dao::Shm(const std::string &name, const Dao::Shape &shape, T *frame); // initialize frame.
-   Dao::Shm(const std::string &name, const Dao::Shape &shape);
+   // Create a shared memory segment (depth=1 by default; use depth>1 for FIFO mode).
+   Dao::Shm(const std::string &name, const Dao::Shape &shape, T *frame = nullptr,
+            uint32_t depth = 1);
 
-   // Open an exisiting shared memory segment.
+   // Open an existing shared memory segment.
    Dao::Shm(const std::string &name);
 
    // Write frame to shared memory.
    Dao::Shm::set_frame(const T *frame);
 
-   // Get shared memory frame.
-   T* Dao::Shm::get_frame(Dao::ShmSync sync); // with synchronization.
-   T* Dao::Shm::get_frame(); // no synchronization.
+   // Get the newest frame (with optional synchronization).
+   T* Dao::Shm::get_frame(Dao::ShmSync sync);
+   T* Dao::Shm::get_frame();
+
+   // FIFO-mode reading (see fifo.rst for full details).
+   T* Dao::Shm::get_next_frame(bool wait, int_fast8_t &status);
+   T* Dao::Shm::get_next_frame(bool wait, int_fast8_t &status, uint64_t &cnt0);
+   T* Dao::Shm::get_arbitrary_frame(uint32_t segment_idx);
+   int_fast8_t Dao::Shm::check_segment_overwrite();
 
 Information on the full C++ interface can be found in the Doxygen documentation.
 
@@ -199,20 +221,32 @@ Both the C++ and Python interfaces are lightweight wrappers around the C library
 
 .. code-block:: c
 
-   // Create a shared memory segment
+   // Create a standard (depth-1) shared memory segment
    int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
                                 uint8_t atype, int shared, int NBkw);
-   
+
+   // Create a FIFO shared memory segment with depth N (experimental)
+   int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis, uint32_t *size,
+                                      uint8_t atype, int shared, int NBkw, uint32_t fifo_size);
+
    // Access an existing shared memory segment
    int_fast8_t daoShmShm2Img(const char *name, IMAGE *image);
-   
-   // Write data to shared memory
+
+   // Write data to shared memory (advances the FIFO automatically)
    int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image);
-   
+
    // Wait for updates
    int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
    int_fast8_t daoShmWaitForCounter(IMAGE *image);
-   
+
+   // FIFO reading (experimental – see fifo.rst for full details)
+   int_fast8_t daoShmGetNewestSegment(IMAGE *image, void **ptr, uint32_t *idx, uint64_t *cnt0);
+   int_fast8_t daoShmGetNextSegment(IMAGE *image, void **ptr, uint32_t *idx, uint64_t *cnt0);
+   int_fast8_t daoShmWaitForNextSegment(IMAGE *image);
+   int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void **ptr, uint_fast32_t fifo_idx);
+   int_fast8_t daoShmCheckSegmentOverwrite(IMAGE *image);
+   int_fast8_t daoShmResetTail(IMAGE *image, uint32_t *idx, uint64_t *cnt0);
+
    // Clean up
    int_fast8_t daoShmCloseShm(IMAGE *image);
 

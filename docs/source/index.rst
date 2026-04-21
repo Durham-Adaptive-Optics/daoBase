@@ -19,6 +19,27 @@ Durham Adaptive Optics (DAO)
       </div>
    </div>
 
+.. warning::
+
+   **Experimental Feature: FIFO Shared Memory**
+
+   A FIFO (circular buffer) extension to the shared memory system is available on the
+   ``feature/fifo`` branch.  It is **experimental**, **not enabled by default**, and is **not yet
+   merged into the main release**.
+
+   * All shared memory segments default to a FIFO depth of **1** (standard single-frame
+     behaviour).  Existing code is unaffected unless you explicitly pass ``depth > 1``.
+   * When FIFO mode is used (``depth > 1``), you **must** use the new FIFO-aware C, C++, or Python
+     API calls (``daoShmImageCreate_FIFO``, ``get_next_frame``, ``get_data_next``, etc.).
+     Accessing the underlying array pointer directly or using legacy read paths against a FIFO
+     segment **will produce incorrect or undefined behaviour**.
+   * The API and memory layout may change before the feature is finalised.
+   * **Windows is not currently supported.** The FIFO code path has only been tested on Linux
+     and macOS.  Building or running FIFO-enabled code on Windows may fail or produce incorrect
+     results.
+
+   See :doc:`fifo` for full documentation.
+
 Why Choose DAO?
 ===============
 
@@ -127,6 +148,10 @@ Documentation Guide
             <h4>Shared Memory System</h4>
             <p>Low-latency inter-process communication foundation</p>
          </a>
+         <a href="fifo.html" class="doc-link">
+            <h4>FIFO Shared Memory <span style="font-size:0.75em;color:#e67e22;">(Experimental)</span></h4>
+            <p>Circular-buffer extension for multi-frame shared memory</p>
+         </a>
          <a href="threads.html" class="doc-link">
             <h4>Thread Management</h4>
             <p>Real-time thread system and lifecycle management</p>
@@ -223,6 +248,7 @@ Need help optimising your adaptive optics real-time control system? We've recent
    :caption: Core Concepts
 
    shared_memory
+   fifo
    daoComponent
    threads
    state_machine
