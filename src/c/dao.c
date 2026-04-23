@@ -1353,10 +1353,16 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 			exit(0);
 		}
 
-		// Create file with size required
+		// Use OPEN_ALWAYS instead of CREATE_ALWAYS.
+		// CREATE_ALWAYS truncates the file on open, but Windows returns
+		// ERROR_USER_MAPPED_FILE (1224) if any other process currently has the
+		// file memory-mapped (e.g. a reader is still connected).
+		// OPEN_ALWAYS creates the file if absent, or opens it without
+		// truncating if it already exists.  We zero the mapped region
+		// explicitly below to get the same clean-slate effect.
 		shmFd = CreateFileW(wideShmName, GENERIC_READ | GENERIC_WRITE,
 							FILE_SHARE_READ | FILE_SHARE_WRITE,
-							saFile, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+							saFile, OPEN_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
 
 		if (shmFd == INVALID_HANDLE_VALUE)
 		{
@@ -1365,7 +1371,9 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 			exit(0);
 		}
 		
-		// Create file mapping handle
+		// Create file mapping handle. Specifying the full sharedsize here
+		// will extend the file if it is smaller than required (e.g. first
+		// run, or size changed).
 		shmFm = CreateFileMapping(shmFd, NULL, PAGE_READWRITE,
 								  (DWORD)(sharedsize >> 32), (DWORD)sharedsize, NULL);
 		if (shmFm == NULL) {
@@ -1385,6 +1393,10 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
 			CloseHandle(shmFm);
 			daoError("Error creating view of file mapping (%s)\n", shmName);
 		}
+
+		// Zero the region so stale data from a previous writer session is
+		// cleared (equivalent to the truncation that CREATE_ALWAYS would do).
+		memset(map, 0, sharedsize);
 
 #else
         //sprintf(shmName, "%s/%s.im.shm", SHAREDMEMDIR, name);
@@ -2072,14 +2084,61 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
     daoTrace("\n");
     // Wait for new image
 #ifdef _WIN32
-    DWORD dWaitResult = WaitForSingleObject(image->semptr[semNb], INFINITE);
-	switch (dWaitResult) {
-		case WAIT_OBJECT_0:
-			break;
-		default:
-			daoError("Unexpected result from WaitForSingleObject (Windows system error no. %d).\n", GetLastError());
-			return DAO_ERROR;
-	}
+    // On Windows we use a single short-timeout wait and return DAO_TIMEOUT so
+    // that the *Python* caller can loop. If the loop were here in C, Python
+    // would never get control back between iterations and KeyboardInterrupt
+    // (Ctrl+C) could never fire.
+    //
+    // If the handle is NULL or invalid (writer hasn't started yet, or the
+    // writer exited and its semaphore was destroyed), try to reopen it by
+    // name before waiting. Named semaphores in the Local\ namespace are
+    // destroyed when the last handle is closed, so the reader must reopen
+    // them each time the writer restarts.
+    if (!image->semptr || !image->semptr[semNb]) {
+        // Build the semaphore name from the image name, same scheme as
+        // daoImageCreateSem / daoShmShm2Img.
+        char semName[256];
+        WCHAR wSemName[256];
+        char nameCopy[256];
+        strncpy(nameCopy, image->md[0].name, sizeof(nameCopy)-1);
+        nameCopy[sizeof(nameCopy)-1] = '\0';
+        char *tok = strtok(nameCopy, PATH_SEPARATOR);
+        char *last = NULL;
+        while (tok) { last = tok; tok = strtok(NULL, PATH_SEPARATOR); }
+        if (last) {
+            char *localName = strtok(last, ".");
+            if (localName) {
+                sprintf(semName, "Local\\DAO_%s_sem%02d", localName, (int)semNb);
+                MultiByteToWideChar(CP_UTF8, 0, semName, -1, wSemName, 256);
+                HANDLE h = OpenSemaphoreW(SEMAPHORE_ALL_ACCESS, FALSE, wSemName);
+                if (h && image->semptr) {
+                    image->semptr[semNb] = h;
+                }
+            }
+        }
+        // Still no handle — writer not running yet, report timeout so caller loops
+        if (!image->semptr || !image->semptr[semNb]) {
+            return DAO_TIMEOUT;
+        }
+    }
+
+    DWORD dWaitResult = WaitForSingleObject(image->semptr[semNb], 100);
+    if (dWaitResult == WAIT_OBJECT_0) {
+        return DAO_SUCCESS;
+    } else if (dWaitResult == WAIT_TIMEOUT) {
+        return DAO_TIMEOUT;
+    } else {
+        DWORD err = GetLastError();
+        if (err == ERROR_INVALID_HANDLE) {
+            // The writer exited and its semaphore was destroyed.
+            // Invalidate the handle so the next call will reopen it.
+            CloseHandle(image->semptr[semNb]);
+            image->semptr[semNb] = NULL;
+            return DAO_TIMEOUT;
+        }
+        daoError("Unexpected result from WaitForSingleObject (Windows system error no. %d).\n", err);
+        return DAO_ERROR;
+    }
 #elif defined(__APPLE__)
     if (sem_wait(image->semptr[semNb]) == 0) 
     {
