@@ -2225,11 +2225,19 @@ int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
 {
     daoTrace("\n");
 
+    volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA *)image->md;
+
+    #ifdef _WIN32
+    while (md->cnt0 < targetCnt0)
+    {
+        // Spin with small delay to avoid consuming 100% CPU
+        Sleep(0); // Yield the current time slice
+    }
+#else
     struct timespec req, rem;
     req.tv_sec = 0;          // Seconds
     req.tv_nsec = 0; // Nanoseconds
 
-    volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA *)image->md;
     while (md->cnt0 < targetCnt0)
     {
         // Spin
@@ -2239,6 +2247,7 @@ int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
             return DAO_ERROR;
         }
     }
+#endif
 
     return DAO_SUCCESS;
 }
