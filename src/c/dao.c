@@ -2478,11 +2478,9 @@ int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
     req.tv_sec = 0;          // Seconds
     req.tv_nsec = 0; // Nanoseconds
 
-    volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
-
-    if (vol_md->fifo_size == 1) // Spin on our only cnt0 for 1-deep images
+    if (md->fifo_size == 1) // Spin on our only cnt0 for 1-deep images
     {
-        while (vol_md->cnt0 < targetCnt0)
+        while (md->cnt0 < targetCnt0)
         {
             // Spin
             if (nanosleep(&req, &rem) < 0) 
@@ -2497,9 +2495,9 @@ int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
         while (1)
         {
             // Check counter of last position
-            uint32_t fifo_last_written = vol_md[0].fifo_last_written;
+            uint32_t fifo_last_written = md[0].fifo_last_written;
 
-            if (vol_md[fifo_last_written].cnt0 >= targetCnt0)
+            if (md[fifo_last_written].cnt0 >= targetCnt0)
                 break;
 
             // Spin
