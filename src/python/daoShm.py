@@ -899,7 +899,13 @@ class shm:
         ''' --------------------------------------------------------------
         Reset the reading tail for this instance of the SHM
         -------------------------------------------------------------- '''
-        result = self.daoShmResetTail(ctypes.byref(self.image))
+        tail_index = ctypes.c_uint32()
+        tail_timestamp = ctypes.c_uint64()
+        result = self.daoShmResetTail(
+            ctypes.byref(self.image),
+            ctypes.byref(tail_index),
+            ctypes.byref(tail_timestamp)
+        )
         return result
 
     def publish(self):
