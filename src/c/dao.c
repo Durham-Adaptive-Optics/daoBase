@@ -1543,8 +1543,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.UI8 = (uint8_t*) (mapv);
-            memset(image->array.UI8, '\0', nelement*sizeof(uint8_t));
-            mapv += sizeof(uint8_t)*nelement;
+            memset(image->array.UI8, '\0', nelement*sizeof(uint8_t) * fifo_size);
+            mapv += sizeof(uint8_t)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
 		}
         else
@@ -1577,8 +1577,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.SI8 = (int8_t*) (mapv);
-            memset(image->array.SI8, '\0', nelement*sizeof(int8_t));
-            mapv += sizeof(int8_t)*nelement;
+            memset(image->array.SI8, '\0', nelement*sizeof(int8_t) * fifo_size);
+            mapv += sizeof(int8_t)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
 		}
         else
@@ -1611,8 +1611,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
             mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.UI16 = (uint16_t*) (mapv);
-            memset(image->array.UI16, '\0', nelement*sizeof(uint16_t));
-            mapv += sizeof(uint16_t)*nelement;
+            memset(image->array.UI16, '\0', nelement*sizeof(uint16_t) * fifo_size);
+            mapv += sizeof(uint16_t)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
@@ -1644,8 +1644,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
             mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.SI16 = (int16_t*) (mapv);
-            memset(image->array.SI16, '\0', nelement*sizeof(int16_t));
-            mapv += sizeof(int16_t)*nelement;
+            memset(image->array.SI16, '\0', nelement*sizeof(int16_t) * fifo_size);
+            mapv += sizeof(int16_t)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
@@ -1680,8 +1680,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.UI32 = (uint32_t*) (mapv);
-            memset(image->array.UI32, '\0', nelement*sizeof(uint32_t));
-            mapv += sizeof(uint32_t)*nelement;
+            memset(image->array.UI32, '\0', nelement*sizeof(uint32_t) * fifo_size);
+            mapv += sizeof(uint32_t)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
@@ -1717,8 +1717,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.SI32 = (int32_t*) (mapv);
-            memset(image->array.SI32, '\0', nelement*sizeof(int32_t));
-            mapv += sizeof(int32_t)*nelement;
+            memset(image->array.SI32, '\0', nelement*sizeof(int32_t) * fifo_size);
+            mapv += sizeof(int32_t)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
@@ -1754,8 +1754,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.UI64 = (uint64_t*) (mapv);
-            memset(image->array.UI64, '\0', nelement*sizeof(uint64_t));
-            mapv += sizeof(uint64_t)*nelement;
+            memset(image->array.UI64, '\0', nelement*sizeof(uint64_t) * fifo_size);
+            mapv += sizeof(uint64_t)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
@@ -1789,8 +1789,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 			mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.SI64 = (int64_t*) (mapv);
-            memset(image->array.SI64, '\0', nelement*sizeof(int64_t));
-            mapv += sizeof(int64_t)*nelement;
+            memset(image->array.SI64, '\0', nelement*sizeof(int64_t) * fifo_size);
+            mapv += sizeof(int64_t)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
@@ -1825,8 +1825,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
             mapv = (char*) map;
             mapv += sizeof(IMAGE_METADATA) * fifo_size;
             image->array.F = (float*) (mapv);
-            memset(image->array.F, '\0', nelement*sizeof(float));
-            mapv += sizeof(float)*nelement;
+            memset(image->array.F, '\0', nelement*sizeof(float) * fifo_size);
+            mapv += sizeof(float)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
@@ -1860,8 +1860,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 			mapv = (char*) map;
 			mapv += sizeof(IMAGE_METADATA) * fifo_size;
 			image->array.D = (double*) (mapv);
-            memset(image->array.D, '\0', nelement*sizeof(double));
-            mapv += sizeof(double)*nelement;
+            memset(image->array.D, '\0', nelement*sizeof(double) * fifo_size);
+            mapv += sizeof(double)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
@@ -1895,8 +1895,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 			mapv = (char*) map;
 			mapv += sizeof(IMAGE_METADATA) * fifo_size;
 			image->array.CF = (complex_float*) (mapv);			
-            memset(image->array.CF, '\0', nelement*sizeof(complex_float));
-            mapv += sizeof(complex_float)*nelement;
+            memset(image->array.CF, '\0', nelement*sizeof(complex_float) * fifo_size);
+            mapv += sizeof(complex_float)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
@@ -1930,8 +1930,8 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 			mapv = (char*) map;
 			mapv += sizeof(IMAGE_METADATA) * fifo_size;
 			image->array.CD = (complex_double*) (mapv);			
-            memset(image->array.CD, '\0', nelement*sizeof(complex_double));
-            mapv += sizeof(complex_double)*nelement;
+            memset(image->array.CD, '\0', nelement*sizeof(complex_double) * fifo_size);
+            mapv += sizeof(complex_double)*nelement * fifo_size;
             image->kw = (IMAGE_KEYWORD*) (mapv);
         }
         else
