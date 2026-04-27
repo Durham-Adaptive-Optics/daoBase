@@ -23,9 +23,8 @@ Durham Adaptive Optics (DAO)
 
    **Experimental Feature: FIFO Shared Memory**
 
-   A FIFO (circular buffer) extension to the shared memory system is available on the
-   ``feature/fifo`` branch.  It is **experimental**, **not enabled by default**, and is **not yet
-   merged into the main release**.
+   A FIFO (circular buffer) extension to the shared memory system is now available.
+   It is **experimental**, and **not yet enabled by default**.
 
    * All shared memory segments default to a FIFO depth of **1** (standard single-frame
      behaviour).  Existing code is unaffected unless you explicitly pass ``depth > 1``.
@@ -34,7 +33,7 @@ Durham Adaptive Optics (DAO)
      Accessing the underlying array pointer directly or using legacy read paths against a FIFO
      segment **will produce incorrect or undefined behaviour**.
    * The API and memory layout may change before the feature is finalised.
-   * **Windows is not currently supported.** The FIFO code path has only been tested on Linux
+   * **Windows support is experimental.** The FIFO code path has only been fully tested on Linux
      and macOS.  Building or running FIFO-enabled code on Windows may fail or produce incorrect
      results.
 

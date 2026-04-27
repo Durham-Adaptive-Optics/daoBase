@@ -11,9 +11,9 @@ FIFO Shared Memory
    ``get_data()`` / ``get_frame()`` without understanding FIFO semantics) will produce **unexpected
    behaviour** because the underlying memory layout has changed.
 
-   **Windows is not currently supported.** The FIFO extension has only been tested on Linux and
-   macOS.  The Windows code paths (file-mapping objects, Windows semaphores) have not been
-   exercised with FIFO depth > 1 and may fail or produce incorrect results.
+   **Windows is not yet fully tested.** The FIFO extension has only been fully tested on Linux and
+   macOS.  Windows code which relies on FIFO shared memory should work, but you should be aware that
+   unexpected behaviour is possible.
 
 Overview
 --------
