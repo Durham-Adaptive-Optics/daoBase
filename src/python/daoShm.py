@@ -729,13 +729,19 @@ class shm:
 
 
 
-    def get_history(self, num_items=1):
+    def get_history(self, num_items=1, check=False, semNb=0, timeout=0, spin=False, buffer=False):
         ''' --------------------------------------------------------------
         Reads and returns the last N segments written to the SHM
 
         Parameters:
         ----------
         - num_items: Number of items to return
+        - check:  if True, waits for the next semaphore post before reading history
+        - semNb:  semaphore number to wait on (used when check=True or buffer=True)
+        - timeout: seconds to wait for semaphore (0 = wait indefinitely)
+        - spin:   if True, use counter-based wait instead of semaphore
+        - buffer: if True, waits for num_items new writes since last call before
+                  returning the array (implies semaphore waiting per write)
         -------------------------------------------------------------- '''
 
         # First, check the requested number of items is valid
@@ -747,6 +753,33 @@ class shm:
         elif (num_items > fifo_size):
             log.error("Cannot read more segments than exist")
             return None
+
+        def _wait_one():
+            """Wait for a single new semaphore post. Returns False on timeout."""
+            if spin:
+                self.daoShmWaitForCounter(ctypes.byref(self.image))
+            else:
+                if timeout == 0:
+                    result = -1
+                    while result == -1:
+                        result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
+                else:
+                    ts = make_timespec_from_now(timeout)
+                    result = self.daoShmWaitForSemaphoreTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))
+                    if result != 0:
+                        log.error("Timeout waiting for semaphore")
+                        return False
+            return True
+
+        if buffer:
+            # Accumulate num_items new writes before reading
+            for _ in range(num_items):
+                if not _wait_one():
+                    return None
+        elif check:
+            # Wait for the next semaphore post (next write) before reading
+            if not _wait_one():
+                return None
 
         # Now determine the size of array to reserve
         arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
