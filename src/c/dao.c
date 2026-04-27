@@ -899,9 +899,9 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
         memcpy(&image->array.UI16[fifo_writing_offset], (unsigned short *)im, nbVal*sizeof(unsigned short));
     else if (image->md[writing_idx].atype == _DATATYPE_INT16)
         memcpy(&image->array.SI16[fifo_writing_offset], (short *)im, nbVal*sizeof(short));
-    else if (image->md[writing_idx].atype == _DATATYPE_INT32)
-        memcpy(&image->array.UI32[fifo_writing_offset], (unsigned int *)im, nbVal*sizeof(unsigned int));
     else if (image->md[writing_idx].atype == _DATATYPE_UINT32)
+        memcpy(&image->array.UI32[fifo_writing_offset], (unsigned int *)im, nbVal*sizeof(unsigned int));
+    else if (image->md[writing_idx].atype == _DATATYPE_INT32)
         memcpy(&image->array.SI32[fifo_writing_offset], (int *)im, nbVal*sizeof(int));
     else if (image->md[writing_idx].atype == _DATATYPE_UINT64)
         memcpy(&image->array.UI64[fifo_writing_offset], (unsigned long *)im, nbVal*sizeof(unsigned long));
@@ -945,9 +945,9 @@ int_fast8_t daoShmImage2ShmQuiet(void *im, uint32_t nbVal, IMAGE *image)
         memcpy(&image->array.UI16[fifo_writing_offset], (unsigned short *)im, nbVal*sizeof(unsigned short));
     else if (image->md[0].atype == _DATATYPE_INT16)
         memcpy(&image->array.SI16[fifo_writing_offset], (short *)im, nbVal*sizeof(short));
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        memcpy(&image->array.UI32[fifo_writing_offset], (unsigned int *)im, nbVal*sizeof(unsigned int));
     else if (image->md[0].atype == _DATATYPE_UINT32)
+        memcpy(&image->array.UI32[fifo_writing_offset], (unsigned int *)im, nbVal*sizeof(unsigned int));
+    else if (image->md[0].atype == _DATATYPE_INT32)
         memcpy(&image->array.SI32[fifo_writing_offset], (int *)im, nbVal*sizeof(int));
     else if (image->md[0].atype == _DATATYPE_UINT64)
         memcpy(&image->array.UI64[fifo_writing_offset], (unsigned long *)im, nbVal*sizeof(unsigned long));
@@ -995,9 +995,9 @@ int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t
         memcpy(&image->array.UI16[adjusted_position], (unsigned short *)im, nbVal*sizeof(unsigned short));
     else if (image->md[0].atype == _DATATYPE_INT16)
         memcpy(&image->array.SI16[adjusted_position], (short *)im, nbVal*sizeof(short));
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        memcpy(&image->array.UI32[adjusted_position], (unsigned int *)im, nbVal*sizeof(unsigned int));
     else if (image->md[0].atype == _DATATYPE_UINT32)
+        memcpy(&image->array.UI32[adjusted_position], (unsigned int *)im, nbVal*sizeof(unsigned int));
+    else if (image->md[0].atype == _DATATYPE_INT32)
         memcpy(&image->array.SI32[adjusted_position], (int *)im, nbVal*sizeof(int));
     else if (image->md[0].atype == _DATATYPE_UINT64)
         memcpy(&image->array.UI64[adjusted_position], (unsigned long *)im, nbVal*sizeof(unsigned long));
@@ -2581,9 +2581,9 @@ int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segment_ptr, uint32_t* seg
         *segment_ptr = &(image->array.UI16[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT16)
         *segment_ptr = &(image->array.SI16[next_segment_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        *segment_ptr = &(image->array.UI32[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT32)
+        *segment_ptr = &(image->array.UI32[next_segment_idx * image->md[0].nelement]);
+    else if (image->md[0].atype == _DATATYPE_INT32)
         *segment_ptr = &(image->array.SI32[next_segment_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT64)
         *segment_ptr = &(image->array.UI64[next_segment_idx * image->md[0].nelement]);
@@ -2639,9 +2639,9 @@ int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segment_ptr, uint_fas
         *segment_ptr = &(image->array.UI16[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT16)
         *segment_ptr = &(image->array.SI16[actual_idx * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        *segment_ptr = &(image->array.UI32[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT32)
+        *segment_ptr = &(image->array.UI32[actual_idx * image->md[0].nelement]);
+    else if (image->md[0].atype == _DATATYPE_INT32)
         *segment_ptr = &(image->array.SI32[actual_idx * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT64)
         *segment_ptr = &(image->array.UI64[actual_idx * image->md[0].nelement]);
@@ -2682,9 +2682,9 @@ int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segment_ptr, uint32_t* s
         *segment_ptr = &(image->array.UI16[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_INT16)
         *segment_ptr = &(image->array.SI16[last_written * image->md[0].nelement]);
-    else if (image->md[0].atype == _DATATYPE_INT32)
-        *segment_ptr = &(image->array.UI32[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT32)
+        *segment_ptr = &(image->array.UI32[last_written * image->md[0].nelement]);
+    else if (image->md[0].atype == _DATATYPE_INT32)
         *segment_ptr = &(image->array.SI32[last_written * image->md[0].nelement]);
     else if (image->md[0].atype == _DATATYPE_UINT64)
         *segment_ptr = &(image->array.UI64[last_written * image->md[0].nelement]);
