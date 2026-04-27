@@ -69,6 +69,8 @@ void daoLogSetLevel(int log_level);
 #define DAO_SUCCESS     0
 #define DAO_ERROR       1
 #define DAO_TIMEOUT     -1
+#define DAO_OVERWRITE   -2
+#define DAO_NOTREADY    -3
 
 #define DAO_WARNING 0
 #define DAO_INFO 1
@@ -118,6 +120,8 @@ extern "C"
 #define SEMAPHORE_MAXVAL    1 	          /**< maximum value for each of the semaphore, mitigates warm-up time when processes catch up with data that has accumulated */
 #define IMAGE_NB_SEMAPHORE  10            /**< Number of semaphores per image */
 #define CIRCULAR_BUFFER_SIZE 1000         /**< Number of data in the cuircular buffer */
+
+#define DAO_MAX_COMBINE_CHANNELS 1024     /**< Maximum number of channels that can be combined by daoShmCombineShm2Shm */
 
 // Data types are defined as machine-independent types for portability
 
@@ -332,6 +336,11 @@ typedef struct
         atomic_uint semCounter[IMAGE_NB_SEMAPHORE];
         atomic_uint semLogCounter;
 #endif
+
+    // FIFO members
+    uint32_t fifo_size;
+    uint32_t fifo_last_written;
+
 #ifdef DATA_PACKED
 } __attribute__ ((__packed__)) IMAGE_METADATA;
 #else
@@ -455,6 +464,10 @@ typedef struct          		/**< structure used to store data arrays              
 	HANDLE shmfm;						/**< shared memory file mapping view handle */
 #endif
 
+    // New FIFO members
+    uint32_t fifo_last_read;
+    uint64_t fifo_last_read_cnt0;
+
     // total size is 152 byte = 1216 bit
     // (on Windows,  160 byte = 1280 bit)
 #ifdef DATA_PACKED
@@ -485,14 +498,25 @@ DLL_EXPORT int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *imag
                              uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber); 
 DLL_EXPORT int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image); 
 DLL_EXPORT int_fast8_t daoShmImageCreateSem(IMAGE *image, long NBsem);
+DLL_EXPORT int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis, uint32_t *size,
+                           uint8_t atype, int shared, int NBkw, uint32_t fifo_size);
 DLL_EXPORT int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
                            uint8_t atype, int shared, int NBkw);
+
 DLL_EXPORT int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal); 
 DLL_EXPORT int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb);
 DLL_EXPORT int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const struct timespec *timeout);
 DLL_EXPORT int_fast8_t daoShmWaitForCounter(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0);
 DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE *image);
+
+DLL_EXPORT int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0);
+DLL_EXPORT int_fast8_t daoShmWaitForNextSegment(IMAGE *image);
+DLL_EXPORT int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segment_ptr, uint_fast32_t fifo_idx);
+DLL_EXPORT int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0);
+DLL_EXPORT int_fast8_t daoShmCheckSegmentOverwrite(IMAGE *image);
+DLL_EXPORT int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segment_idx, uint64_t *segment_cnt0);
+
 DLL_EXPORT int_fast8_t daoShmCloseShm(IMAGE *image);
 DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE *image);
 

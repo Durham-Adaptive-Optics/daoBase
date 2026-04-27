@@ -201,7 +201,7 @@ class IMAGE_KEYWORD(ctypes.Structure):
     ]
 
 # Define the IMAGE_METADATA structure
-if sys.platform == "Darwin":
+if sys.platform == "darwin":
     # Define the IMAGE_METADATA structure
     class IMAGE_METADATA(ctypes.Structure):
         class ATIME(ctypes.Union):
@@ -232,7 +232,11 @@ if sys.platform == "Darwin":
             ("lastNb", ctypes.c_uint32),
             ("packetNb", ctypes.c_uint32),
             ("packetTotal", ctypes.c_uint32),
-            ("lastNbArray", ctypes.c_uint64 * 512)
+            ("lastNbArray", ctypes.c_uint64 * 512),
+            ("semCounter", ctypes.c_uint32 * 10),
+            ("semLogCounter", ctypes.c_uint32),
+            ("fifo_size", ctypes.c_uint32),
+            ("fifo_last_written", ctypes.c_uint32)
         ]
 else:
     # Define the IMAGE_METADATA structure
@@ -266,8 +270,8 @@ else:
             ("packetNb", ctypes.c_uint32),
             ("packetTotal", ctypes.c_uint32),
             ("lastNbArray", ctypes.c_uint64 * 512),
-            ("semCounter", ctypes.c_uint32 * 10),
-            ("semLogCounter", ctypes.c_uint32)
+            ("fifo_size", ctypes.c_uint32),
+            ("fifo_last_written", ctypes.c_uint32)
         ]
     
 
@@ -303,7 +307,9 @@ if sys.platform == "win32":
             ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
             ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
             ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
-            ('shmfm', ctypes.POINTER(ctypes.c_void_p))
+            ('shmfm', ctypes.POINTER(ctypes.c_void_p)),
+            ('fifo_last_read', ctypes.c_uint32),
+            ('fifo_last_read_cnt0', ctypes.c_uint64)
         ]
 else:
     # Define the IMAGE structure
@@ -336,11 +342,19 @@ else:
             ('semptr', ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))),
             ('kw', ctypes.POINTER(IMAGE_KEYWORD)),
             ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
-            ('semWritePID', ctypes.POINTER(ctypes.c_int32))
+            ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
+            ('fifo_last_read', ctypes.c_uint32),
+            ('fifo_last_read_cnt0', ctypes.c_uint64)
         ]
 
 class shm:
-    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=0):
+    DAO_SUCCESS = 0
+    DAO_ERROR = 1
+    DAO_TIMEOUT = -1
+    DAO_OVERWRITE = -2
+    DAO_NOTREADY = -3
+
+    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=0, depth=1):
         # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
         self.daoShmInit1D = daoLib.daoShmInit1D
         self.daoShmInit1D.argtypes = [
@@ -399,6 +413,22 @@ class shm:
         self.daoShmImagePart2ShmFinalize.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmImagePart2ShmFinalize.restype = ctypes.c_int8
 
+
+        # int8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis, uint32_t *size,
+        #                              uint8_t atype, int shared, int NBkw);
+        self.daoShmImageCreate_FIFO = daoLib.daoShmImageCreate_FIFO
+        self.daoShmImageCreate_FIFO.argtypes = [
+            ctypes.POINTER(IMAGE),
+            ctypes.c_char_p,
+            ctypes.c_long,
+            ctypes.POINTER(ctypes.c_uint32),
+            ctypes.c_uint8,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_uint32
+        ]
+        self.daoShmImageCreate_FIFO.restype = ctypes.c_int8
+
         # int8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
         #                              uint8_t atype, int shared, int NBkw);
         self.daoShmImageCreate = daoLib.daoShmImageCreate
@@ -446,6 +476,33 @@ class shm:
         self.daoShmWaitForCounter = daoLib.daoShmWaitForCounter
         self.daoShmWaitForCounter.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmWaitForCounter.restype = ctypes.c_int8
+
+        # new FIFO functions
+        self.daoShmGetNextSegment = daoLib.daoShmGetNextSegment
+        self.daoShmGetNextSegment.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p),\
+                                              ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint64)]
+        self.daoShmGetNextSegment.restype = ctypes.c_int8
+
+        self.daoShmWaitForNextSegment = daoLib.daoShmWaitForNextSegment
+        self.daoShmWaitForNextSegment.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmWaitForNextSegment.restype = ctypes.c_int8
+
+        self.daoShmGetArbitrarySegment = daoLib.daoShmGetArbitrarySegment
+        self.daoShmGetArbitrarySegment.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint32]
+        self.daoShmGetArbitrarySegment.restype = ctypes.c_int8
+
+        self.daoShmGetNewestSegment = daoLib.daoShmGetNewestSegment
+        self.daoShmGetNewestSegment.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p),\
+                                              ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint64)]
+        self.daoShmGetNewestSegment.restype = ctypes.c_int8
+
+        self.daoShmCheckSegmentOverwrite = daoLib.daoShmCheckSegmentOverwrite
+        self.daoShmCheckSegmentOverwrite.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmCheckSegmentOverwrite.restype = ctypes.c_int8
+
+        self.daoShmResetTail = daoLib.daoShmResetTail
+        self.daoShmResetTail.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint64)]
+        self.daoShmResetTail.restype = ctypes.c_int8
         
         # int8_t daoShmCloseShm(IMAGE *image);
         self.daoShmCloseShm = daoLib.daoShmCloseShm
@@ -456,11 +513,15 @@ class shm:
         if fname == '':
             log.error("Need at least a SHM name")
         elif data is not None:
+            if depth < 1:
+                log.warning("Invalid depth passed (depth < 1). Forcing to 1...")
+                depth = 1
+
             log.info("%s will be created or overwritten" % (fname,))
             dataSize = data.shape
-            self.daoShmImageCreate(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
-                                   (ctypes.c_uint32 * len(dataSize))(*dataSize),\
-                                   npType2DaoType(data), 1, 0)
+            self.daoShmImageCreate_FIFO(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
+                                (ctypes.c_uint32 * len(dataSize))(*dataSize),\
+                                npType2DaoType(data), 1, 0, depth)
             if data.flags['C_CONTIGUOUS']:
                 cData = data.ctypes.data_as(ctypes.c_void_p)
             else:
@@ -506,9 +567,107 @@ class shm:
         nbVal = ctypes.c_uint32(data.size)
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
 
+    def get_data_next(self, wait=False, reform=True):
+        ''' --------------------------------------------------------------
+        Reads and returns the next data part of the SHM file
+
+        Parameters:
+        ----------
+        - wait: integer (last index) if not False, waits image update
+        - reform: boolean, if True, reshapes the array in a 2-3D format
+        -------------------------------------------------------------- '''
+
+        if wait == True:
+            result = self.daoShmWaitForNextSegment(ctypes.byref(self.image))
+            if result != 0:
+                log.error("Error waiting for counter")
+                return None
+        
+        arrayPtr = ctypes.c_void_p(None)
+        temp32 = ctypes.c_uint32()
+        temp64 = ctypes.c_uint64()
+        
+        result = self.daoShmGetNextSegment(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
+                                           ctypes.byref(temp32),  ctypes.byref(temp64))
+        
+        data = None
+        
+        if result == self.DAO_SUCCESS or result == self.DAO_OVERWRITE:
+            arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+                                                        ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
+
+            arrayPtr = ctypes.cast(arrayPtr,\
+                                ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
+            #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
+            if arraySize[2] == 0:
+                if arraySize[1] == 0:
+                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
+                else:
+                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+            else:
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+
+            # Check if the dtype is structured (i.e., for complex types)
+            if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
+                # Reconstruct complex array by combining real and imaginary parts
+                data = data['real'] + 1j * data['imag']
+            
+            # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
+            data = data.astype(daoType2NpType(self.image.md.contents.atype))
+        
+        return (result, data)
+    
+
+    def get_data_arbitrary(self, index):
+        ''' --------------------------------------------------------------
+        Reads and returns the requested data segment of the SHM file
+
+        Parameters:
+        ----------
+        - wait: integer (last index) if not False, waits image update
+        - reform: boolean, if True, reshapes the array in a 2-3D format
+        -------------------------------------------------------------- '''
+
+        # First, check the requested number of items is valid
+        fifo_size = self.image.md[0].fifo_size
+        fifo_idx = index % fifo_size
+        
+        arrayPtr = ctypes.c_void_p(None)
+        
+        result = self.daoShmGetArbitrarySegment(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
+                                           ctypes.c_uint32(fifo_idx))
+
+        # Cast our void pointer to the desired type
+        arrayPtr = ctypes.cast(arrayPtr.value,\
+                               ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
+
+        # Get the array size
+        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+                                                      ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
+
+        #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
+        if arraySize[2] == 0:
+            if arraySize[1] == 0:
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
+            else:
+                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
+        else:
+            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+
+        # Check if the dtype is structured (i.e., for complex types)
+        if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
+            # Reconstruct complex array by combining real and imaginary parts
+            data = data['real'] + 1j * data['imag']
+        
+        # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
+        data = data.astype(daoType2NpType(self.image.md.contents.atype))
+
+        return data
+    
+
     def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False):
         ''' --------------------------------------------------------------
-        Reads and returns the data part of the SHM file
+        Reads and returns the newest data segment of the SHM file
 
         Parameters:
         ----------
@@ -534,11 +693,21 @@ class shm:
                         log.error("Timeout waiting for semaphore")
                         return None
 
+        arrayPtr = ctypes.c_void_p(None)
+        seg_idx = ctypes.c_uint32(0)
+        seg_cnt0 = ctypes.c_uint64(0)
+        
+        result = self.daoShmGetNewestSegment(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
+                                           ctypes.byref(seg_idx), ctypes.byref(seg_cnt0))
+        
+        # Cast our void pointer to the desired type
+        arrayPtr = ctypes.cast(arrayPtr.value,\
+                               ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
+
+        # Get the array size
         arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
                                                       ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
 
-        arrayPtr = ctypes.cast(self.image.array,\
-                               ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
         #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
         if arraySize[2] == 0:
             if arraySize[1] == 0:
@@ -558,7 +727,105 @@ class shm:
 
         return data
 
-    def get_meta_data(self):
+
+
+    def get_history(self, num_items=1, check=False, semNb=0, timeout=0, spin=False, buffer=False):
+        ''' --------------------------------------------------------------
+        Reads and returns the last N segments written to the SHM
+
+        Parameters:
+        ----------
+        - num_items: Number of items to return
+        - check:  if True, waits for the next semaphore post before reading history
+        - semNb:  semaphore number to wait on (used when check=True or buffer=True)
+        - timeout: seconds to wait for semaphore (0 = wait indefinitely)
+        - spin:   if True, use counter-based wait instead of semaphore
+        - buffer: if True, waits for num_items new writes since last call before
+                  returning the array (implies semaphore waiting per write)
+        -------------------------------------------------------------- '''
+
+        # First, check the requested number of items is valid
+        fifo_size = self.image.md[0].fifo_size
+
+        if (num_items < 1):
+            log.error("Cannot read less than 1 item")
+            return None
+        elif (num_items > fifo_size):
+            log.error("Cannot read more segments than exist")
+            return None
+
+        def _wait_one():
+            """Wait for a single new semaphore post. Returns False on timeout."""
+            if spin:
+                self.daoShmWaitForCounter(ctypes.byref(self.image))
+            else:
+                if timeout == 0:
+                    result = -1
+                    while result == -1:
+                        result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
+                else:
+                    ts = make_timespec_from_now(timeout)
+                    result = self.daoShmWaitForSemaphoreTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))
+                    if result != 0:
+                        log.error("Timeout waiting for semaphore")
+                        return False
+            return True
+
+        if buffer:
+            # Accumulate num_items new writes before reading
+            for _ in range(num_items):
+                if not _wait_one():
+                    return None
+        elif check:
+            # Wait for the next semaphore post (next write) before reading
+            if not _wait_one():
+                return None
+
+        # Now determine the size of array to reserve
+        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
+                                                      ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
+        
+        if arraySize[2] == 0:
+            if arraySize[1] == 0:
+                result_shape = (num_items, arraySize[0],)
+            else:
+                result_shape = (num_items, arraySize[0], arraySize[1],)
+        else:
+            result_shape = (num_items, arraySize[0], arraySize[1], arraySize[2])
+
+        history_data = np.empty(result_shape, dtype=daoType2NpType(self.image.md.contents.atype))
+
+        # Determine the index to read backwards from
+        idx_base = self.image.md[0].fifo_last_written - num_items + 1
+
+        element_ctype = daoType2CtypesType(self.image.md.contents.atype)
+
+        for idx_offset in range(num_items):
+            # Calculate index
+            current_idx = (idx_base + idx_offset) % fifo_size
+
+            arrayPtr = ctypes.c_void_p(None)
+            self.daoShmGetArbitrarySegment(ctypes.byref(self.image), ctypes.byref(arrayPtr), ctypes.c_uint32(current_idx))
+            arrayPtr = ctypes.cast(arrayPtr.value, ctypes.POINTER(element_ctype))
+            
+            current_data = np.ctypeslib.as_array(arrayPtr, shape=result_shape[1:])
+
+            if current_data.dtype.fields is not None \
+                    and 'real' in current_data.dtype.fields \
+                    and 'imag' in current_data.dtype.fields:
+                # Reconstruct complex array by combining real and imaginary parts
+                current_data = current_data['real'] + 1j * current_data['imag']
+
+            history_data[idx_offset] = current_data 
+
+        # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
+        history_data = history_data.astype(daoType2NpType(self.image.md.contents.atype))
+
+        return history_data
+
+
+
+    def get_meta_data(self, index=None):
         ''' --------------------------------------------------------------
         Get the metadata fraction of the SHM file.
         Populate the shm object mtdata dictionary.
@@ -567,7 +834,24 @@ class shm:
         ----------
         - verbose: (boolean, default: True), prints its findings
         -------------------------------------------------------------- '''
-        md=self.image.md.contents
+
+        if (index == None):
+            # get latest metadata from FIFO
+            seg_ptr = ctypes.c_void_p(None)
+            seg_idx = ctypes.c_uint32(0)
+            seg_cnt0 = ctypes.c_uint64(0)
+
+            self.daoShmGetNewestSegment(ctypes.byref(self.image),\
+                                        ctypes.byref(seg_ptr),\
+                                        ctypes.byref(seg_idx),
+                                        ctypes.byref(seg_cnt0))
+        else:
+            # get requested metadata from FIFO
+            fifo_size = self.image.md.contents.fifo_size
+            adjusted_index = index % fifo_size
+            seg_idx = ctypes.c_uint32(adjusted_index)
+
+        md = self.image.md[seg_idx.value]
         self.mtdata=struct2Dict(md)
 
         #decode time
@@ -584,6 +868,10 @@ class shm:
         mdts['tsfixed'] = mdt2s
 
         self.mtdata['atime'] = mdts
+
+        # Graft current FIFO values into this metadata from image->md[0]
+        self.mtdata['fifo_last_written'] = self.image.md.contents.fifo_last_written
+        self.mtdata['fifo_size'] = self.image.md.contents.fifo_size
 
         return self.mtdata
 
@@ -606,6 +894,19 @@ class shm:
 
         # now I have tv_sec and tv_nsec we convert to a datetime
         return datetime.datetime.fromtimestamp(tv_sec) + datetime.timedelta(microseconds=tv_nsec/1000)
+
+    def reset_tail(self, ):
+        ''' --------------------------------------------------------------
+        Reset the reading tail for this instance of the SHM
+        -------------------------------------------------------------- '''
+        tail_index = ctypes.c_uint32()
+        tail_timestamp = ctypes.c_uint64()
+        result = self.daoShmResetTail(
+            ctypes.byref(self.image),
+            ctypes.byref(tail_index),
+            ctypes.byref(tail_timestamp)
+        )
+        return result
 
     def publish(self):
         self.pubContext = zmq.Context()
