@@ -92,7 +92,7 @@ namespace Dao
         }
 
         /**
-         * @brief Retrieve a pointer to the shared memory frame array.
+         * @brief Retrieve a pointer to the newest segment of the shared memory frame array.
          * Optionally blocks until the next frame is written to shared memory.
          * @param sync Synchronization option (see Dao::ShmSync).
          * @return Pointer to the shared memory frame array, or nullptr if synchronization
@@ -113,7 +113,13 @@ namespace Dao
                         return nullptr;
                 } break;
             }
-            return (T*)image_.array.V;
+
+            void *newest_data;
+            uint32_t segment_idx;
+            uint64_t segment_cnt0;
+            daoShmGetNewestSegment(&image_, &newest_data, &segment_idx, &segment_cnt0);
+
+            return (T*)newest_data;
         }
 
         /**
@@ -224,11 +230,10 @@ namespace Dao
         T* get_arbitrary_frame(uint32_t segment_idx) {
             // Get the next frame
             void *segment_ptr;
-            uint64_t *segment_cnt0;
 
             daoShmGetArbitrarySegment(&image_, &segment_ptr, segment_idx);
 
-            return segment_ptr;
+            return (T*)segment_ptr;
         }
 
         /**
