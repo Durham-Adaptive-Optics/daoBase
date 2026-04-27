@@ -514,21 +514,21 @@ class shm:
             log.error("Need at least a SHM name")
         elif data is not None:
             if depth < 1:
-                log.error("Depth can't be less than 1")
+                log.warning("Invalid depth passed (depth < 1). Forcing to 1...")
                 depth = 1
+
+            log.info("%s will be created or overwritten" % (fname,))
+            dataSize = data.shape
+            self.daoShmImageCreate_FIFO(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
+                                (ctypes.c_uint32 * len(dataSize))(*dataSize),\
+                                npType2DaoType(data), 1, 0, depth)
+            if data.flags['C_CONTIGUOUS']:
+                cData = data.ctypes.data_as(ctypes.c_void_p)
             else:
-                log.info("%s will be created or overwritten" % (fname,))
-                dataSize = data.shape
-                self.daoShmImageCreate_FIFO(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
-                                    (ctypes.c_uint32 * len(dataSize))(*dataSize),\
-                                    npType2DaoType(data), 1, 0, depth)
-                if data.flags['C_CONTIGUOUS']:
-                    cData = data.ctypes.data_as(ctypes.c_void_p)
-                else:
-                    cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
-                nbVal = ctypes.c_uint32(data.size)
-                # Call the daoShmImage2Shm function to feel the SHM
-                result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
+                cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
+            nbVal = ctypes.c_uint32(data.size)
+            # Call the daoShmImage2Shm function to feel the SHM
+            result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         else:
             # log.info("loading existing %s " % (fname))
             result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
