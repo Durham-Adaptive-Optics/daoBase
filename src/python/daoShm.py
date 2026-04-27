@@ -679,7 +679,13 @@ class shm:
                 result = self.daoShmWaitForCounter(ctypes.byref(self.image))
             else:
                 if timeout == 0:
-                    result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
+                    # On Windows, daoShmWaitForSemaphore returns DAO_TIMEOUT
+                    # (=-1) after a short internal timeout so that Python
+                    # regains control and can process KeyboardInterrupt.
+                    # We loop here in Python so Ctrl+C works correctly.
+                    result = -1
+                    while result == -1:
+                        result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
                 else:
                     ts = make_timespec_from_now(timeout)
                     result = self.daoShmWaitForSemaphoreTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))

@@ -103,3 +103,12 @@ if platform.system() != "Windows":
         use=['PROTOBUF'],
         features    = 'pkg_build',
     )
+else:
+    bld = build_proto_list(bld, ['daoCommand.proto', 'daoLogging.proto', 'daoEvent.proto','daoFileServer.proto'])
+    bld.shlib(
+        target='daoProto',
+        source= ["../build/daoCommand.pb.cc", "../build/daoLogging.pb.cc", "../build/daoEvent.pb.cc", "../build/daoFileServer.pb.cc"],
+        cppflags=['/std:c++14', '/DDLL_EXPORT=__declspec(dllexport)', '/MD'] + add_cxx_flags,
+        use=['PROTOBUF'],
+        features='cxx cxxshlib',
+    )
