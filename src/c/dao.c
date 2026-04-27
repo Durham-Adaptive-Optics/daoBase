@@ -2042,9 +2042,7 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
         volatile IMAGE_METADATA *reading_md = (volatile IMAGE_METADATA *)imageCube[k]->md;
 
         uint32_t last_written = reading_md[0].fifo_last_written;
-        uint32_t writing_idx = (last_written + 1) % (imageCube[k]->md[0].fifo_size);
-
-        fifo_reading_offset[k] = imageCube[k]->md[0].nelement * (uint64_t)writing_idx;
+        fifo_reading_offset[k] = imageCube[k]->md[0].nelement * (uint64_t)last_written;
     }
     
     // check type and use proper array
