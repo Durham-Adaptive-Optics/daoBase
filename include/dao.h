@@ -325,7 +325,7 @@ extern "C"
         uint32_t packetNb;
         uint32_t packetTotal;
         // total size is 187 bytes = 1496 bit when packed
-        uint64_t lastNbArray[512];
+        uint64_t lastNbArray[2024];
         // total size is 1211 bytes = 9688 bit when packed
         #ifdef __APPLE__
         atomic_uint semCounter[IMAGE_NB_SEMAPHORE];
