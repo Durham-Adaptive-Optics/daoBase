@@ -55,7 +55,7 @@ Syncronisation
 
 This will check the semaphore before reading the data. If the semaphore is locked it will block until it is unlocked before reading the data. This is useful when reading data that is being written to by another process.
 
-..note::
+.. note::
     If shared memory has just been created then the semaphore will release immediately as it counts as the first write.
 
 If multiple processes are reading from the same shared memory file then they can all read at the same time. This is due to multiple semaphores attached to each shared memory file, by default 10 semaphores are created.
