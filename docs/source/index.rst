@@ -147,6 +147,10 @@ Documentation Guide
             <h4>Shared Memory System</h4>
             <p>Low-latency inter-process communication foundation</p>
          </a>
+         <a href="daoServer.html" class="doc-link">
+            <h4>Distributed SHM Server</h4>
+            <p>Redis-backed registry and ZMQ streaming across machines</p>
+         </a>
          <a href="fifo.html" class="doc-link">
             <h4>FIFO Shared Memory <span style="font-size:0.75em;color:#e67e22;">(Experimental)</span></h4>
             <p>Circular-buffer extension for multi-frame shared memory</p>
@@ -247,6 +251,7 @@ Need help optimising your adaptive optics real-time control system? We've recent
    :caption: Core Concepts
 
    shared_memory
+   daoServer
    fifo
    daoComponent
    threads

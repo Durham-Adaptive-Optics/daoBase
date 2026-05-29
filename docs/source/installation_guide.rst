@@ -155,7 +155,14 @@ Install the required Python packages:
 
 .. code-block:: bash
 
-   pip install posix_ipc zmq protobuf==3.20.0 astropy python-statemachine statemachine redis sphinx screeninfo
+   pip install posix_ipc zmq protobuf==3.20.0 astropy python-statemachine statemachine redis numpy sphinx screeninfo
+
+.. note::
+
+   **daoServer** (the distributed SHM registry daemon) requires ``redis``,
+   ``zmq``, and ``numpy`` — all of which are included in the command above.
+   A running **Redis server** is also required on at least one machine in the
+   cluster; see :doc:`daoServer` for installation instructions and usage.
 
 For macOS, check your protoc version and install the corresponding protobuf:
 
