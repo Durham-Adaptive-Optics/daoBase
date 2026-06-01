@@ -34,7 +34,7 @@ def options(opt):
     opt.load("cxx compiler_c compiler_cxx gnu_dirs waf_unit_test")
 
     opt.add_option(
-        "--debug", dest="debug_flag", default=False, action="store_true", help="Adds '-g' to compiler flags to allow for debuging"
+        "--debug", dest="debug_flag", default=False, action="store_true", help="Adds '-g' to compiler flags to allow for debugging"
     )
 
     opt.add_option("--sanitizer", dest="sanitizer_flag", default=False, action="store_true", help="flags for address sanitsation")
