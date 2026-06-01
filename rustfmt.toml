@@ -1,0 +1,28 @@
+# rustfmt configuration for daoBase
+# Applied automatically by `cargo fmt`
+
+edition = "2021"
+max_width = 140
+tab_spaces = 4
+hard_tabs = false
+
+# Brace style: AlwaysNextLine matches Allman used in C/C++
+brace_style = "AlwaysNextLine"
+
+# Imports
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+reorder_imports = true
+
+# Comments
+comment_width = 140
+wrap_comments = true
+normalize_comments = true
+
+# Function args
+fn_args_layout = "Tall"
+
+# Misc
+newline_style = "Unix"
+trailing_comma = "Vertical"
+match_arm_blocks = true
