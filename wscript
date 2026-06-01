@@ -37,7 +37,7 @@ def options(opt):
         "--debug", dest="debug_flag", default=False, action="store_true", help="Adds '-g' to compiler flags to allow for debugging"
     )
 
-    opt.add_option("--sanitizer", dest="sanitizer_flag", default=False, action="store_true", help="flags for address sanitsation")
+    opt.add_option("--sanitizer", dest="sanitizer_flag", default=False, action="store_true", help="flags for address sanitization")
 
     opt.add_option("--test", dest="test_flag", default=False, action="store_true", help="flags for running tests")
 
