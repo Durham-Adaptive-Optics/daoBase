@@ -133,6 +133,7 @@ namespace Dao
                         }
                     }
                     m_log.Debug("Thread %s Spawned...", m_thread_name.c_str());
+                    m_signal_table->SignalReceiveSpin(SIGNAL_THREAD_READY);
                 }
                 else
                 {
