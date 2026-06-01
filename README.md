@@ -9,6 +9,25 @@ The complete documentation for installation, usage, and API reference can be fou
 
 ---
 
+## 🎨 Code Style
+
+All contributions must pass the linter suite before merging. Install the hooks once after cloning:
+
+```sh
+pip install pre-commit && pre-commit install
+```
+
+| Language | Formatter | Linter |
+|----------|-----------|--------|
+| C / C++  | `clang-format` | `clang-tidy` |
+| Python   | `ruff format`  | `ruff check` |
+| Rust     | `rustfmt`      | `clippy`     |
+| Julia    | `JuliaFormatter.jl` | — |
+
+See the [Contribution & Style Guide](https://daobase.readthedocs.io/en/latest/contributing.html) for full details.
+
+---
+
 ## Citation
 
 If you use this software in your research or work, please cite it using the following DOI:
