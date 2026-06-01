@@ -70,13 +70,16 @@ def build(bld):
     header_files = glob.glob("build/*.h")
     for file in header_files:
         bld.install_files(bld.env.INCLUDEDIR, file, relative_trick=False)
-        # install python files
+
+    # install python files
     python_files = glob.glob("build/*.py")
     for file in python_files:
         bld.install_files(bld.env.PYTHONDIR, file, relative_trick=False)
-        # install python files
+
+    # install build_tools python files
     build_files = glob.glob("build_tools/*.py")
     for file in build_files:
+        bld.install_files(f"{bld.env.PYTHONDIR}/build_tools", file, relative_trick=False)
         bld.install_files(f"{bld.env.PYTHONDIR}/build_tools", file, relative_trick=False)
     # pkgconfig
     pc_files = glob.glob("build/*.pc")
