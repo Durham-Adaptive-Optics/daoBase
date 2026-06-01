@@ -214,6 +214,16 @@ Documentation Guide
       </div>
    </div>
 
+   <div class="section-group">
+      <h2>🤝 Contributing</h2>
+      <div class="doc-grid">
+         <a href="contributing.html" class="doc-link">
+            <h4>Contribution &amp; Style Guide</h4>
+            <p>Coding standards, linting toolchain, and contribution workflow</p>
+         </a>
+      </div>
+   </div>
+
 
 daolite - Durham Adaptive Optics Latency Investigation and Timing Estimator 
 ===========================================================================
@@ -277,6 +287,13 @@ Need help optimising your adaptive optics real-time control system? We've recent
    api_reference
    daoTools
    daoHw
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Contributing
+
+   contributing
 
 Indices and Tables
 ==================
