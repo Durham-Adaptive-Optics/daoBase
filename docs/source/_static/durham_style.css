@@ -1,0 +1,531 @@
+/* Durham University Style Guide CSS for Sphinx Documentation
+ * Primary colours:
+ * - Purple: #68246D
+ * - Yellow: #FFD53A
+ * - Cyan: #00AEEF
+ * - Red: #BE1E2D
+ * 
+ * Secondary colours:
+ * - Heather: #CBA8B1
+ * - Stone: #DACDA2
+ * - Sky: #A5C8D0
+ * - Cedar: #B6AAA7
+ * - Concrete: #B3BDB1
+ * 
+ * Type colours:
+ * - Ink: #002A41
+ * - Black: #333132
+ */
+
+:root {
+    /* Durham Primary Colors */
+    --durham-purple: #68246D;
+    --durham-yellow: #FFD53A;
+    --durham-cyan: #00AEEF;
+    --durham-red: #BE1E2D;
+    
+    /* Durham Secondary Colors */
+    --durham-heather: #CBA8B1;
+    --durham-stone: #DACDA2;
+    --durham-sky: #A5C8D0;
+    --durham-cedar: #B6AAA7;
+    --durham-concrete: #B3BDB1;
+    
+    /* Durham Type Colors */
+    --durham-ink: #002A41;
+    --durham-black: #333132;
+    
+    /* Light variants for better readability */
+    --durham-purple-light: #8a4e90;
+    --durham-purple-lighter: #b085b5;
+    --durham-cyan-light: #33bef2;
+    --durham-yellow-dark: #e6c233;
+}
+
+/* Override default Read the Docs theme colors */
+
+/* Navigation header */
+.wy-nav-top {
+    background: var(--durham-purple) !important;
+}
+
+/* Main navigation sidebar */
+.wy-nav-side {
+    background: var(--durham-concrete) !important;
+}
+
+/* Navigation links */
+.wy-menu-vertical a {
+    color: var(--durham-ink) !important;
+}
+
+.wy-menu-vertical a:hover {
+    background-color: var(--durham-purple-lighter) !important;
+    color: white !important;
+}
+
+/* Current page in navigation */
+.wy-menu-vertical li.current a {
+    background-color: var(--durham-purple) !important;
+    border-right: 1px solid var(--durham-yellow) !important;
+    color: white !important;
+}
+
+.wy-menu-vertical li.current > a {
+    background-color: var(--durham-purple) !important;
+    color: white !important;
+}
+
+/* Sub-navigation items */
+.wy-menu-vertical li.toctree-l2.current > a {
+    background-color: var(--durham-purple-light) !important;
+}
+
+.wy-menu-vertical li.toctree-l3.current > a {
+    background-color: var(--durham-purple-lighter) !important;
+}
+
+/* Main content area */
+.wy-nav-content {
+    background: white;
+}
+
+/* Headers */
+h1 {
+    color: var(--durham-purple) !important;
+    border-bottom: 2px solid var(--durham-yellow) !important;
+}
+
+h2 {
+    color: var(--durham-purple) !important;
+    border-bottom: 1px solid var(--durham-sky) !important;
+}
+
+h3 {
+    color: var(--durham-cyan) !important;
+}
+
+h4, h5, h6 {
+    color: var(--durham-ink) !important;
+}
+
+/* Links */
+a {
+    color: var(--durham-cyan) !important;
+}
+
+a:hover {
+    color: var(--durham-purple) !important;
+}
+
+a:visited {
+    color: var(--durham-purple-light) !important;
+}
+
+/* Code blocks */
+.highlight {
+    background-color: #f8f9fa !important;
+    border-left: 4px solid var(--durham-cyan) !important;
+}
+
+.highlight pre {
+    background-color: transparent !important;
+}
+
+/* Inline code */
+code.literal {
+    background-color: var(--durham-stone) !important;
+    color: var(--durham-ink) !important;
+    border: 1px solid var(--durham-cedar) !important;
+}
+
+/* Admonitions (note, warning, etc.) */
+.admonition {
+    border-left: 4px solid var(--durham-cyan) !important;
+}
+
+.admonition.note {
+    border-left-color: var(--durham-cyan) !important;
+}
+
+.admonition.warning {
+    border-left-color: var(--durham-yellow) !important;
+}
+
+.admonition.danger {
+    border-left-color: var(--durham-red) !important;
+}
+
+.admonition-title {
+    background-color: var(--durham-sky) !important;
+    color: var(--durham-ink) !important;
+}
+
+/* Tables */
+.wy-table-responsive table td,
+.wy-table-responsive table th {
+    border-color: var(--durham-concrete) !important;
+}
+
+.wy-table thead th {
+    background-color: var(--durham-purple) !important;
+    color: white !important;
+}
+
+.wy-table-striped tr:nth-child(2n-1) td {
+    background-color: var(--durham-stone) !important;
+}
+
+/* Search box */
+.wy-side-nav-search {
+    background-color: var(--durham-sky) !important;
+}
+
+.wy-side-nav-search input[type=text] {
+    border: 1px solid var(--durham-purple) !important;
+    background-color: white !important;
+    color: var(--durham-ink) !important;
+}
+
+/* Logo text/title in search area */
+.wy-side-nav-search a {
+    color: var(--durham-ink) !important;
+}
+
+/* Buttons */
+.btn-neutral {
+    background-color: var(--durham-concrete) !important;
+    color: var(--durham-ink) !important;
+    border: 1px solid var(--durham-cedar) !important;
+}
+
+.btn-neutral:hover {
+    background-color: var(--durham-purple) !important;
+    color: white !important;
+}
+
+/* Footer */
+.rst-footer-buttons {
+    border-top: 2px solid var(--durham-yellow) !important;
+}
+
+/* Breadcrumbs */
+.wy-breadcrumbs li a {
+    color: var(--durham-cyan) !important;
+}
+
+/* Version selector */
+.rst-versions {
+    background-color: var(--durham-purple) !important;
+}
+
+.rst-versions .rst-current-version {
+    background-color: var(--durham-purple-light) !important;
+}
+
+/* Logo styling */
+.wy-side-nav-search .wy-dropdown > a img.logo,
+.wy-side-nav-search > a img.logo {
+    width: auto;
+    max-height: 160px;
+    margin: 1.2em auto;
+}
+
+/* Scrollbars (webkit browsers) */
+.wy-nav-side::-webkit-scrollbar {
+    width: 8px;
+}
+
+.wy-nav-side::-webkit-scrollbar-track {
+    background-color: var(--durham-stone);
+}
+
+.wy-nav-side::-webkit-scrollbar-thumb {
+    background-color: var(--durham-purple);
+    border-radius: 4px;
+}
+
+.wy-nav-side::-webkit-scrollbar-thumb:hover {
+    background-color: var(--durham-purple-light);
+}
+
+/* Mobile responsiveness adjustments */
+@media screen and (max-width: 768px) {
+    .wy-nav-top {
+        padding: 0.4045em 0.809em;
+    }
+    
+    .wy-nav-top i {
+        color: var(--durham-yellow) !important;
+    }
+}
+
+/* Print styles */
+@media print {
+    h1, h2, h3, h4, h5, h6 {
+        color: var(--durham-ink) !important;
+    }
+    
+    a {
+        color: var(--durham-ink) !important;
+        text-decoration: underline;
+    }
+}
+
+/* Additional typography improvements */
+body {
+    color: var(--durham-black);
+    font-family: "Lato", "proxima-nova", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Ensure text contrast meets accessibility standards */
+.wy-nav-content-wrap {
+    color: var(--durham-black);
+}
+
+/* Custom class for Durham-branded elements */
+.durham-highlight {
+    background-color: var(--durham-yellow);
+    color: var(--durham-ink);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+}
+
+.durham-accent {
+    border-left: 4px solid var(--durham-purple);
+    padding-left: 1em;
+    margin-left: 0;
+}
+
+/* Landing Page Specific Styles */
+
+/* Hero Section */
+.hero-section {
+    background: linear-gradient(135deg, var(--durham-purple) 0%, var(--durham-cyan) 100%);
+    color: white;
+    padding: 3em 2em;
+    margin: -1em -1em 2em -1em;
+    text-align: center;
+    border-radius: 0 0 10px 10px;
+}
+
+.hero-section h1 {
+    color: white !important;
+    border-bottom: none !important;
+    font-size: 2.5em;
+    margin-bottom: 0.5em;
+}
+
+.hero-section .tagline {
+    font-size: 1.3em;
+    margin-bottom: 1.5em;
+    color: var(--durham-yellow);
+    font-weight: 300;
+}
+
+.hero-section .description {
+    font-size: 1.1em;
+    max-width: 800px;
+    margin: 0 auto 2em auto;
+    line-height: 1.6;
+}
+
+/* Feature Cards */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2em;
+    margin: 2em 0;
+}
+
+.feature-card {
+    background: white;
+    border: 1px solid var(--durham-concrete);
+    border-radius: 10px;
+    padding: 1.5em;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    border-color: var(--durham-cyan);
+}
+
+.feature-card h3 {
+    color: var(--durham-purple) !important;
+    margin-top: 0;
+    margin-bottom: 0.5em;
+    display: flex;
+    align-items: center;
+}
+
+.feature-card .icon {
+    font-size: 1.5em;
+    margin-right: 0.5em;
+    color: var(--durham-cyan);
+}
+
+.feature-card p {
+    color: var(--durham-ink);
+    line-height: 1.5;
+    margin-bottom: 0;
+}
+
+/* CTA Buttons */
+.cta-buttons {
+    display: flex;
+    gap: 1em;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 2em 0;
+}
+
+.cta-button {
+    display: inline-block;
+    padding: 0.8em 2em;
+    background-color: var(--durham-yellow);
+    color: var(--durham-ink) !important;
+    text-decoration: none !important;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    border: 2px solid var(--durham-yellow);
+}
+
+.cta-button:hover {
+    background-color: var(--durham-ink);
+    color: var(--durham-yellow) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.cta-button.secondary {
+    background-color: transparent;
+    color: var(--durham-purple) !important;
+    border-color: var(--durham-purple);
+}
+
+.cta-button.secondary:hover {
+    background-color: var(--durham-purple);
+    color: white !important;
+}
+
+/* Quick Start Section */
+.quick-start {
+    background-color: var(--durham-stone);
+    padding: 2em;
+    border-radius: 10px;
+    margin: 2em 0;
+}
+
+.quick-start h2 {
+    color: var(--durham-purple) !important;
+    margin-top: 0;
+    text-align: center;
+}
+
+.quick-start pre {
+    background-color: white !important;
+    border: 1px solid var(--durham-concrete);
+    border-radius: 5px;
+    padding: 1em;
+    margin: 1em 0;
+}
+
+/* Section Groups */
+.section-group {
+    margin: 3em 0;
+}
+
+.section-group h2 {
+    color: var(--durham-purple) !important;
+    border-bottom: 2px solid var(--durham-cyan) !important;
+    padding-bottom: 0.5em;
+}
+
+.doc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1em;
+    margin: 1.5em 0;
+}
+
+.doc-link {
+    background: white;
+    border: 1px solid var(--durham-concrete);
+    border-radius: 8px;
+    padding: 1em;
+    text-decoration: none !important;
+    transition: all 0.3s ease;
+    display: block;
+}
+
+.doc-link:hover {
+    border-color: var(--durham-cyan);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.doc-link h4 {
+    color: var(--durham-cyan) !important;
+    margin: 0 0 0.5em 0;
+}
+
+.doc-link p {
+    color: var(--durham-ink);
+    margin: 0;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+/* Repository badges */
+.repo-badges {
+    display: flex;
+    gap: 1em;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 2em 0;
+}
+
+.repo-badge {
+    background-color: var(--durham-concrete);
+    color: var(--durham-ink) !important;
+    padding: 0.5em 1em;
+    border-radius: 20px;
+    text-decoration: none !important;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+}
+
+.repo-badge:hover {
+    background-color: var(--durham-purple);
+    color: white !important;
+}
+
+/* Mobile responsiveness for landing page */
+@media screen and (max-width: 768px) {
+    .hero-section {
+        padding: 2em 1em;
+        margin: -1em -0.5em 2em -0.5em;
+    }
+    
+    .hero-section h1 {
+        font-size: 2em;
+    }
+    
+    .feature-grid {
+        grid-template-columns: 1fr;
+        gap: 1em;
+    }
+    
+    .cta-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .doc-grid {
+        grid-template-columns: 1fr;
+    }
+}

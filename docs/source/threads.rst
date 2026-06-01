@@ -1,5 +1,5 @@
 DAO Thread System
-===============
+=================
 
 Overview
 --------
@@ -15,7 +15,7 @@ The thread system consists of several layers:
 5. **SignalTable**: Inter-thread communication mechanism
 
 Class Hierarchy
---------------
+---------------
 
 .. code-block:: none
 
@@ -28,7 +28,7 @@ Class Hierarchy
                 +--> Thread
 
 Thread Interface
---------------
+----------------
 
 The ``ThreadIfce`` class defines the standard interface for all thread operations:
 
@@ -53,12 +53,12 @@ The ``ThreadIfce`` class defines the standard interface for all thread operation
     };
 
 Thread Base Class
-----------------
+-----------------
 
 The ``ThreadBase`` class provides the core implementation of thread functionality:
 
 Construction
-~~~~~~~~~~~
+~~~~~~~~~~~~
 
 .. code-block:: cpp
 
@@ -73,7 +73,7 @@ Parameters:
 - **rt_enabled**: Whether to use real-time scheduling when possible
 
 Thread Lifecycle
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 Threads follow a specific lifecycle:
 
@@ -85,7 +85,7 @@ Threads follow a specific lifecycle:
 6. **Join**: Wait for thread to finish
 
 Thread Lifecycle Methods
-~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 - **Spawn()**: Creates the thread and calls OnceOnSpawn()
 - **Start()**: Signals the thread to begin execution and calls OnceOnStart()
@@ -95,7 +95,7 @@ Thread Lifecycle Methods
 - **Kill(int signal)**: Forcibly terminates the thread
 
 Extension Points
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 ThreadBase provides several virtual methods that can be overridden:
 
@@ -106,7 +106,7 @@ ThreadBase provides several virtual methods that can be overridden:
 - **Body()**: The main thread function (must be implemented by derived classes)
 
 Thread Class
------------
+------------
 
 The ``Thread`` class combines ThreadBase and ThreadIfce, providing a complete implementation:
 
@@ -125,7 +125,7 @@ The ``Thread`` class combines ThreadBase and ThreadIfce, providing a complete im
     };
 
 Creating a Custom Thread
-----------------------
+------------------------
 
 To create a custom thread, inherit from the Thread class and implement RestartableThread():
 
@@ -162,7 +162,7 @@ To create a custom thread, inherit from the Thread class and implement Restartab
     };
 
 Thread Table
------------
+------------
 
 The ``ThreadTable`` class provides a way to manage multiple threads as a group:
 
@@ -184,7 +184,7 @@ The ``ThreadTable`` class provides a way to manage multiple threads as a group:
     threadTable.Join();
 
 Thread Table Methods
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 - **Add(ThreadIfce* thread)**: Adds a thread to the table
 - **Start()**: Starts all threads
@@ -196,7 +196,7 @@ Thread Table Methods
 - **Signal(int index)**: Sends a signal to all threads
 
 Signal Table
-----------
+------------
 
 The ``SignalTable`` class provides a mechanism for inter-thread communication:
 
@@ -209,7 +209,7 @@ The ``SignalTable`` class provides a mechanism for inter-thread communication:
     m_signal_table->SignalReceiveSpin(SIGNAL_DATA_READY);  // Blocks until signal received
 
 Signal Table Methods
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 - **SignalSend(int index)**: Sends a signal
 - **SignalReceive(int index)**: Non-blocking check for signal
@@ -219,13 +219,13 @@ Signal Table Methods
 - **SignalTableReset()**: Resets all signals
 
 Predefined Signals
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 - **SIGNAL_THREAD_READY (0)**: Indicates thread is ready
 - **SIGNAL_LOOPSTART_ALL (1)**: Used to synchronize the start of multiple threads
 
 Real-Time Considerations
-----------------------
+------------------------
 
 For real-time applications, the thread system offers:
 
@@ -235,7 +235,7 @@ For real-time applications, the thread system offers:
 - **Signal-based Synchronization**: Low-latency inter-thread communication
 
 Best Practices
--------------
+--------------
 
 1. **Thread Creation**: Create all threads at application startup to avoid dynamic thread creation overhead
 2. **Core Placement**: Pin critical threads to isolated cores
@@ -244,7 +244,7 @@ Best Practices
 5. **Error Handling**: Implement proper exception handling in the thread functions
 
 Usage Example
-------------
+-------------
 
 .. code-block:: cpp
 

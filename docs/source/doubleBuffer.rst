@@ -185,11 +185,11 @@ The DoubleBuffer class is designed to work seamlessly with the DAO Component sys
     void ComponentUpdateThread::RestartableThread()
     {
         // Check for new data
-        if (m_shm->GetFrameCounter() > m_counter)
+        if (m_shm->get_counter() > m_counter)
         {
             // Copy new data to passive buffer and swap
-            m_dataBuffer->CopyAndSwap(m_shm->GetPtr());
-            m_counter = m_shm->GetFrameCounter();
+            m_dataBuffer->CopyAndSwap(m_shm->get_frame());
+            m_counter = m_shm->get_counter();
         }
     }
     

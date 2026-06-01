@@ -31,6 +31,7 @@ release = '0.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinx_rtd_theme',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -47,16 +48,57 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'classic'
+html_theme = 'sphinx_rtd_theme'
+
+# Theme options for Read the Docs theme
+html_theme_options = {
+    'logo_only': False,
+    'display_version': True,
+    'prev_next_buttons_location': 'bottom',
+    'style_external_links': False,
+    'vcs_pageview_mode': '',
+    'style_nav_header_background': '#68246D',  # Durham purple
+    # Toc options
+    'collapse_navigation': True,
+    'sticky_navigation': True,
+    'navigation_depth': 4,
+    'includehidden': True,
+    'titles_only': False
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
+# Custom CSS files
+html_css_files = [
+    'durham_style.css',
+]
 
 # Add Logo to the documents
 html_logo = '_static/DaoLogo.png'
+
+# HTML context variables for Durham branding
+html_context = {
+    'display_github': False,  # Set to True if you want GitHub integration
+    'last_updated': True,
+    'commit': False,
+}
+
+# Additional HTML options
+html_show_sourcelink = True
+html_show_sphinx = False
+html_show_copyright = True
+
+# Favicon (you may want to add a Durham-themed favicon)
+# html_favicon = '_static/favicon.ico'
+
+# Custom HTML title
+html_title = f"{project} Documentation v{release}"
+
+# Custom footer
+html_last_updated_fmt = '%b %d, %Y'
 
 
 # extensions = ['sphinx.ext.autodoc', 'breathe']

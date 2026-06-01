@@ -6,7 +6,7 @@
 
 #include <daoLog.hpp>
 #include <daoThread.hpp>
-#include <daoShmIfce.hpp>
+#include <daoShm.hpp>
 #include <daoDoubleBuffer.hpp>
 #include <daoComponentUpdateThread.hpp>
 
@@ -49,11 +49,12 @@ TEST_F(UpdateThreadTest, set_up)
     Dao::Log::Logger * logger = new Dao::Log::Logger(name, Dao::Log::Logger::DESTINATION::SCREEN);
     test_class * t = new test_class(name, *logger, 0,0);
 
-    Dao::ShmIfce<float> * shm = new Dao::ShmIfce<float>(*logger);
-    IMAGE* img = (IMAGE*)malloc(sizeof(IMAGE));
-    memset(img, 0, sizeof(IMAGE)); // Initialize the IMAGE structure
+    // Dao::ShmIfce<float> * shm = new Dao::ShmIfce<float>(*logger);
+    Dao::Shm<float> *shm = new Dao::Shm<float>(filename);
+    // IMAGE* img = (IMAGE*)malloc(sizeof(IMAGE));
+    // memset(img, 0, sizeof(IMAGE)); // Initialize the IMAGE structure
     // Call OpenShm with the string filename and IMAGE pointer
-    shm->OpenShm(filename.c_str(), img, -1);  // Added -1 as the default node parameter
+    // shm->OpenShm(filename.c_str(), img, -1);  // Added -1 as the default node parameter
     Dao::DoubleBuffer<float>* buffer = new Dao::DoubleBuffer<float>(100);
     
     t->add(shm,buffer,"test map");
@@ -71,7 +72,7 @@ TEST_F(UpdateThreadTest, set_up)
     delete buffer;
     delete shm;
     delete logger;
-    free(img);
+    // free(img);
 }
 
 int main(int argc, char **argv) {

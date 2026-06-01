@@ -139,3 +139,120 @@ There is currently no way to build and run the unit tests on Windows. These test
 libdaoProto is not yet compiled on Windows. This is due to a problem which should be solved soon.
 
 Unlike DAO on Linux/Mac, you cannot create a shared memory file over a file which already exists, if said file is still in use by another process on the system.
+
+# Automated Installation Script
+
+An automated PowerShell script (`install-windows-deps.ps1`) is provided to simplify the installation of all prerequisites. This script automates the manual steps described above.
+
+## Prerequisites for Automated Installation
+
+- Windows 10 or later
+- PowerShell (included with Windows)
+- Administrator privileges
+- Internet connection
+
+## What the Script Installs
+
+The script automatically downloads, builds, and configures:
+
+1. **Microsoft Visual Studio Build Tools 2022** (via winget)
+2. **ZeroMQ 4.3.5** (built from source)
+3. **Protocol Buffers 3.20.0** (built from source)
+4. **pkg-config-lite 0.28-1** (with automatic .pc file creation)
+5. **Miniconda** (Python environment)
+6. **Required Python packages** (zmq, protobuf==3.20.0, astropy, python-statemachine, statemachine, redis, sphinx, screeninfo)
+7. **Waf 2.0.26** (build system)
+
+## Running the Automated Installation
+
+### Basic Usage (Default Locations)
+```powershell
+# Run PowerShell as Administrator
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\install-windows-deps.ps1
+```
+
+### Custom Installation Paths
+```powershell
+.\install-windows-deps.ps1 -InstallDir "D:\my-dao-deps" -DaoRoot "D:\dao" -DaoData "D:\dao-data"
+```
+
+## Script Parameters
+
+- **`-InstallDir`** (default: `C:\daoBase-deps`): Where dependencies will be installed
+- **`-DaoRoot`** (default: `C:\daoBase`): DAO installation directory  
+- **`-DaoData`** (default: `C:\daoData`): DAO data directory
+
+## After Automated Installation
+
+The script automatically sets persistent environment variables (`DAOROOT`, `DAODATA`, `PATH`, `PYTHONPATH`, and `PKG_CONFIG_PATH`) for the current user. These will be available in new terminal sessions.
+
+For immediate use, open a new PowerShell/Command Prompt window, or use the backup environment setup script that's created:
+
+```cmd
+C:\daoBase-deps\setup-dao-env.bat
+```
+
+Then build daoBase as described in the [Build](#build) section above:
+
+```cmd
+cd path\to\daoBase\source
+python "C:\daoBase-deps\waf-2.0.26" configure --prefix=%DAOROOT%
+python "C:\daoBase-deps\waf-2.0.26"
+python "C:\daoBase-deps\waf-2.0.26" install
+```
+
+## Installation Directory Structure
+
+After running the automated script:
+
+```
+C:\daoBase-deps\
+├── downloads\          # Downloaded source archives
+├── build\             # Build directories
+├── zeromq\            # ZeroMQ installation
+├── protobuf\          # Protocol Buffers installation
+├── pkg-config-lite\   # pkg-config installation
+├── pkg-config\lib\    # Auto-generated .pc files
+├── miniconda3\        # Python environment
+├── waf-2.0.26         # Waf build system
+└── setup-dao-env.bat  # Environment setup script
+```
+
+## Troubleshooting Automated Installation
+
+- **"Execution Policy" errors**: Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` first
+- **Administrator required**: The script must be run as Administrator to install Visual Studio Build Tools
+- **Download failures**: Check internet connection and firewall settings
+- **Build failures**: Ensure Visual Studio Build Tools installed correctly; try running from "x64 Native Tools Command Prompt"
+
+If the automated installation fails, you can still follow the manual installation steps described in the sections above.
+
+## Uninstalling Dependencies
+
+An uninstall script (`uninstall-windows-deps.ps1`) is provided to completely remove all installed dependencies and clean up environment variables.
+
+### Basic Uninstall
+```powershell
+# Run PowerShell as Administrator (recommended)
+.\uninstall-windows-deps.ps1
+```
+
+### Uninstall with Options
+```powershell
+# Keep Miniconda installation
+.\uninstall-windows-deps.ps1 -KeepMiniconda
+
+# Force removal without confirmation
+.\uninstall-windows-deps.ps1 -Force
+
+# Custom paths (if you used custom paths during installation)
+.\uninstall-windows-deps.ps1 -InstallDir "D:\my-dao-deps" -DaoRoot "D:\dao" -DaoData "D:\dao-data"
+```
+
+### What Gets Removed
+- All dependency installations (ZeroMQ, Protocol Buffers, pkg-config, Waf)
+- DAO directories (`DAOROOT` and `DAODATA`)
+- Environment variables (`DAOROOT`, `DAODATA`, and DAO-related PATH entries)
+- Visual Studio Build Tools (optional, with confirmation)
+- Miniconda (optional, with confirmation)
