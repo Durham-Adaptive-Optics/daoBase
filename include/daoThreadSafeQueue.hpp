@@ -17,9 +17,8 @@
 #endif
 
 #include <mutex>
-#include <queue>
 #include <optional>
-
+#include <queue>
 
 namespace Dao
 {
@@ -30,48 +29,50 @@ namespace Dao
     class ThreadSafeQueue
     {
         public:
-            ThreadSafeQueue() = default;
-            ThreadSafeQueue(const ThreadSafeQueue<T> &) = delete ;
-            ThreadSafeQueue& operator=(const ThreadSafeQueue<T> &) = delete ;
+        ThreadSafeQueue() = default;
+        ThreadSafeQueue(const ThreadSafeQueue<T>&) = delete;
+        ThreadSafeQueue& operator=(const ThreadSafeQueue<T>&) = delete;
 
-            ThreadSafeQueue(ThreadSafeQueue<T>&& other)
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                m_queue = std::move(other.m_queue);
-            }
-            
-            virtual ~ThreadSafeQueue(){}
-            
-            size_t size() const
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                return m_queue.size();
-            }
-            
-            T pop()
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                T retVal = m_queue.front();
-                m_queue.pop();
-                return retVal;
-            }
-            
-            // push with lock and copy
-            void push(const T &item)
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                m_queue.push(item);
-            }
+        ThreadSafeQueue(ThreadSafeQueue<T>&& other)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_queue = std::move(other.m_queue);
+        }
 
-            inline bool empty() const
-            {
-                return m_queue.empty();
-            }
+        virtual ~ThreadSafeQueue()
+        {
+        }
+
+        size_t size() const
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            return m_queue.size();
+        }
+
+        T pop()
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            T retVal = m_queue.front();
+            m_queue.pop();
+            return retVal;
+        }
+
+        // push with lock and copy
+        void push(const T& item)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_queue.push(item);
+        }
+
+        inline bool empty() const
+        {
+            return m_queue.empty();
+        }
+
         private:
-
-            std::queue<T> m_queue; //,Allocator> m_queue;
-            mutable std::mutex m_mutex;
+        std::queue<T> m_queue; //,Allocator> m_queue;
+        mutable std::mutex m_mutex;
     };
-}; // namespace DAO
+}; // namespace Dao
 
 #endif /* DAO_THREAD_SAFE_QUEUE_HPP */

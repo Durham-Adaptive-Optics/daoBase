@@ -1,5 +1,5 @@
+import daoLogging_pb2 as daoLogging  # import the generated protobuf module
 import zmq
-import daoLogging_pb2 as daoLogging # import the generated protobuf module
 
 context = zmq.Context()
 
@@ -16,7 +16,7 @@ while True:
     # Deserialize message
     message = daoLogging.LogMessage()
     message.ParseFromString(serialized_message)
-    print(f'{message.time_stamp} [{message.level}] - {message.component_name} - {message.log_message}')
+    print(f"{message.time_stamp} [{message.level}] - {message.component_name} - {message.log_message}")
 
 # Close the socket
 socket.close()

@@ -1,8 +1,10 @@
 import sys
+
+import daoLogging_pb2 as daoLogging
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTextEdit
 import zmq
-import daoLogging_pb2 as daoLogging
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -20,8 +22,8 @@ class MainWindow(QMainWindow):
     def append_message(self, serialized_message):
         message = daoLogging.LogMessage()
         message.ParseFromString(serialized_message)
-        self.text_edit.append(f'[{message.time_stamp}] {message.component_name} - {message.log_message}')
-        print(f'[{message.time_stamp}] {message.component_name} - {message.log_message}')
+        self.text_edit.append(f"[{message.time_stamp}] {message.component_name} - {message.log_message}")
+        print(f"[{message.time_stamp}] {message.component_name} - {message.log_message}")
 
 
 if __name__ == "__main__":

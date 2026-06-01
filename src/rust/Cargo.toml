@@ -4,10 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bindgen = "0.70.1"  # Use the latest version of bindgen
 
 [build-dependencies]
-cc = "11.4.0"  # Required to compile C code if needed
+bindgen = "0.70.1"  # Use the latest version of bindgen
+cc = "1"  # Required to compile C code if needed
 
-[build]
-rustflags = ["-L", "../../build/src/libdao.so"] # Path to libdao.a or libdao.so
+# rustflags (link path to libdao) are set in .cargo/config.toml

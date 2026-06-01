@@ -4,48 +4,45 @@
  *****************************************************************************/
 
 /*==========================================================================*/
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <math.h>
-#include <semaphore.h>
-#include <sched.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <signal.h>
-#include <ctype.h>
-#include <time.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <limits.h>
-#include <sys/file.h>
-#include <errno.h>
-#include <sys/mman.h>
+#include <math.h>
+#include <pthread.h>
 #include <sched.h>
 #include <semaphore.h>
-#include <sys/time.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <termios.h>
+#include <time.h>
+#include <unistd.h>
 
-#include <pthread.h>
+#include <sys/file.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
 // DAO header
-#include "dao.h" 
+#include "dao.h"
 
 typedef int bool_t;
 #ifndef TRUE
-#define TRUE	1
+#define TRUE 1
 #endif
 #ifndef FALSE
-#define FALSE	0
+#define FALSE 0
 #endif
 
 /*==========================================================================*/
-static int	sNdx=0;							/* board index */
-static int	sExit=0;						/* program exit code */
+static int sNdx = 0;  /* board index */
+static int sExit = 0; /* program exit code */
 
-//Need to install process with setuid.  Then, so you aren't running privileged all the time do this:
+// Need to install process with setuid.  Then, so you aren't running privileged all the time do this:
 uid_t euid_real;
 uid_t euid_called;
 uid_t suid;
@@ -55,21 +52,20 @@ double tlastupdatedouble;
 
 int nbPoints;
 
-
 // termination flag
-static int end     = 0;
+static int end = 0;
 
 // termination function for SIGINT callback
-static void endme() 
+static void endme()
 {
     end = 1;
 }
 
-static char	*sArgv0=NULL;					/* name of executable */
+static char* sArgv0 = NULL; /* name of executable */
 
 static void ShowHelp(void)
 {
-    daoInfo("%s of " __DATE__ " at " __TIME__ "\n",sArgv0);
+    daoInfo("%s of " __DATE__ " at " __TIME__ "\n", sArgv0);
     daoInfo("   arguments:\n");
     daoInfo("   -h               display this message and exit\n");
     daoInfo("   -d               display program debug output\n");
@@ -86,10 +82,10 @@ static void ShowHelp(void)
 }
 
 // Function to calculate the mean of the vector
-double avg(double *vector, int size) 
+double avg(double* vector, int size)
 {
     double sum = 0.0;
-    for (int i = 0; i < size; i++) 
+    for (int i = 0; i < size; i++)
     {
         sum += vector[i];
     }
@@ -97,12 +93,12 @@ double avg(double *vector, int size)
 }
 
 // Function to calculate the standard deviation of the vector
-double std(double *vector, int size) 
+double std(double* vector, int size)
 {
     double mean = avg(vector, size);
     double sum = 0.0;
 
-    for (int i = 0; i < size; i++) 
+    for (int i = 0; i < size; i++)
     {
         sum += pow(vector[i] - mean, 2);
     }
@@ -111,16 +107,16 @@ double std(double *vector, int size)
 }
 
 /*--------------------------------------------------------------------------*/
-void * benchmarkRealTimeLoop(void *thread_data)
+void* benchmarkRealTimeLoop(void* thread_data)
 {
     daoInfo("ThreadId=%p\n", thread_data);
     int count;
-    IMAGE *shm10x10 = (IMAGE*) malloc(sizeof(IMAGE));
-    IMAGE *shm100x100 = (IMAGE*) malloc(sizeof(IMAGE));
-    IMAGE *shm1000x1000 = (IMAGE*) malloc(sizeof(IMAGE));
-    IMAGE *shm10x10timing = (IMAGE*) malloc(sizeof(IMAGE));
-    IMAGE *shm100x100timing = (IMAGE*) malloc(sizeof(IMAGE));
-    IMAGE *shm1000x1000timing = (IMAGE*) malloc(sizeof(IMAGE));
+    IMAGE* shm10x10 = (IMAGE*)malloc(sizeof(IMAGE));
+    IMAGE* shm100x100 = (IMAGE*)malloc(sizeof(IMAGE));
+    IMAGE* shm1000x1000 = (IMAGE*)malloc(sizeof(IMAGE));
+    IMAGE* shm10x10timing = (IMAGE*)malloc(sizeof(IMAGE));
+    IMAGE* shm100x100timing = (IMAGE*)malloc(sizeof(IMAGE));
+    IMAGE* shm1000x1000timing = (IMAGE*)malloc(sizeof(IMAGE));
     // Create size array, using 2D of 1x1... can be change to 1D
     uint32_t size[2];
     // Create SHM
@@ -138,28 +134,28 @@ void * benchmarkRealTimeLoop(void *thread_data)
     daoShmImageCreate(shm10x10timing, "/tmp/timing10x10.im.shm", 2, size, _DATATYPE_DOUBLE, 1, 0);
     daoShmImageCreate(shm100x100timing, "/tmp/timing100x100.im.shm", 2, size, _DATATYPE_DOUBLE, 1, 0);
     daoShmImageCreate(shm1000x1000timing, "/tmp/timing1000x1000.im.shm", 2, size, _DATATYPE_DOUBLE, 1, 0);
-    // Create random array of 
-    double array10x10[10*10];
-    double array100x100[100*100];
-    double array1000x1000[1000*1000];
+    // Create random array of
+    double array10x10[10 * 10];
+    double array100x100[100 * 100];
+    double array1000x1000[1000 * 1000];
     // MAIN LOOP
     daoInfo("ENTERING LOOP\n");
     fflush(stdout);
     struct timespec t[3];
-//    double elapsedTime[nbPoints];
-    //double shmElapsedTime=0;
-    unsigned int clock[1]; 
+    //    double elapsedTime[nbPoints];
+    // double shmElapsedTime=0;
+    unsigned int clock[1];
     clock_gettime(CLOCK_REALTIME, &t[1]);
     struct timespec tc;
     clock_gettime(CLOCK_MONOTONIC, &tc);
 
     daoInfo("Testing 10x10 write\n");
     // Warmup
-    for (count=0; count<10000; count++)
+    for (count = 0; count < 10000; count++)
     {
         daoShmImage2Shm((double*)array10x10, 1e2, &shm10x10[0]);
-    }    
-    for (count=0; count<nbPoints; count++)
+    }
+    for (count = 0; count < nbPoints; count++)
     {
         clock_gettime(CLOCK_REALTIME, &t[0]);
         daoShmImage2Shm((double*)array10x10, 1e2, &shm10x10[0]);
@@ -171,11 +167,11 @@ void * benchmarkRealTimeLoop(void *thread_data)
     daoInfo("Jitter      : %lf\n", std(shm10x10timing[0].array.D, nbPoints));
     daoInfo("Testing 100x100 write\n");
     // Warmup
-    for (count=0; count<10000; count++)
+    for (count = 0; count < 10000; count++)
     {
         daoShmImage2Shm((double*)array100x100, 1e2, &shm100x100[0]);
-    }    
-    for (count=0; count<nbPoints; count++)
+    }
+    for (count = 0; count < nbPoints; count++)
     {
         clock_gettime(CLOCK_REALTIME, &t[0]);
         daoShmImage2Shm((double*)array100x100, 1e2, &shm100x100[0]);
@@ -187,11 +183,11 @@ void * benchmarkRealTimeLoop(void *thread_data)
     daoInfo("Jitter      : %lf\n", std(shm100x100timing[0].array.D, nbPoints));
     daoInfo("Testing 1000x1000 write\n");
     // Warmup
-    for (count=0; count<10000; count++)
+    for (count = 0; count < 10000; count++)
     {
         daoShmImage2Shm((double*)array1000x1000, 1e2, &shm1000x1000[0]);
-    }    
-    for (count=0; count<nbPoints; count++)
+    }
+    for (count = 0; count < nbPoints; count++)
     {
         clock_gettime(CLOCK_REALTIME, &t[0]);
         daoShmImage2Shm((double*)array1000x1000, 1e2, &shm1000x1000[0]);
@@ -206,14 +202,14 @@ void * benchmarkRealTimeLoop(void *thread_data)
 
     return DAO_SUCCESS;
 }
-    
+
 /*--------------------------------------------------------------------------*/
 static int realTimeLoop()
 {
     int status;
     // register interrupt signal to terminate the main loop
     signal(SIGINT, endme);
-    
+
     fflush(stdout);
     daoInfo("This benchmark is measuring the write time into the shared memory for different data size\n");
     daoInfo("10x10     image\n");
@@ -222,8 +218,8 @@ static int realTimeLoop()
     // Thread
     pthread_t benchmarkThread;
     int threadIdCtrl = 0;
-    int benchmarkThreadVal=0;
-    benchmarkThreadVal = pthread_create(&benchmarkThread, NULL, benchmarkRealTimeLoop, (void *)&threadIdCtrl);
+    int benchmarkThreadVal = 0;
+    benchmarkThreadVal = pthread_create(&benchmarkThread, NULL, benchmarkRealTimeLoop, (void*)&threadIdCtrl);
     if (benchmarkThreadVal != 0)
     {
         daoError("Cannot create thread, err\n");
@@ -233,77 +229,86 @@ static int realTimeLoop()
     return DAO_SUCCESS;
 }
 
-static void DecodeArgs(int argc, char **argv)
-    /*
-     **	Parse the input arguments.
-     */
+static void DecodeArgs(int argc, char** argv)
+/*
+ **	Parse the input arguments.
+ */
 {
-    char	*str;
+    char* str;
     int a1;
 
-    argv += 1;	argc -= 1;					/* skip program name */
+    argv += 1;
+    argc -= 1; /* skip program name */
 
-    while (argc-- > 0) {
-        daoDebug("DecodeArgs: working on '%s'/%d\n",*argv,argc);
+    while (argc-- > 0)
+    {
+        daoDebug("DecodeArgs: working on '%s'/%d\n", *argv, argc);
         str = *argv++;
-        if (str[0] != '-') {
-            daoError("Do not know arg '%s'\n",str);
+        if (str[0] != '-')
+        {
+            daoError("Do not know arg '%s'\n", str);
             ShowHelp();
             exit(1);
         }
 
-        switch (str[1]) {
-            case 'h':	ShowHelp(); exit(0);
-	    case 'd':	
-			(void)sscanf(*argv++,"%d",&daoLogLevel); argc -= 1;
-			break;
-            case 'l':
-                        daoInfo("%s\n",*argv);
-                        argv += 1; argc -= 1;
-                        break;
+        switch (str[1])
+        {
+        case 'h':
+            ShowHelp();
+            exit(0);
+        case 'd':
+            (void)sscanf(*argv++, "%d", &daoLogLevel);
+            argc -= 1;
+            break;
+        case 'l':
+            daoInfo("%s\n", *argv);
+            argv += 1;
+            argc -= 1;
+            break;
 
-            case 'b':	(void)sscanf(*argv++,"%d",&sNdx); argc -= 1;	break;
-            case 'u':
-                        (void)sscanf(*argv++,"%d",&a1); argc -= 1;
-                        daoDebug("will sleep for %d usec\n",a1);
-                        (void)usleep(a1);
-                        break;
-            case 'L':
-                        daoInfo("Clock real time control\n");
-                        (void)sscanf(*argv++,"%d", &nbPoints);
-                        daoInfo("number of points = %d \n", nbPoints);
-                        realTimeLoop();
-                        break;
-            default:
-                        daoError("Do not know arg '%s'\n",str);
-                        ShowHelp();
-                        exit(2);
+        case 'b':
+            (void)sscanf(*argv++, "%d", &sNdx);
+            argc -= 1;
+            break;
+        case 'u':
+            (void)sscanf(*argv++, "%d", &a1);
+            argc -= 1;
+            daoDebug("will sleep for %d usec\n", a1);
+            (void)usleep(a1);
+            break;
+        case 'L':
+            daoInfo("Clock real time control\n");
+            (void)sscanf(*argv++, "%d", &nbPoints);
+            daoInfo("number of points = %d \n", nbPoints);
+            realTimeLoop();
+            break;
+        default:
+            daoError("Do not know arg '%s'\n", str);
+            ShowHelp();
+            exit(2);
         }
     }
 
     return;
 }
 /*==========================================================================*/
-int main(int argc, char **argv)
-    /*
-     **	Fetch the arguments and do what is requested
-     */
+int main(int argc, char** argv)
+/*
+ **	Fetch the arguments and do what is requested
+ */
 {
-    int RT_priority = 93; //any number from 0-99
+    int RT_priority = 93; // any number from 0-99
     struct sched_param schedpar;
 
     schedpar.sched_priority = RT_priority;
     // r = seteuid(euid_called); //This goes up to maximum privileges
-    sched_setscheduler(0, SCHED_FIFO, &schedpar); //other option is SCHED_RR, might be faster
+    sched_setscheduler(0, SCHED_FIFO, &schedpar); // other option is SCHED_RR, might be faster
     // r = seteuid(euid_real);//Go back to normal privileges
 
     sArgv0 = *argv;
 
-    DecodeArgs(argc,argv);
+    DecodeArgs(argc, argv);
 
-    return(sExit);
+    return (sExit);
 }
 /*==========================================================================*/
-
-
-

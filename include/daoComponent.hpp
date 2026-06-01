@@ -18,7 +18,6 @@
 
 #include <daoComponentBase.hpp>
 #include <daoComponentIfce.hpp>
-
 #include <daoLog.hpp>
 
 namespace Dao
@@ -26,95 +25,93 @@ namespace Dao
     class Component : public ComponentBase, public ComponentIfce
     {
         public:
-            /**
-             * @brief Component constructor
-             * @param name Unique name for this component
-             * @param logger Logger instance for component logging
-             * @param ip IP address for ZMQ communication
-             * @param port Port number for ZMQ communication
-             * @param autoRun If true, component will automatically advance to Running state
-             * @param core CPU core to bind component threads to (-1 for no affinity)
-             */
-            Component(std::string name, Dao::Log::Logger& logger, std::string ip, int port, bool autoRun = false, int core=-1)
-            : ComponentBase(name, logger, ip, port, core)
-            , m_autoRun(autoRun)
-            {
-               ComponentBase::PostConstructor(static_cast<Dao::ComponentIfce*>(this));
-               
-               // If autoRun is enabled, advance the state machine to Running state
-               if (m_autoRun) {
-                   logger.Info("Auto-running component %s", name.c_str());
-                   Init();
-                   Enable();
-                   Run();
-               }
-            }
-               
-            virtual ~Component()
-            {
+        /**
+         * @brief Component constructor
+         * @param name Unique name for this component
+         * @param logger Logger instance for component logging
+         * @param ip IP address for ZMQ communication
+         * @param port Port number for ZMQ communication
+         * @param autoRun If true, component will automatically advance to Running state
+         * @param core CPU core to bind component threads to (-1 for no affinity)
+         */
+        Component(std::string name, Dao::Log::Logger& logger, std::string ip, int port, bool autoRun = false, int core = -1)
+            : ComponentBase(name, logger, ip, port, core),
+              m_autoRun(autoRun)
+        {
+            ComponentBase::PostConstructor(static_cast<Dao::ComponentIfce*>(this));
 
-            }
-
-            void Init() override
+            // If autoRun is enabled, advance the state machine to Running state
+            if (m_autoRun)
             {
-                 postEvent(StateMachine::Events::Init);
+                logger.Info("Auto-running component %s", name.c_str());
+                Init();
+                Enable();
+                Run();
             }
+        }
 
-            void Stop() override
-            {
-                 postEvent(StateMachine::Events::Stop);
-            }
+        virtual ~Component()
+        {
+        }
 
-            void Enable() override
-            {
-                 postEvent(StateMachine::Events::Enable);
-                 ComponentBase::PostEnable();
-            }
+        void Init() override
+        {
+            postEvent(StateMachine::Events::Init);
+        }
 
-            void Disable() override
-            {
-                 postEvent(StateMachine::Events::Disable);
-                 ComponentBase::PostDisable();
-            }
+        void Stop() override
+        {
+            postEvent(StateMachine::Events::Stop);
+        }
 
-            void Run() override
-            {
-                 postEvent(StateMachine::Events::Run);
-            }
+        void Enable() override
+        {
+            postEvent(StateMachine::Events::Enable);
+            ComponentBase::PostEnable();
+        }
 
-            void Idle() override
-            {
-                 postEvent(StateMachine::Events::Idle);
-            }
+        void Disable() override
+        {
+            postEvent(StateMachine::Events::Disable);
+            ComponentBase::PostDisable();
+        }
 
-            void OnFailure() override
-            {
-                 postEvent(StateMachine::Events::OnFailure);
-            }
+        void Run() override
+        {
+            postEvent(StateMachine::Events::Run);
+        }
 
-            void Recover() override
-            {
-                 postEvent(StateMachine::Events::Recover);
-                 ComponentBase::PostDisable();
-            }
+        void Idle() override
+        {
+            postEvent(StateMachine::Events::Idle);
+        }
 
-            std::string GetStateText() override
-            {
-                 return currentState();
-            }
+        void OnFailure() override
+        {
+            postEvent(StateMachine::Events::OnFailure);
+        }
 
+        void Recover() override
+        {
+            postEvent(StateMachine::Events::Recover);
+            ComponentBase::PostDisable();
+        }
 
-            void PROCESS_OTHER(std::string payload) override
-            {
-                 // Process other messages
-                 m_log.Info("Processing other message: %s", payload.c_str());
-            }
+        std::string GetStateText() override
+        {
+            return currentState();
+        }
+
+        void PROCESS_OTHER(std::string payload) override
+        {
+            // Process other messages
+            m_log.Info("Processing other message: %s", payload.c_str());
+        }
 
         protected:
-
         private:
-            bool m_autoRun; // Keeps track of whether component is in auto-run mode
-    };            
-}; // namespace DAO
+        bool m_autoRun; // Keeps track of whether component is in auto-run mode
+    };
+}; // namespace Dao
 
 #endif /* DAO_COMPONENT_HPP */

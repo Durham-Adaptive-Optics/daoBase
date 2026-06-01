@@ -1,19 +1,19 @@
 /**
  * @file    daoBase.c
  * @brief   Durham AO RTC library
- * 
- * Durham AO RTC library description file. 
- *  
+ *
+ * Durham AO RTC library description file.
+ *
  * @author  S. Cetre
  * @date    23/06/2022
  *
- * 
+ *
  */
 #ifndef _DAOBASE_H
 #define _DAOBASE_H
 
-#include <stdio.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <time.h>
 
 // New Log System
@@ -25,49 +25,100 @@
 
 #define DEFAULT_LOG_LEVEL LOG_LEVEL_INFO
 
-void daoLog(int log_level, const char *format, ...);
-void daoLogError(const char *format, ...);
-void daoLogPrint(const char *format, ...);
-void daoLogWarning(const char *format, ...);
-void daoLogInfo(const char *format, ...);
-void daoLogDebug(const char *format, ...);
-void daoLogTrace(const char *format, ...);
+void daoLog(int log_level, const char* format, ...);
+void daoLogError(const char* format, ...);
+void daoLogPrint(const char* format, ...);
+void daoLogWarning(const char* format, ...);
+void daoLogInfo(const char* format, ...);
+void daoLogDebug(const char* format, ...);
+void daoLogTrace(const char* format, ...);
 void daoLogSetLevel(int log_level);
 
 // original Log System
 #define DAO_SUCCESS 0
-#define DAO_ERROR   1
+#define DAO_ERROR 1
 
 #define DAO_WARNING 0
 #define DAO_INFO 1
 #define DAO_DEBUG 2
 #define DAO_TRACE 3
 
-#define ANSI_COLOR_RED      "\x1b[31m"
-#define ANSI_COLOR_ORANGE   "\x1b[38;5;208m"
-#define ANSI_COLOR_GREEN    "\x1b[32m"
-#define ANSI_COLOR_YELLOW   "\x1b[33m"
-#define ANSI_COLOR_BLUE     "\x1b[34m"
-#define ANSI_COLOR_RESET     "\x1b[0m"
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_ORANGE "\x1b[38;5;208m"
+#define ANSI_COLOR_GREEN "\x1b[32m"
+#define ANSI_COLOR_YELLOW "\x1b[33m"
+#define ANSI_COLOR_BLUE "\x1b[34m"
+#define ANSI_COLOR_RESET "\x1b[0m"
 
-char * daoBaseGetTimeStamp();
+char* daoBaseGetTimeStamp();
 #define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
 
 int daoLogLevel = 1;
-#define daoError(fmt, ...) fprintf(stderr, ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET ANSI_COLOR_RED "[error]" ANSI_COLOR_RESET " %s:%d: " fmt, daoBaseGetTimeStamp(), __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define	daoPrint(fmt, ...) \
-            do { fprintf(stdout, "%s:%d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
-#define	daoWarning(fmt, ...) \
-            do { if (daoLogLevel>=DAO_WARNING) fprintf(stdout, ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET ANSI_COLOR_ORANGE "[warning]" ANSI_COLOR_RESET " %s:%s:%d: " fmt, daoBaseGetTimeStamp(), __FILENAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
-#define	daoInfo(fmt, ...) \
-            do { if (daoLogLevel>=DAO_INFO) fprintf(stdout,  ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET ANSI_COLOR_GREEN "[info]" ANSI_COLOR_RESET " %s:%s:%d: " fmt, daoBaseGetTimeStamp(), __FILENAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
-#define	daoDebug(fmt, ...) \
-            do { if (daoLogLevel>=DAO_DEBUG) fprintf(stdout, ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET ANSI_COLOR_YELLOW "[debug]" ANSI_COLOR_RESET " %s:%s:%d: " fmt, daoBaseGetTimeStamp(), __FILENAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while(0)
-#define daoTrace(fmt, ...) \
-            do { if (daoLogLevel>=DAO_TRACE) fprintf(stdout, ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET "[trace] %s:%s:%d " fmt, daoBaseGetTimeStamp(), __FILENAME__, __FUNCTION__, __LINE__, ##__VA_ARGS__); } while (0)
+#define daoError(fmt, ...)                                                                                                                 \
+    fprintf(stderr,                                                                                                                        \
+            ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET ANSI_COLOR_RED "[error]" ANSI_COLOR_RESET " %s:%d: " fmt,              \
+            daoBaseGetTimeStamp(),                                                                                                         \
+            __FUNCTION__,                                                                                                                  \
+            __LINE__,                                                                                                                      \
+            ##__VA_ARGS__)
+#define daoPrint(fmt, ...)                                                                                                                 \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+        fprintf(stdout, "%s:%d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__);                                                             \
+    } while (0)
+#define daoWarning(fmt, ...)                                                                                                               \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+        if (daoLogLevel >= DAO_WARNING)                                                                                                    \
+            fprintf(stdout,                                                                                                                \
+                    ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET ANSI_COLOR_ORANGE "[warning]" ANSI_COLOR_RESET                 \
+                                                     " %s:%s:%d: " fmt,                                                                    \
+                    daoBaseGetTimeStamp(),                                                                                                 \
+                    __FILENAME__,                                                                                                          \
+                    __FUNCTION__,                                                                                                          \
+                    __LINE__,                                                                                                              \
+                    ##__VA_ARGS__);                                                                                                        \
+    } while (0)
+#define daoInfo(fmt, ...)                                                                                                                  \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+        if (daoLogLevel >= DAO_INFO)                                                                                                       \
+            fprintf(stdout,                                                                                                                \
+                    ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET ANSI_COLOR_GREEN "[info]" ANSI_COLOR_RESET " %s:%s:%d: " fmt,  \
+                    daoBaseGetTimeStamp(),                                                                                                 \
+                    __FILENAME__,                                                                                                          \
+                    __FUNCTION__,                                                                                                          \
+                    __LINE__,                                                                                                              \
+                    ##__VA_ARGS__);                                                                                                        \
+    } while (0)
+#define daoDebug(fmt, ...)                                                                                                                 \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+        if (daoLogLevel >= DAO_DEBUG)                                                                                                      \
+            fprintf(stdout,                                                                                                                \
+                    ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET ANSI_COLOR_YELLOW "[debug]" ANSI_COLOR_RESET                   \
+                                                     " %s:%s:%d: " fmt,                                                                    \
+                    daoBaseGetTimeStamp(),                                                                                                 \
+                    __FILENAME__,                                                                                                          \
+                    __FUNCTION__,                                                                                                          \
+                    __LINE__,                                                                                                              \
+                    ##__VA_ARGS__);                                                                                                        \
+    } while (0)
+#define daoTrace(fmt, ...)                                                                                                                 \
+    do                                                                                                                                     \
+    {                                                                                                                                      \
+        if (daoLogLevel >= DAO_TRACE)                                                                                                      \
+            fprintf(stdout,                                                                                                                \
+                    ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET "[trace] %s:%s:%d " fmt,                                       \
+                    daoBaseGetTimeStamp(),                                                                                                 \
+                    __FILENAME__,                                                                                                          \
+                    __FUNCTION__,                                                                                                          \
+                    __LINE__,                                                                                                              \
+                    ##__VA_ARGS__);                                                                                                        \
+    } while (0)
 
 void daoSetLogLevel(int logLevel);
 
-unsigned daoBaseIp2Int(const char * ip); 
+unsigned daoBaseIp2Int(const char* ip);
 
 #endif
