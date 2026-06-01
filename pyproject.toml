@@ -1,0 +1,44 @@
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import ordering)
+    "N",   # pep8-naming (enforces PEP 8 class/function naming)
+    "UP",  # pyupgrade (modernise Python syntax)
+    "B",   # flake8-bugbear (common bugs and design issues)
+    "C4",  # flake8-comprehensions
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501",  # line too long — handled by formatter, not linter
+    "N801",  # class name should use CapWords — legacy daoFoo convention allowed
+    "N802",  # function name should be lowercase — legacy camelCase API convention
+    "N803",  # argument name should be lowercase — legacy camelCase API convention
+    "N806",  # variable in function should be lowercase — legacy camelCase convention
+    "N816",  # mixed-case variable in global scope — legacy camelCase convention
+    "RUF012", # mutable class attributes — legacy classes without type annotations
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/python/dao.py" = ["F403", "F401"]  # intentional wildcard re-export aggregation module
+"wscript" = ["E402"]                    # Waf build script: conditional imports after top-level config are standard
+
+[tool.ruff.lint.isort]
+# Project imports (dao*) treated as first-party
+known-first-party = ["dao", "daoComponent", "daoComponentStateMachine",
+                     "daoDb", "daoDoubleBuffer", "daoEvent", "daoLog",
+                     "daoProxy", "daoShm"]
+force-sort-within-sections = true
+
+[tool.ruff.lint.pep8-naming]
+# N801 disabled globally — daoFoo class naming convention is intentional
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

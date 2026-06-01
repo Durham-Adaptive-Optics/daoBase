@@ -1,7 +1,8 @@
-import zmq
-import time
 import threading
+
 import daoEvent_pb2
+import zmq
+
 
 class EventManager:
     def __init__(self):
@@ -19,6 +20,7 @@ class EventManager:
         # Send the serialized event over the network
         self.socket.send(event_bytes)
 
+
 class EventReceiver:
     def __init__(self):
         # Create a new ZeroMQ context
@@ -28,8 +30,8 @@ class EventReceiver:
         # Connect the socket to the network
         self.socket.connect("tcp://localhost:5555")
         # Subscribe to all events
-        self.socket.setsockopt(zmq.SUBSCRIBE, b'')
-        self.event = daoEvent_pb2.Event() 
+        self.socket.setsockopt(zmq.SUBSCRIBE, b"")
+        self.event = daoEvent_pb2.Event()
 
     def listen_for_events(self):
         while True:
@@ -41,12 +43,13 @@ class EventReceiver:
             # Handle the event here
             print(event)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     event_manager = EventManager()
     event_receiver = EventReceiver()
     # Start a new thread to listen for events
     threading.Thread(target=event_receiver.listen_for_events).start()
 
     # Send an example event
-    event = daoEvent_pb2.Event(name='example', data='example data')
+    event = daoEvent_pb2.Event(name="example", data="example data")
     event_manager.send_event(event)

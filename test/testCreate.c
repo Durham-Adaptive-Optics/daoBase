@@ -1,20 +1,14 @@
 #include <dao.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <stdio.h>
-
+#include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-
-
+#include <unistd.h>
 
 void testCreation()
 {
-    char * name = "/tmp/sciImageGain.im.shm";
+    char* name = "/tmp/sciImageGain.im.shm";
     uint32_t size[2];
-    size[0] = 1; 
+    size[0] = 1;
     size[1] = 1;
 
     IMAGE* img = (IMAGE*)malloc(sizeof(IMAGE));
@@ -26,12 +20,12 @@ void testCreation()
     // free(img);
 }
 
-// test for 
+// test for
 int main()
 {
     daoLogSetLevel(4);
-    int i  = 0;
-    while(1)
+    int i = 0;
+    while (1)
     {
         long mem = 1;
         printf("Testing iteration: %d  usage: %ld\n", i, mem);

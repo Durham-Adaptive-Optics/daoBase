@@ -6,18 +6,19 @@
  * @ Description: Tests for the modern C++ dao shared memory interface.
  */
 
-#include <gtest/gtest.h>
+#include <chrono>
+#include <cstring>
 #include <daoShm.hpp>
 #include <filesystem>
-#include <cstring>
-#include <thread>
 #include <future>
 #include <sstream>
-#include <chrono>
+#include <thread>
 
- /**
-  * @brief Test fixture for providing and cleaning up a shared memory file path.
-  */
+#include <gtest/gtest.h>
+
+/**
+ * @brief Test fixture for providing and cleaning up a shared memory file path.
+ */
 class Suite : public ::testing::Test
 {
     protected:
@@ -27,13 +28,14 @@ class Suite : public ::testing::Test
     {
         std::stringstream ss;
         const auto testInfo = ::testing::UnitTest::GetInstance()->current_test_info();
-        ss << "/tmp/" << testInfo->test_suite_name() << "_" << testInfo->name() << ".im.shm"; 
+        ss << "/tmp/" << testInfo->test_suite_name() << "_" << testInfo->name() << ".im.shm";
         shmPath_ = ss.str();
     }
 
     void TearDown() override
     {
-        if (std::filesystem::exists(shmPath_)) {
+        if (std::filesystem::exists(shmPath_))
+        {
             std::filesystem::remove(shmPath_);
         }
     }
@@ -44,11 +46,11 @@ class Suite : public ::testing::Test
  */
 TEST_F(Suite, CreateInit)
 {
-    Dao::Shape shape{ 3,4,1 };
-    int16_t frame[] = { 1,2,3,4,5,6,7,8,9,10,11,12 };
+    Dao::Shape shape{3, 4, 1};
+    int16_t frame[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
     Dao::Shm smem(shmPath_, shape, frame);
 
-    IMAGE image {};
+    IMAGE image{};
     ASSERT_EQ(daoShmShm2Img(shmPath_.c_str(), &image), DAO_SUCCESS);
     ASSERT_EQ(std::memcmp(frame, image.array.V, image.md->nelement * sizeof(int16_t)), 0);
     ASSERT_EQ(image.md->naxis, std::size(shape));
@@ -64,10 +66,10 @@ TEST_F(Suite, CreateInit)
  */
 TEST_F(Suite, CreateNoInit)
 {
-    Dao::Shape shape{ 3,4,1 };
+    Dao::Shape shape{3, 4, 1};
     Dao::Shm<int16_t> smem(shmPath_, shape);
 
-    IMAGE image {};
+    IMAGE image{};
     ASSERT_EQ(daoShmShm2Img(shmPath_.c_str(), &image), DAO_SUCCESS);
     ASSERT_EQ(image.md->naxis, std::size(shape));
     ASSERT_EQ(image.md->atype, _DATATYPE_INT16);
@@ -82,12 +84,7 @@ TEST_F(Suite, CreateNoInit)
  */
 TEST_F(Suite, CreateError)
 {
-    EXPECT_ANY_THROW(
-        Dao::Shm<int16_t> smem(
-            "",
-            { 3,4,1 }
-        )
-    );
+    EXPECT_ANY_THROW(Dao::Shm<int16_t> smem("", {3, 4, 1}));
 }
 
 /**
@@ -95,13 +92,9 @@ TEST_F(Suite, CreateError)
  */
 TEST_F(Suite, Open)
 {
-    IMAGE image {};
-    uint32_t shape[] = { 1,1 };
-    const auto createStatus = daoShmImageCreate(
-        &image, shmPath_.c_str(),
-        std::size(shape), shape,
-        _DATATYPE_INT16, 1, 0
-    );
+    IMAGE image{};
+    uint32_t shape[] = {1, 1};
+    const auto createStatus = daoShmImageCreate(&image, shmPath_.c_str(), std::size(shape), shape, _DATATYPE_INT16, 1, 0);
 
     ASSERT_EQ(createStatus, DAO_SUCCESS);
     ASSERT_NO_THROW(Dao::Shm<int16_t> smem(shmPath_));
@@ -121,12 +114,12 @@ TEST_F(Suite, OpenError)
  */
 TEST_F(Suite, ReadWrite)
 {
-    Dao::Shm<float> smem(shmPath_, { 1,1 });
+    Dao::Shm<float> smem(shmPath_, {1, 1});
 
-    float frame[] = { 3.1415f };
+    float frame[] = {3.1415f};
     smem.set_frame(frame);
 
-    float *frame_ = smem.get_frame();
+    float* frame_ = smem.get_frame();
     ASSERT_EQ(std::memcmp(frame, frame_, smem.get_element_count() * sizeof(float)), 0);
 }
 
@@ -136,13 +129,15 @@ TEST_F(Suite, ReadWrite)
 TEST_F(Suite, SpinSync)
 {
     bool syncDone = false;
-    float frame[] = { 3.1415f };
-    Dao::Shm<float> smem(shmPath_, { 1,1 });
+    float frame[] = {3.1415f};
+    Dao::Shm<float> smem(shmPath_, {1, 1});
 
-    std::thread waiter ([&]() {
-        float *frame_ = smem.get_frame(Dao::ShmSync::SPIN);
-        syncDone = true;
-    });
+    std::thread waiter(
+        [&]()
+        {
+            float* frame_ = smem.get_frame(Dao::ShmSync::SPIN);
+            syncDone = true;
+        });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     smem.set_frame(frame);
@@ -158,13 +153,15 @@ TEST_F(Suite, SpinSync)
 TEST_F(Suite, SpinSyncTimeout)
 {
     bool syncDone = false;
-    float frame[] = { 3.1415f };
-    Dao::Shm<float> smem(shmPath_, { 1,1 });
+    float frame[] = {3.1415f};
+    Dao::Shm<float> smem(shmPath_, {1, 1});
 
-    std::thread waiter ([&]() {
-        float *frame_ = smem.get_frame(Dao::ShmSync::SPIN, 1);
-        syncDone = true;
-    });
+    std::thread waiter(
+        [&]()
+        {
+            float* frame_ = smem.get_frame(Dao::ShmSync::SPIN, 1);
+            syncDone = true;
+        });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     smem.set_frame(frame);
@@ -180,13 +177,15 @@ TEST_F(Suite, SpinSyncTimeout)
 TEST_F(Suite, SemSync)
 {
     bool syncDone = false;
-    float frame[] = { 3.1415f };
-    Dao::Shm<float> smem(shmPath_, { 1,1 });
+    float frame[] = {3.1415f};
+    Dao::Shm<float> smem(shmPath_, {1, 1});
 
-    std::thread waiter ([&]() {
-        float *frame_ = smem.get_frame(Dao::ShmSync::SEM);
-        syncDone = true;
-    });
+    std::thread waiter(
+        [&]()
+        {
+            float* frame_ = smem.get_frame(Dao::ShmSync::SEM);
+            syncDone = true;
+        });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     smem.set_frame(frame);
@@ -202,14 +201,16 @@ TEST_F(Suite, SemSync)
 TEST_F(Suite, SemSyncTimeout)
 {
     bool syncDone = false;
-    float frame[] = { 3.1415f };
-    Dao::Shm<float> smem(shmPath_, { 1,1 });
+    float frame[] = {3.1415f};
+    Dao::Shm<float> smem(shmPath_, {1, 1});
 
     const size_t timeout = 1;
-    std::thread waiter ([&]() {
-        float *frame_ = smem.get_frame(Dao::ShmSync::SEM, timeout);
-        syncDone = true;
-    });
+    std::thread waiter(
+        [&]()
+        {
+            float* frame_ = smem.get_frame(Dao::ShmSync::SEM, timeout);
+            syncDone = true;
+        });
 
     std::this_thread::sleep_for(std::chrono::seconds(timeout + 2));
     ASSERT_EQ(syncDone, true);
@@ -222,13 +223,15 @@ TEST_F(Suite, SemSyncTimeout)
 TEST_F(Suite, SemXSync)
 {
     bool syncDone = false;
-    float frame[] = { 3.1415f };
-    Dao::Shm<float> smem(shmPath_, { 1,1 });
+    float frame[] = {3.1415f};
+    Dao::Shm<float> smem(shmPath_, {1, 1});
 
-    std::thread waiter ([&]() {
-        float *frame_ = smem.get_frame(Dao::ShmSync::SEM7);
-        syncDone = true;
-    });
+    std::thread waiter(
+        [&]()
+        {
+            float* frame_ = smem.get_frame(Dao::ShmSync::SEM7);
+            syncDone = true;
+        });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     smem.set_frame(frame);
@@ -243,7 +246,7 @@ TEST_F(Suite, SemXSync)
  */
 TEST_F(Suite, GetShape)
 {
-    Dao::Shape shape{ 1, 1 };
+    Dao::Shape shape{1, 1};
     Dao::Shm<float> smem(shmPath_, shape);
 
     Dao::Shape shape_ = smem.get_shape();
@@ -257,25 +260,27 @@ TEST_F(Suite, GetShape)
 TEST_F(Suite, FifoSync)
 {
     bool syncDone = false;
-    int16_t frame_a[] = { 128 };
-    int16_t frame_b[] = { 129 };
+    int16_t frame_a[] = {128};
+    int16_t frame_b[] = {129};
 
-    Dao::Shm<int16_t> smem(shmPath_, { 1,1 }, frame_a, 4);
+    Dao::Shm<int16_t> smem(shmPath_, {1, 1}, frame_a, 4);
 
-    std::thread waiter ([&]() {
-        int_fast8_t status;
-        uint64_t cnt0_a, cnt0_b;
+    std::thread waiter(
+        [&]()
+        {
+            int_fast8_t status;
+            uint64_t cnt0_a, cnt0_b;
 
-        int16_t *frame_ = smem.get_next_frame(true, status, cnt0_a);
-        ASSERT_EQ(*frame_, 128);
+            int16_t* frame_ = smem.get_next_frame(true, status, cnt0_a);
+            ASSERT_EQ(*frame_, 128);
 
-        frame_ = smem.get_next_frame(true, status, cnt0_b);
-        ASSERT_EQ(*frame_, 129);
+            frame_ = smem.get_next_frame(true, status, cnt0_b);
+            ASSERT_EQ(*frame_, 129);
 
-        ASSERT_EQ(cnt0_a + 1, cnt0_b);
-        ASSERT_EQ(status, DAO_SUCCESS);
-        syncDone = true;
-    });
+            ASSERT_EQ(cnt0_a + 1, cnt0_b);
+            ASSERT_EQ(status, DAO_SUCCESS);
+            syncDone = true;
+        });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     smem.set_frame(frame_b);
@@ -291,28 +296,30 @@ TEST_F(Suite, FifoSync)
 TEST_F(Suite, FifoOverwrite)
 {
     bool syncDone = false;
-    int16_t frame_a[] = { 128 };
-    int16_t frame_b[] = { 129 };
+    int16_t frame_a[] = {128};
+    int16_t frame_b[] = {129};
 
-    Dao::Shm<int16_t> smem(shmPath_, { 1,1 }, frame_a, 4);
+    Dao::Shm<int16_t> smem(shmPath_, {1, 1}, frame_a, 4);
 
-    std::thread waiter ([&]() {
-        int_fast8_t status;
-        uint64_t cnt0_a, cnt0_b;
+    std::thread waiter(
+        [&]()
+        {
+            int_fast8_t status;
+            uint64_t cnt0_a, cnt0_b;
 
-        int16_t *frame_ = smem.get_next_frame(true, status, cnt0_a);
-        ASSERT_EQ(*frame_, 128);
+            int16_t* frame_ = smem.get_next_frame(true, status, cnt0_a);
+            ASSERT_EQ(*frame_, 128);
 
-        // Wait for all writes to complete by spinning until cnt0 = cnt0_a + 10
-        smem.get_frame(Dao::ShmSync::SPIN, cnt0_a + 10);
+            // Wait for all writes to complete by spinning until cnt0 = cnt0_a + 10
+            smem.get_frame(Dao::ShmSync::SPIN, cnt0_a + 10);
 
-        frame_ = smem.get_next_frame(true, status, cnt0_b);
-        ASSERT_EQ(*frame_, 129);
+            frame_ = smem.get_next_frame(true, status, cnt0_b);
+            ASSERT_EQ(*frame_, 129);
 
-        ASSERT_EQ(cnt0_a + 10, cnt0_b);
-        ASSERT_EQ(status, DAO_OVERWRITE);
-        syncDone = true;
-    });
+            ASSERT_EQ(cnt0_a + 10, cnt0_b);
+            ASSERT_EQ(status, DAO_OVERWRITE);
+            syncDone = true;
+        });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
@@ -325,7 +332,7 @@ TEST_F(Suite, FifoOverwrite)
     waiter.join();
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

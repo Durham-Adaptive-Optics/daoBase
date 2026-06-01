@@ -8,6 +8,9 @@ ZMQ stream of any published segment; the server starts publishing on demand and
 registers the connection port in Redis so the client can subscribe.
 """
 
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 import glob
 import ipaddress
 import json
@@ -20,18 +23,16 @@ import subprocess
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 
-import redis
 import numpy as np
+import redis
 
 # ---------------------------------------------------------------------------
 # daoShm import — resolve from the sibling daoBase repo
 # ---------------------------------------------------------------------------
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "daoBase", "src", "python"))
-from daoShm import shm, daoType2NpType  # noqa: E402
+from daoShm import daoType2NpType, shm
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ SHM_DIR: str = "." if platform.system() == "Windows" else "/tmp"
 # ---------------------------------------------------------------------------
 # Key helpers
 # ---------------------------------------------------------------------------
+
 
 def _key(*parts: str) -> str:
     """Build a namespaced Redis key.
@@ -75,6 +77,7 @@ def _sanitise_shm_name(name: str) -> str:
 # SHM discovery
 # ---------------------------------------------------------------------------
 
+
 def _discover_shm_segments() -> list[dict]:
     """Discover local SHM segments (*.im.shm) in SHM_DIR.
 
@@ -97,7 +100,7 @@ def _discover_shm_segments() -> list[dict]:
             np_dtype = daoType2NpType(md["atype"])
             dtype_str = str(np.dtype(np_dtype)) if np_dtype is not None else "float32"
             segments.append({"name": name, "dimensions": size, "dtype": dtype_str})
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Could not read metadata for SHM '%s': %s", name, exc)
     return segments
 
@@ -105,6 +108,7 @@ def _discover_shm_segments() -> list[dict]:
 # ---------------------------------------------------------------------------
 # ZMQ connector (the only built-in transport)
 # ---------------------------------------------------------------------------
+
 
 def _connect_zmq(
     server_ip: str,
@@ -142,7 +146,8 @@ def _connect_zmq(
         local.pubThread.start()
         logger.info(
             "Bidirectional: mirror '%s' publishing back on ZMQ port %d.",
-            mirror_name, pub_port,
+            mirror_name,
+            pub_port,
         )
     return local
 
@@ -156,6 +161,7 @@ _CONNECTORS: dict[str, Callable] = {
 # ---------------------------------------------------------------------------
 # Redis discovery
 # ---------------------------------------------------------------------------
+
 
 def _get_local_ips() -> list[str]:
     """Return all non-loopback IPv4 addresses attached to local interfaces.
@@ -202,14 +208,12 @@ def _get_local_ips() -> list[str]:
                     if len(parts) >= 2 and not parts[1].startswith("127."):
                         ips.add(parts[1])
         else:
-            out = subprocess.check_output(
-                ["ip", "-4", "addr", "show"], text=True, timeout=3
-            )
+            out = subprocess.check_output(["ip", "-4", "addr", "show"], text=True, timeout=3)
             for match in re.finditer(r"inet\s+(\d+\.\d+\.\d+\.\d+)", out):
                 addr = match.group(1)
                 if not addr.startswith("127."):
                     ips.add(addr)
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
     return list(ips)
@@ -276,7 +280,8 @@ def discover_redis(
         # TCP port is open — confirm it's Redis.
         try:
             r = redis.Redis(
-                host=host, port=port,
+                host=host,
+                port=port,
                 socket_connect_timeout=timeout,
                 socket_timeout=timeout,
                 decode_responses=True,
@@ -301,12 +306,13 @@ def discover_redis(
         finally:
             try:
                 r.close()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
 
         logger.info(
             "discover_redis: found Redis at %s:%d%s",
-            host, port,
+            host,
+            port,
             " (dao)" if entry.get("dao") else "",
         )
         with lock:
@@ -314,7 +320,9 @@ def discover_redis(
 
     logger.info(
         "discover_redis: scanning %d hosts across %d subnet(s) on port %d…",
-        len(candidates), len(local_subnets), port,
+        len(candidates),
+        len(local_subnets),
+        port,
     )
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = [pool.submit(_probe, h) for h in candidates]
@@ -325,14 +333,16 @@ def discover_redis(
     logger.info("discover_redis: found %d Redis instance(s).", len(results))
     return results
 
+
 # Client heartbeat configuration
 _CLIENT_HEARTBEAT_INTERVAL: float = 10.0  # seconds between client heartbeat writes
-_CLIENT_HEARTBEAT_TTL: float = 25.0       # seconds before a silent client is evicted
+_CLIENT_HEARTBEAT_TTL: float = 25.0  # seconds before a silent client is evicted
 
 
 # ---------------------------------------------------------------------------
 # DaoServer
 # ---------------------------------------------------------------------------
+
 
 class DaoServer:
     """Daemon that registers local SHM segments in Redis and serves them remotely.
@@ -366,14 +376,10 @@ class DaoServer:
 
         # Redis connection
         try:
-            self._redis: redis.Redis = redis.Redis(
-                host=redis_host, port=redis_port, decode_responses=True
-            )
+            self._redis: redis.Redis = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
             self._redis.ping()
         except redis.RedisError as exc:
-            raise ConnectionError(
-                f"Cannot connect to Redis at {redis_host}:{redis_port}: {exc}"
-            ) from exc
+            raise ConnectionError(f"Cannot connect to Redis at {redis_host}:{redis_port}: {exc}") from exc
 
         # Role resolution (may log a warning)
         self._role: str = self._resolve_role(role)
@@ -447,9 +453,7 @@ class DaoServer:
 
         # Fallback: iterate all addresses and pick the first non-loopback one.
         try:
-            for info in socket.getaddrinfo(
-                socket.gethostname(), None, socket.AF_INET
-            ):
+            for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
                 addr = info[4][0]
                 if not addr.startswith("127."):
                     return addr
@@ -478,9 +482,7 @@ class DaoServer:
         master_exists = False
         cursor = 0
         while True:
-            cursor, keys = self._redis.scan(
-                cursor, match=_key("machines", "*", "role"), count=100
-            )
+            cursor, keys = self._redis.scan(cursor, match=_key("machines", "*", "role"), count=100)
             for k in keys:
                 if self._redis.get(k) == "master":
                     master_exists = True
@@ -490,8 +492,7 @@ class DaoServer:
 
         if not master_exists:
             logger.warning(
-                "No master found in Redis — promoting this machine ('%s') to master. "
-                "Pass --role explicitly to suppress this message.",
+                "No master found in Redis — promoting this machine ('%s') to master. " "Pass --role explicitly to suppress this message.",
                 self._hostname,
             )
             return "master"
@@ -598,9 +599,7 @@ class DaoServer:
                     deleted += len(keys)
                 if cursor == 0:
                     break
-            logger.info(
-                "Deregistered machine '%s' (%d key(s) removed).", target, deleted
-            )
+            logger.info("Deregistered machine '%s' (%d key(s) removed).", target, deleted)
         except redis.RedisError as exc:
             logger.error("Failed to deregister '%s': %s", target, exc)
 
@@ -666,9 +665,7 @@ class DaoServer:
             stale_pattern = _key("machines", self._hostname, "shm", safe, "*")
             cursor = 0
             while True:
-                cursor, keys = self._redis.scan(
-                    cursor, match=stale_pattern, count=100
-                )
+                cursor, keys = self._redis.scan(cursor, match=stale_pattern, count=100)
                 if keys:
                     self._redis.delete(*keys)
                 if cursor == 0:
@@ -697,9 +694,7 @@ class DaoServer:
                 md = s.get_meta_data()
                 size = [int(x) for x in md["size"] if int(x) > 0]
                 np_dtype = daoType2NpType(md["atype"])
-                dtype_str = (
-                    str(np.dtype(np_dtype)) if np_dtype is not None else "float32"
-                )
+                dtype_str = str(np.dtype(np_dtype)) if np_dtype is not None else "float32"
                 safe = _sanitise_shm_name(name)
                 pipe.set(
                     _key("machines", self._hostname, "shm", safe, "dimensions"),
@@ -711,10 +706,8 @@ class DaoServer:
                 )
                 added += 1
                 logger.info("New SHM '%s' discovered — added to registry.", name)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(
-                    "Could not read metadata for new SHM '%s': %s", name, exc
-                )
+            except Exception as exc:
+                logger.warning("Could not read metadata for new SHM '%s': %s", name, exc)
         if added:
             pipe.execute()
 
@@ -759,9 +752,7 @@ class DaoServer:
                                 )
                                 self.deregister_machine(stale_host)
                     except (ValueError, TypeError) as exc:
-                        logger.warning(
-                            "Could not parse last_connect for key '%s': %s", k, exc
-                        )
+                        logger.warning("Could not parse last_connect for key '%s': %s", k, exc)
                 if cursor == 0:
                     break
         except redis.RedisError as exc:
@@ -784,9 +775,7 @@ class DaoServer:
             try:
                 cursor = 0
                 while True:
-                    cursor, keys = self._redis.scan(
-                        cursor, match=pattern, count=100
-                    )
+                    cursor, keys = self._redis.scan(cursor, match=pattern, count=100)
                     for k in keys:
                         # dao:connections:<hostname>:<shm_name>
                         parts = k.split(":")
@@ -805,9 +794,7 @@ class DaoServer:
                 logger.warning("Connection request monitor error: %s", exc)
             self._stop_event.wait(2.0)
 
-    def _start_publishing(
-        self, shm_name: str, client_info: dict | None = None
-    ) -> None:
+    def _start_publishing(self, shm_name: str, client_info: dict | None = None) -> None:
         """Allocate a port and start a ZMQ publisher for a local SHM segment.
 
         If already publishing, appends the new client to the connections list.
@@ -832,13 +819,9 @@ class DaoServer:
                 with self._publisher_lock:
                     self._active_publishers[shm_name] = s
                     self._publisher_ports[shm_name] = port
-                logger.info(
-                    "Started publishing SHM '%s' on ZMQ port %d.", shm_name, port
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.error(
-                    "Failed to start publishing SHM '%s': %s", shm_name, exc
-                )
+                logger.info("Started publishing SHM '%s' on ZMQ port %d.", shm_name, port)
+            except Exception as exc:
+                logger.error("Failed to start publishing SHM '%s': %s", shm_name, exc)
                 with self._publisher_lock:
                     self._used_ports.discard(port)
                     self._active_publishers.pop(shm_name, None)
@@ -854,10 +837,8 @@ class DaoServer:
             if pub_obj is not None:
                 try:
                     pub_obj.pubThreadCounter = pub_obj.get_counter() - 1
-                except Exception as exc:  # noqa: BLE001
-                    logger.debug(
-                        "Initial publish nudge failed for '%s': %s", shm_name, exc
-                    )
+                except Exception as exc:
+                    logger.debug("Initial publish nudge failed for '%s': %s", shm_name, exc)
 
         threading.Thread(
             target=_nudge_initial_publish,
@@ -883,14 +864,13 @@ class DaoServer:
                     with self._publisher_lock:
                         self._bidirectional_sub_ports[shm_name] = int(client_pub_port)
                     logger.info(
-                        "Bidirectional: server subscribing to '%s' on port %d "
-                        "for SHM '%s'.",
-                        client_ip, client_pub_port, shm_name,
+                        "Bidirectional: server subscribing to '%s' on port %d " "for SHM '%s'.",
+                        client_ip,
+                        client_pub_port,
+                        shm_name,
                     )
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning(
-                        "Failed to start bidirectional sub for '%s': %s", shm_name, exc
-                    )
+                except Exception as exc:
+                    logger.warning("Failed to start bidirectional sub for '%s': %s", shm_name, exc)
 
         # Append this client to the connections list in Redis (WATCH/MULTI for safety)
         safe = _sanitise_shm_name(shm_name)
@@ -912,11 +892,7 @@ class DaoServer:
                     raw = pipe.get(conn_key)
                     connections: list[dict] = json.loads(raw) if raw else []
                     # Avoid duplicate entries for the same client
-                    if not any(
-                        c.get("client_hostname") == new_entry["client_hostname"]
-                        and c.get("port") == port
-                        for c in connections
-                    ):
+                    if not any(c.get("client_hostname") == new_entry["client_hostname"] and c.get("port") == port for c in connections):
                         connections.append(new_entry)
                     pipe.multi()
                     pipe.set(conn_key, json.dumps(connections))
@@ -947,14 +923,12 @@ class DaoServer:
                 if pub.subEnable:
                     pub.subEnable = False
                     pub.subEvent.set()
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("Error stopping publisher for '%s': %s", shm_name, exc)
         # Remove the connections key so future clients know they must request again
         safe = _sanitise_shm_name(shm_name)
         try:
-            self._redis.delete(
-                _key("machines", self._hostname, "shm", safe, "connections")
-            )
+            self._redis.delete(_key("machines", self._hostname, "shm", safe, "connections"))
         except redis.RedisError:
             pass
         logger.info("Publisher for SHM '%s' stopped.", shm_name)
@@ -992,9 +966,7 @@ class DaoServer:
             alive_clients: set[str] = set()
             cursor = 0
             while True:
-                cursor, keys = self._redis.scan(
-                    cursor, match=hb_pattern, count=100
-                )
+                cursor, keys = self._redis.scan(cursor, match=hb_pattern, count=100)
                 for k in keys:
                     raw = self._redis.get(k)
                     if not raw:
@@ -1020,20 +992,20 @@ class DaoServer:
                         raw = pipe.get(conn_key)
                         connections: list[dict] = json.loads(raw) if raw else []
                         live = [
-                            c for c in connections
-                            if c.get("client_hostname") in alive_clients
-                            or not c.get("client_hostname")  # keep anonymous entries
+                            c
+                            for c in connections
+                            if c.get("client_hostname") in alive_clients or not c.get("client_hostname")  # keep anonymous entries
                         ]
                         evicted = [
-                            c["client_hostname"] for c in connections
-                            if c.get("client_hostname")
-                            and c.get("client_hostname") not in alive_clients
+                            c["client_hostname"]
+                            for c in connections
+                            if c.get("client_hostname") and c.get("client_hostname") not in alive_clients
                         ]
                         for ch in evicted:
                             logger.warning(
-                                "Evicting stale client '%s' from SHM '%s' "
-                                "(no heartbeat).",
-                                ch, shm_name,
+                                "Evicting stale client '%s' from SHM '%s' " "(no heartbeat).",
+                                ch,
+                                shm_name,
                             )
                         pipe.multi()
                         if live:
@@ -1097,13 +1069,9 @@ class DaoServer:
         if host_ip is None:
             raise KeyError(f"No machine '{hostname}' registered in Redis.")
 
-        dims_raw = self._redis.get(
-            _key("machines", hostname, "shm", safe, "dimensions")
-        )
+        dims_raw = self._redis.get(_key("machines", hostname, "shm", safe, "dimensions"))
         if dims_raw is None:
-            raise KeyError(
-                f"No SHM '{shm_name}' registered for host '{hostname}'."
-            )
+            raise KeyError(f"No SHM '{shm_name}' registered for host '{hostname}'.")
 
         # Check whether the remote is already publishing (non-empty connections list)
         conn_key = _key("machines", hostname, "shm", safe, "connections")
@@ -1122,7 +1090,8 @@ class DaoServer:
             # Register a connection request in Redis
             logger.info(
                 "Requesting SHM '%s' from remote host '%s'%s.",
-                shm_name, hostname,
+                shm_name,
+                hostname,
                 " (bidirectional)" if bidirectional else "",
             )
             req_key = self._connection_request_key(hostname, shm_name)
@@ -1144,17 +1113,12 @@ class DaoServer:
             deadline = time.monotonic() + timeout_s
             while time.monotonic() < deadline:
                 connections_raw = self._redis.get(conn_key)
-                connections = (
-                    json.loads(connections_raw) if connections_raw else []
-                )
+                connections = json.loads(connections_raw) if connections_raw else []
                 if connections:
                     break
                 time.sleep(0.5)
             else:
-                raise TimeoutError(
-                    f"Remote server '{hostname}' did not start publishing SHM "
-                    f"'{shm_name}' within {timeout_s:.0f} s."
-                )
+                raise TimeoutError(f"Remote server '{hostname}' did not start publishing SHM " f"'{shm_name}' within {timeout_s:.0f} s.")
 
         conn_port: int = int(connections[0]["port"])
         conn_type: str = connections[0].get("transport", "zmq")
@@ -1165,15 +1129,11 @@ class DaoServer:
 
         # Build local mirror
         dimensions: list[int] = json.loads(dims_raw)
-        dtype_str: str = (
-            self._redis.get(_key("machines", hostname, "shm", safe, "dtype"))
-            or "float32"
-        )
+        dtype_str: str = self._redis.get(_key("machines", hostname, "shm", safe, "dtype")) or "float32"
         mirror_name = f"remote_{hostname}_{safe}"
 
         logger.info(
-            "Mirroring remote SHM '%s@%s' → local '%s/%s.im.shm' "
-            "via tcp://%s:%d.",
+            "Mirroring remote SHM '%s@%s' → local '%s/%s.im.shm' " "via tcp://%s:%d.",
             shm_name,
             hostname,
             SHM_DIR,
@@ -1182,7 +1142,11 @@ class DaoServer:
             conn_port,
         )
         mirror = connector(
-            host_ip, conn_port, mirror_name, dimensions, dtype_str,
+            host_ip,
+            conn_port,
+            mirror_name,
+            dimensions,
+            dtype_str,
             pub_port=client_pub_port,
         )
 
@@ -1195,8 +1159,7 @@ class DaoServer:
             time.sleep(0.05)
         else:
             logger.debug(
-                "No initial frame received for '%s@%s' within 2 s; "
-                "mirror initialised to zero.",
+                "No initial frame received for '%s@%s' within 2 s; " "mirror initialised to zero.",
                 shm_name,
                 hostname,
             )
@@ -1231,9 +1194,7 @@ class DaoServer:
         def _loop() -> None:
             # Write immediately so the server sees us before the first interval
             try:
-                self._redis.set(
-                    hb_key, datetime.now(timezone.utc).isoformat(), ex=redis_ex
-                )
+                self._redis.set(hb_key, datetime.now(timezone.utc).isoformat(), ex=redis_ex)
             except redis.RedisError as exc:
                 logger.warning("Initial client heartbeat failed: %s", exc)
 
@@ -1244,9 +1205,7 @@ class DaoServer:
                         datetime.now(timezone.utc).isoformat(),
                         ex=redis_ex,
                     )
-                    logger.debug(
-                        "Client heartbeat sent for '%s@%s'.", shm_name, hostname
-                    )
+                    logger.debug("Client heartbeat sent for '%s@%s'.", shm_name, hostname)
                 except redis.RedisError as exc:
                     logger.warning("Client heartbeat write failed: %s", exc)
 
@@ -1285,7 +1244,7 @@ class DaoServer:
             try:
                 mirror.pubEnable = False
                 mirror.pubEvent.set()
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("Error stopping mirror pub for '%s@%s': %s", shm_name, hostname, exc)
 
         # Remove this client from the connections list
@@ -1298,10 +1257,7 @@ class DaoServer:
                     pipe.watch(conn_key)
                     raw = pipe.get(conn_key)
                     connections: list[dict] = json.loads(raw) if raw else []
-                    connections = [
-                        c for c in connections
-                        if c.get("client_hostname") != self._hostname
-                    ]
+                    connections = [c for c in connections if c.get("client_hostname") != self._hostname]
                     pipe.multi()
                     if connections:
                         pipe.set(conn_key, json.dumps(connections))
@@ -1334,9 +1290,7 @@ class DaoServer:
         try:
             # Collect all registered hostnames
             while True:
-                cursor, keys = self._redis.scan(
-                    cursor, match=_key("machines", "*", "hostname"), count=100
-                )
+                cursor, keys = self._redis.scan(cursor, match=_key("machines", "*", "hostname"), count=100)
                 for k in keys:
                     # dao:machines:<hostname>:hostname
                     parts = k.split(":")
@@ -1347,9 +1301,7 @@ class DaoServer:
                         "hostname": self._redis.get(_key("machines", host, "hostname")),
                         "ip": self._redis.get(_key("machines", host, "ip")),
                         "role": self._redis.get(_key("machines", host, "role")),
-                        "last_connect": self._redis.get(
-                            _key("machines", host, "last_connect")
-                        ),
+                        "last_connect": self._redis.get(_key("machines", host, "last_connect")),
                         "shm_segments": [],
                     }
                 if cursor == 0:
@@ -1360,9 +1312,7 @@ class DaoServer:
                 shm_pattern = _key("machines", host, "shm", "*", "dtype")
                 cursor = 0
                 while True:
-                    cursor, keys = self._redis.scan(
-                        cursor, match=shm_pattern, count=100
-                    )
+                    cursor, keys = self._redis.scan(cursor, match=shm_pattern, count=100)
                     for k in keys:
                         # dao:machines:<host>:shm:<shm_name>:dtype
                         parts = k.split(":")
@@ -1387,14 +1337,10 @@ class DaoServer:
         """
         self.register_machine()
 
-        heartbeat_thread = threading.Thread(
-            target=self.heartbeat, name="dao-heartbeat", daemon=True
-        )
+        heartbeat_thread = threading.Thread(target=self.heartbeat, name="dao-heartbeat", daemon=True)
         heartbeat_thread.start()
 
-        sync_thread = threading.Thread(
-            target=self._sync_shm_registry, name="dao-shm-sync", daemon=True
-        )
+        sync_thread = threading.Thread(target=self._sync_shm_registry, name="dao-shm-sync", daemon=True)
         sync_thread.start()
 
         monitor_thread = threading.Thread(
@@ -1412,6 +1358,7 @@ class DaoServer:
         client_hb_thread.start()
 
         if self._role == "master":
+
             def _stale_cleanup_loop() -> None:
                 while not self._stop_event.wait(60.0):
                     try:
@@ -1472,9 +1419,7 @@ if __name__ == "__main__":
         format="%(asctime)s  %(levelname)-8s  %(name)s: %(message)s",
     )
 
-    parser = argparse.ArgumentParser(
-        description="daoServer — distributed SHM registry daemon"
-    )
+    parser = argparse.ArgumentParser(description="daoServer — distributed SHM registry daemon")
     parser.add_argument(
         "--discover",
         action="store_true",
@@ -1524,10 +1469,7 @@ if __name__ == "__main__":
             for entry in found:
                 dao_tag = " [dao]" if entry["dao"] else ""
                 machines = ", ".join(entry["machines"]) if entry["machines"] else "—"
-                print(
-                    f"  {entry['host']}:{entry['port']}{dao_tag}"
-                    f"  machines: {machines}"
-                )
+                print(f"  {entry['host']}:{entry['port']}{dao_tag}" f"  machines: {machines}")
         sys.exit(0)
 
     server = DaoServer(

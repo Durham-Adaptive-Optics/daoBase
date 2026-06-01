@@ -1,0 +1,65 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+# Brace style: Allman (opening brace on its own line)
+BreakBeforeBraces: Allman
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+
+# Line length
+ColumnLimit: 140
+
+# Namespace indentation (mirrors existing code: content indented inside namespace Dao)
+NamespaceIndentation: All
+
+# Access modifiers (public:/private:/protected:) at same level as class body
+AccessModifierOffset: 0
+
+# Pointer/reference alignment
+PointerAlignment: Left
+
+# Function parameter formatting
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackParameters: false
+BinPackArguments: false
+
+# Short constructs: do not collapse onto single line
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+
+# Break before binary operators (improves readability for long conditions)
+BreakBeforeBinaryOperators: NonAssignment
+
+# Constructor initializer lists
+ConstructorInitializerIndentWidth: 4
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: Never
+
+# Include ordering
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  # System C/C++ headers  <foo.h> / <foo>
+  - Regex:           '^<[a-z_]+(\.[a-z]+)?>'
+    Priority:        2
+  # Third-party headers  <zmq.h>, <gtest/gtest.h>, etc.
+  - Regex:           '^<.*>'
+    Priority:        3
+  # Project headers  "dao*.hpp" / "dao*.h"
+  - Regex:           '"dao.*"'
+    Priority:        1
+
+# Template
+SpaceAfterTemplateKeyword: false
+
+# Trailing whitespace
+DeriveLineEnding: false
+UseCRLF: false
+...

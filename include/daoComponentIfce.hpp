@@ -21,19 +21,18 @@ namespace Dao
     class ComponentIfce
     {
         public:
-            virtual ~ComponentIfce(){};
-            
-            virtual void Init()     = 0;
-            virtual void Stop()     = 0;
-            virtual void Enable()   = 0;
-            virtual void Disable()  = 0;
-            virtual void Run()      = 0;
-            virtual void Idle()     = 0;
-            virtual void OnFailure()= 0;
-            virtual void Recover()  = 0;
-            virtual std::string GetStateText() = 0;
+        virtual ~ComponentIfce() {};
 
-    };            
-}; // namespace DAO
+        virtual void Init() = 0;
+        virtual void Stop() = 0;
+        virtual void Enable() = 0;
+        virtual void Disable() = 0;
+        virtual void Run() = 0;
+        virtual void Idle() = 0;
+        virtual void OnFailure() = 0;
+        virtual void Recover() = 0;
+        virtual std::string GetStateText() = 0;
+    };
+}; // namespace Dao
 
 #endif /* DAO_COMPONENT_IFCE_HPP */

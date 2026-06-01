@@ -167,7 +167,7 @@ function shm(name, data=nothing)
         println("connecting to existing $name")
         # if not parameters given, connect to existing SHM
         return connect_shm(name)
-    else 
+    else
         # else create or overwrite existing SHM
         println("$name will be created or overwritten")
         return create_shm(name, data)
@@ -190,7 +190,7 @@ function create_shm(name, data)
     # check type
     if eltype(data) == Int8
         atype = 1
-    elseif eltype(data) == UInt8 
+    elseif eltype(data) == UInt8
         atype = 2
     elseif eltype(data) == Int16
         atype = 3
@@ -206,7 +206,7 @@ function create_shm(name, data)
         atype = 8
     elseif eltype(data) == Float32
         atype = 9
-    elseif eltype(data) == Float64 
+    elseif eltype(data) == Float64
         atype = 10
     else
         error("Unsupported type")
@@ -215,7 +215,7 @@ function create_shm(name, data)
     res = daoShmImageCreate(image_ptr, name, Int64(naxis), Ptr{UInt32}(pointer(shmSize)), UInt8(atype), Int32(1), Int32(0))
     println("SHM created")
     res = daoShmImage2Shm(Ptr{Nothing}(pointer(data)), UInt32(length(data)), image_ptr)
-    return image 
+    return image
 end
 
 function connect_shm(name)
@@ -224,7 +224,7 @@ function connect_shm(name)
     image = Ref{dao.IMAGE}();
     # get the pointer
     image_ptr =  Base.unsafe_convert(Ptr{dao.IMAGE}, image);
-    # assume existing 
+    # assume existing
     shm=dao.daoShmShm2Img(name, image_ptr);
     return image
 end

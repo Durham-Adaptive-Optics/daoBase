@@ -1,6 +1,6 @@
 #include "daoBase.h"
 
-int main() 
+int main()
 {
     daoLogSetLevel(LOG_LEVEL_TRACE);
 

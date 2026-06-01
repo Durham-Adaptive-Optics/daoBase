@@ -1,0 +1,49 @@
+repos:
+  # ── C / C++ ──────────────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v18.1.8
+    hooks:
+      - id: clang-format
+        name: clang-format (C/C++)
+        types_or: [c, c++]
+        args: [--style=file, --Werror]
+
+  # ── Python ───────────────────────────────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.10
+    hooks:
+      # Linter (fixes safe auto-fixable issues)
+      - id: ruff
+        name: ruff lint (Python)
+        args: [--fix]
+      # Formatter
+      - id: ruff-format
+        name: ruff format (Python)
+
+  # ── Rust ─────────────────────────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: rustfmt
+        name: rustfmt (Rust)
+        language: system
+        entry: cargo fmt --manifest-path src/rust/Cargo.toml --
+        types: [rust]
+        pass_filenames: true
+      - id: clippy
+        name: clippy (Rust)
+        language: system
+        # Skip gracefully when C build artifacts are not yet compiled
+        entry: bash -c 'if [ -f build/include/dao.h ]; then cargo clippy --manifest-path src/rust/Cargo.toml -- -D warnings; else echo "clippy skipped (run waf build first to generate build/include/dao.h)"; fi'
+        types: [rust]
+        pass_filenames: false
+
+  # ── General ──────────────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        types_or: [c, c++, python, rust, julia]
+      - id: end-of-file-fixer
+        types_or: [c, c++, python, rust, julia]
+      - id: mixed-line-ending
+        args: [--fix=lf]

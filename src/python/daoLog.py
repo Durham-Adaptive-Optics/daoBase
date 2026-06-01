@@ -1,23 +1,25 @@
-import socket
 from datetime import datetime
 import logging
-import threading
+import socket
 import sys
-
-# this is the network logger. Maybe we can encapsulate this better. 
-import zmq
-import daoLogging_pb2
+import threading
 import time
+
+import daoLogging_pb2
+
+# this is the network logger. Maybe we can encapsulate this better.
+import zmq
 
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, "TRACE")
+
 
 class daoLog:
     def __init__(self, name, filename=None, addr=None, toScreen=True, level=logging.TRACE):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
 
-        formatter = logging.Formatter('[%(asctime)s] [%(machine)s] - %(name)s [%(levelname)s] : %(message)s (%(filename)s:%(lineno)d)')
+        formatter = logging.Formatter("[%(asctime)s] [%(machine)s] - %(name)s [%(levelname)s] : %(message)s (%(filename)s:%(lineno)d)")
         formatter.converter = time.gmtime
         # formatter.formatTime = lambda record, datefmt=None: time.strftime("%Y-%m-%dT%H:%M:%S.000Z", datefmt)
 
@@ -70,11 +72,12 @@ class daoLog:
     def trace(self, msg, *args, **kwargs):
         """
         Log a message at the TRACE level.
-        
+
         :param msg: The message to log
         """
         if self.logger.isEnabledFor(logging.TRACE):
             self.logger._log(logging.TRACE, msg, args, **kwargs)
+
 
 class MachineFilter(logging.Filter):
     def __init__(self, machine=None):
@@ -87,11 +90,12 @@ class MachineFilter(logging.Filter):
         record.machine = self.hostname
         return True
 
+
 # class daoLogZmqHandler(logging.Handler):
 #     def __init__(self, ip, port, machine):
 #         """
 #         Initialize the ZeroMQ handler with the specified parameters.
-        
+
 #         :param ip: The IP address to connect to
 #         :param port: The port to connect to
 #         :param machine: The machine name to use for logging
@@ -100,7 +104,7 @@ class MachineFilter(logging.Filter):
 #         self.ip = ip
 #         self.port = port
 #         self.machine = machine
-        
+
 #         # Create the ZeroMQ context and socket
 #         self.socketString = f"tcp://{self.ip}:{self.port}"
 #         self.context = zmq.Context()
@@ -110,7 +114,7 @@ class MachineFilter(logging.Filter):
 #     def emit(self, record):
 #         """
 #         Send the log message over the ZeroMQ socket.
-        
+
 #         :param record: The log record to send
 #         """
 #         log_message = daoLogging_pb2.LogMessage()
@@ -127,7 +131,7 @@ class MachineFilter(logging.Filter):
 #     def __init__(self, machine:str):
 #         """
 #         Initialize the context filter with the specified machine name.
-        
+
 #         :param machine: The machine name to use for logging
 #         """
 #         super().__init__()
@@ -136,7 +140,7 @@ class MachineFilter(logging.Filter):
 #     def filter(self, record):
 #         """
 #         Add the machine name to the log record.
-        
+
 #         :param record: The log record to add the machine name to
 #         """
 #         record.machine = self.machine
@@ -147,7 +151,8 @@ class ColoredFormatter(logging.Formatter):
     """
     Custom formatter class to add color output to log messages
     """
-    def __init__(self, msg, use_color = True):
+
+    def __init__(self, msg, use_color=True):
         """
         Initialize the formatter with a message format and a flag to indicate whether to use color output
         """
@@ -176,6 +181,7 @@ class ColoredFormatter(logging.Formatter):
                 color = "\033[94m"
             record.levelname = color + record.levelname + "\033[0m"
         return logging.Formatter.format(self, record)
+
     def formatTime(self, record, datefmt=None):
         """
         Override the formatTime method to change the asctime format
@@ -188,11 +194,13 @@ class ColoredFormatter(logging.Formatter):
             s = "%s.%03d" % (t, record.msecs)
         return s
 
+
 class ZmqSubLogger(threading.Thread):
     """
     ZmqSubLogger is a class that runs the ZeroMQ subscriber logger in a separate thread.
     """
-    def __init__(self, level=logging.TRACE, host='127.0.0.1', port = 5559):
+
+    def __init__(self, level=logging.TRACE, host="127.0.0.1", port=5559):
         """
         Initialize the thread and the flag to turn on/off the display of messages
         """
@@ -202,7 +210,7 @@ class ZmqSubLogger(threading.Thread):
         threading.Thread.__init__(self)
         self.display_messages = True
         self.msgCnt = 0
-        
+
     def run(self):
         """
         The run method contains the code for the ZeroMQ self.subscriber logger
@@ -212,18 +220,18 @@ class ZmqSubLogger(threading.Thread):
 
         # Create a ZeroMQ subscriber socket
         self.subscriber = self.context.socket(zmq.SUB)
-        self.subscriber.connect(f'tcp://{self.host}:{self.port}')
-        self.subscriber.setsockopt(zmq.SUBSCRIBE, b'')
+        self.subscriber.connect(f"tcp://{self.host}:{self.port}")
+        self.subscriber.setsockopt(zmq.SUBSCRIBE, b"")
 
         # Create a logger
         self.logger = logging.getLogger("zmq_sub")
-        
+
         # Create a console handler
         self.ch = logging.StreamHandler()
-        #self.ch.setLevel(logging.INFO)
+        # self.ch.setLevel(logging.INFO)
 
         # Create a formatter from the color one define previously
-        #self.formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        # self.formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         self.formatter = ColoredFormatter("%(asctime)s - %(name)s - [%(levelname)s] - %(message)s")
 
         # Add the self.formatter to the console handler
@@ -233,18 +241,18 @@ class ZmqSubLogger(threading.Thread):
         self.logger.addHandler(self.ch)
         self.logger.setLevel(logging.TRACE)
 
-        print(f'Thread started, listening on : tcp://{self.host}:{self.port}')
+        print(f"Thread started, listening on : tcp://{self.host}:{self.port}")
         while True:
             # Receive message
             self.serialized_message = self.subscriber.recv()
-            self.msgCnt = self.msgCnt+1
+            self.msgCnt = self.msgCnt + 1
             # Deserialize message
             self.message = daoLogging_pb2.LogMessage()
             self.message.ParseFromString(self.serialized_message)
             timestamp_float = float(self.message.time_stamp)
             timestamp_datetime = datetime.fromtimestamp(timestamp_float)
-            readable_string = timestamp_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')
-            stringMsg = f'[{readable_string}] - {self.message.component_name} [{self.message.level}] : {self.message.log_message}'
+            readable_string = timestamp_datetime.strftime("%Y-%m-%d %H:%M:%S.%f")
+            stringMsg = f"[{readable_string}] - {self.message.component_name} [{self.message.level}] : {self.message.log_message}"
             # Check if display_messages flag is set
             if self.display_messages:
                 # Log the self.message
@@ -261,13 +269,13 @@ class ZmqSubLogger(threading.Thread):
                 elif self.message.level == logging.FATAL:
                     self.logger.log(logging.FATAL, stringMsg)
 
-if __name__=="__main__":
-    fname = "/tmp/daolog.txt"
-    ip = '127.0.0.1'
-    port = 5558
-    addr=f"tcp://{ip}:{port}"
 
-    
+if __name__ == "__main__":
+    fname = "/tmp/daolog.txt"
+    ip = "127.0.0.1"
+    port = 5558
+    addr = f"tcp://{ip}:{port}"
+
     logger = daoLog(__name__, filename=fname)
 
     log = logging.getLogger(__name__)

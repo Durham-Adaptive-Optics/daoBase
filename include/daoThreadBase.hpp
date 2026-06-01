@@ -1,319 +1,337 @@
 #ifndef DAO_THREAD_BASE_HPP
 #define DAO_THREAD_BASE_HPP
 
-/** 
- *  @file   daoThreadBASE.hpp 
+/**
+ *  @file   daoThreadBASE.hpp
  *  @brief  Class for threading library
- *  @author dbarr 
- *  @date   2022-07-28 
+ *  @author dbarr
+ *  @date   2022-07-28
  ***********************************************/
 
-
-#include <daoSignalTable.hpp>
-#include <daoNuma.hpp>
-#include <daoLog.hpp>
-
-#include <thread>
-#include <pthread.h>
-#include <mutex>
 #include <condition_variable>
-
+#include <daoLog.hpp>
+#include <daoNuma.hpp>
+#include <daoSignalTable.hpp>
 #include <iostream>
+#include <mutex>
+#include <pthread.h>
+#include <thread>
 namespace Dao
 {
-    //!  daoThreadBase class 
+    //!  daoThreadBase class
     /*!#
     Class for base object of Threads
     */
     class ThreadBase
     {
         public:
-            /**
-             * Create the default Thread class.
-             * @brief Default constructor.
-             * @param
-             */
-            ThreadBase(std::string thread_name, Log::Logger& logger, int core=-1, int thread_number=-1, bool rt_enabled=true)
-            : m_thread_name(thread_name)
-            , m_log(logger)
-            , m_core(core)
-            , m_node(-1)
-            , m_thread_number(thread_number)
-            , m_rt_enabled(rt_enabled)
-            , m_start(false)
-            , m_running(false)
-            , m_spawned(false)
-            , m_stop(true)
-            , m_start_waiting(false)
+        /**
+         * Create the default Thread class.
+         * @brief Default constructor.
+         * @param
+         */
+        ThreadBase(std::string thread_name, Log::Logger& logger, int core = -1, int thread_number = -1, bool rt_enabled = true)
+            : m_thread_name(thread_name),
+              m_log(logger),
+              m_core(core),
+              m_node(-1),
+              m_thread_number(thread_number),
+              m_rt_enabled(rt_enabled),
+              m_start(false),
+              m_running(false),
+              m_spawned(false),
+              m_stop(true),
+              m_start_waiting(false)
+        {
+            m_thread_name.resize(15);
+            // calculate node from core...
+            if (m_core >= 0)
             {
-                m_thread_name.resize(15);
-                // calculate node from core...
-                if (m_core >= 0)
-                {
-                    m_node = Numa::Core2Node(m_core);
-                }
-                m_signal_table = new SignalTable;
+                m_node = Numa::Core2Node(m_core);
             }
+            m_signal_table = new SignalTable;
+        }
 
-            virtual ~ThreadBase()
-            {
-                delete m_signal_table;
-            };
+        virtual ~ThreadBase()
+        {
+            delete m_signal_table;
+        };
 
-            /**
-             * Create a new SignalTable object with default number of signals 256.
-             * @brief Default constructor.
-             * @param
-             */
-            void Start()
-            {
-                m_running = true;
-                m_stop = false;
-                    
-                m_start_mutex.lock();
+        /**
+         * Create a new SignalTable object with default number of signals 256.
+         * @brief Default constructor.
+         * @param
+         */
+        void Start()
+        {
+            m_running = true;
+            m_stop = false;
+
+            m_start_mutex.lock();
+            m_start = true;
+            m_start_condition.notify_one();
+            m_start_mutex.unlock();
+        };
+
+        /**
+         * Create a new SignalTable object with default number of signals 256.
+         * @brief Default constructor.
+         * @param
+         */
+        void Stop()
+        {
+            m_stop = true;
+        };
+
+        /**
+         * Create a new SignalTable object with default number of signals 256.
+         * @brief Default constructor.
+         * @param
+         */
+        void Exit()
+        {
+            m_stop = true;
+            m_running = false;
+
+            m_start_mutex.lock();
+            if (m_start_waiting == true)
                 m_start = true;
-                m_start_condition.notify_one();
-                m_start_mutex.unlock();
-            };
+            m_start_condition.notify_one();
+            m_start_mutex.unlock();
+        }
 
-
-            /**
-             * Create a new SignalTable object with default number of signals 256.
-             * @brief Default constructor.
-             * @param
-             */
-            void Stop()
+        /**
+         * Create a new SignalTable object with default number of signals 256.
+         * @brief Default constructor.
+         * @param
+         */
+        void Spawn()
+        {
+            if (!m_spawned)
             {
-                m_stop = true;
-            };
+                m_spawned = true;
+                m_thread = std::thread{&ThreadBase::threadEntryPoint, this};
+                m_thread_id = pthread_self();
 
-            /**
-             * Create a new SignalTable object with default number of signals 256.
-             * @brief Default constructor.
-             * @param
-             */
-            void Exit()
-            {
-                m_stop = true;
-                m_running = false;  
-
-                m_start_mutex.lock();
-                if (m_start_waiting == true)
-                    m_start = true;
-                m_start_condition.notify_one();
-                m_start_mutex.unlock();
-            }
-
-            /**
-             * Create a new SignalTable object with default number of signals 256.
-             * @brief Default constructor.
-             * @param
-             */
-            void Spawn()
-            {   
-                if(!m_spawned)
+                // add the Thread name to the system.
+                if (m_thread_name.length() > 0)
                 {
-                    m_spawned = true;
-                    m_thread = std::thread{&ThreadBase::threadEntryPoint, this};
-                    m_thread_id = pthread_self();
-
-                    // add the Thread name to the system.
-                    if(m_thread_name.length() > 0)
-                    {
-                        // Linux has a 16 byte name limit for threads
-                        int maxLen = std::min(m_thread_name.length(), (size_t)15);
-                        m_thread_name.resize(maxLen);
-#ifdef __APPLE__
-                        int rc = pthread_setname_np(m_thread_name.c_str());
-#else
-                        int rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
-#endif
-                        // check error code?
-                    }
-                    m_log.Debug("Thread %s Spawned...", m_thread_name.c_str());
-                }
-                else
-                {
-                    m_log.Error("Thread %s already Spawned", m_thread_name.c_str());
-                }
-            };
-
-
-            /**
-             * Create a new SignalTable object with default number of signals 256.
-             * @brief Default constructor.
-             * @param
-             */
-            void Join()
-            {
-                if(!m_stop || m_running)
-                {
-                    Stop();
-                    Exit();
-                }
-
-                m_thread.join();
-                m_spawned = false;
-            };
-
-            /**
-             * Create a new SignalTable object with default number of signals 256.
-             * @brief Default constructor.
-             * @param
-             */
-            void Kill(int signal)
-            {
-                // std::terminate();
-            };
-
-            virtual void Body() = 0; // overwritten later
-
-            // get status stuff
-            inline bool isRunning(){return m_running;};
-            inline bool isSpawned(){return m_spawned;};
-            std::string getThreadName(){return m_thread_name;};
-            int getAffinity(){return m_core;};
-            int getNumaNode(){return m_node;};
-
-
-            // a highspeed signalling table for interThread communication
-            SignalTable * m_signal_table;
-
-        protected:
-            void threadEntryPoint()
-            {
-                m_log.Trace("%s: spawned", m_thread_name.c_str());
-                if(m_core >=0)
-                {
-                    Dao::Numa::SetProcAffinity(m_core);
-                }
-                if(m_thread_name != "")
-                {
-                    m_log.Trace("Setting thread name to: %s", m_thread_name.c_str() );
-                
+                    // Linux has a 16 byte name limit for threads
+                    int maxLen = std::min(m_thread_name.length(), (size_t)15);
+                    m_thread_name.resize(maxLen);
 #ifdef __APPLE__
                     int rc = pthread_setname_np(m_thread_name.c_str());
 #else
                     int rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
 #endif
-                    if(rc != 0)
-                        std::cout << "Return : " << rc << std::endl;
+                    // check error code?
                 }
-                // realtime threads - set RT priority and FIFO scheduling
-                if(getuid() == 0 && m_rt_enabled)
-                {
-                    struct sched_param param;
-                    param.sched_priority = 95;
-                    pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
-                }
-
-                try
-                {
-                    OnceOnSpawn();
-                }
-                catch(const std::exception& e)
-                {
-                    std::cerr << e.what() << '\n';
-                }
-                m_signal_table->SignalSend(SIGNAL_THREAD_READY);
-
-                try
-                {
-                    internalThreadFunction();
-                }
-                catch(const std::exception& e)
-                {
-                    std::cerr << e.what() << '\n';
-                }
-
-                try
-                {
-                    OnceOnExit();
-                }
-                catch(const std::exception& e)
-                {
-                    std::cerr << e.what() << '\n';
-                }
+                m_log.Debug("Thread %s Spawned...", m_thread_name.c_str());
             }
-
-            void internalThreadFunction()
+            else
             {
-                do
-                {
-                    std::unique_lock<std::mutex> lk(m_start_mutex);
-                    m_start_waiting = true;
-                    while(!m_start)
-                        m_start_condition.wait(lk);
-                    m_start = false;
-                    m_start_waiting = false;
-                    lk.unlock();
+                m_log.Error("Thread %s already Spawned", m_thread_name.c_str());
+            }
+        };
 
-                    try
-                    {
-                        OnceOnStart();
-                    }
-                    catch(const std::exception& e)
-                    {
-                        std::cerr << e.what() << '\n';
-                    }
-                    while((m_stop == false) && (m_running == true))
-                    {
-                        try
-                        {
-                            this->Body();
-                        }
-                        catch(const std::exception& e)
-                        {
-                            std::cerr << e.what() << '\n';
-                        }
-                    }
-                    m_stop = true;
-
-                    try
-                    {
-                        OnceOnStop();
-                    }
-                    catch(const std::exception& e)
-                    {
-                        std::cerr << e.what() << '\n';
-                    }
-                    
-                }
-                while(m_running == true);
-
-                m_running = false;
+        /**
+         * Create a new SignalTable object with default number of signals 256.
+         * @brief Default constructor.
+         * @param
+         */
+        void Join()
+        {
+            if (!m_stop || m_running)
+            {
+                Stop();
+                Exit();
             }
 
+            m_thread.join();
+            m_spawned = false;
+        };
 
-            // a bunch of empty functions that can be used to help configure things in thread.
-            virtual void OnceOnSpawn(){m_log.Trace("ComponentBase::OnceOnSpawn()");};
-            virtual void OnceOnStart(){m_log.Trace("ComponentBase::OnceOnStart()");};
-            virtual void OnceOnStop(){m_log.Trace("ComponentBase::OnceOnStop()");};
-            virtual void OnceOnExit(){m_log.Trace("ComponentBase::OnceOnExit()");};
-            
-            std::string m_thread_name;
-            Log::Logger& m_log;
-            
-            int m_core;
-            int m_node;
-            int m_thread_number; // used when multiple threads of the same type used.
+        /**
+         * Create a new SignalTable object with default number of signals 256.
+         * @brief Default constructor.
+         * @param
+         */
+        void Kill(int signal) {
+            // std::terminate();
+        };
 
-            volatile bool m_start;
-            volatile bool m_running;
-            volatile bool m_spawned;
-            volatile bool m_stop;
-            volatile bool m_start_waiting;
+        virtual void Body() = 0; // overwritten later
 
-            bool m_rt_enabled;
+        // get status stuff
+        inline bool isRunning()
+        {
+            return m_running;
+        };
+        inline bool isSpawned()
+        {
+            return m_spawned;
+        };
+        std::string getThreadName()
+        {
+            return m_thread_name;
+        };
+        int getAffinity()
+        {
+            return m_core;
+        };
+        int getNumaNode()
+        {
+            return m_node;
+        };
 
-            std::thread m_thread;
-            pthread_t m_thread_id;
+        // a highspeed signalling table for interThread communication
+        SignalTable* m_signal_table;
 
-            // threading stuff
-            std::mutex m_start_mutex;
-            std::condition_variable m_start_condition;
+        protected:
+        void threadEntryPoint()
+        {
+            m_log.Trace("%s: spawned", m_thread_name.c_str());
+            if (m_core >= 0)
+            {
+                Dao::Numa::SetProcAffinity(m_core);
+            }
+            if (m_thread_name != "")
+            {
+                m_log.Trace("Setting thread name to: %s", m_thread_name.c_str());
+
+#ifdef __APPLE__
+                int rc = pthread_setname_np(m_thread_name.c_str());
+#else
+                int rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
+#endif
+                if (rc != 0)
+                    std::cout << "Return : " << rc << std::endl;
+            }
+            // realtime threads - set RT priority and FIFO scheduling
+            if (getuid() == 0 && m_rt_enabled)
+            {
+                struct sched_param param;
+                param.sched_priority = 95;
+                pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+            }
+
+            try
+            {
+                OnceOnSpawn();
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+            m_signal_table->SignalSend(SIGNAL_THREAD_READY);
+
+            try
+            {
+                internalThreadFunction();
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+
+            try
+            {
+                OnceOnExit();
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+        }
+
+        void internalThreadFunction()
+        {
+            do
+            {
+                std::unique_lock<std::mutex> lk(m_start_mutex);
+                m_start_waiting = true;
+                while (!m_start)
+                    m_start_condition.wait(lk);
+                m_start = false;
+                m_start_waiting = false;
+                lk.unlock();
+
+                try
+                {
+                    OnceOnStart();
+                }
+                catch (const std::exception& e)
+                {
+                    std::cerr << e.what() << '\n';
+                }
+                while ((m_stop == false) && (m_running == true))
+                {
+                    try
+                    {
+                        this->Body();
+                    }
+                    catch (const std::exception& e)
+                    {
+                        std::cerr << e.what() << '\n';
+                    }
+                }
+                m_stop = true;
+
+                try
+                {
+                    OnceOnStop();
+                }
+                catch (const std::exception& e)
+                {
+                    std::cerr << e.what() << '\n';
+                }
+
+            } while (m_running == true);
+
+            m_running = false;
+        }
+
+        // a bunch of empty functions that can be used to help configure things in thread.
+        virtual void OnceOnSpawn()
+        {
+            m_log.Trace("ComponentBase::OnceOnSpawn()");
+        };
+        virtual void OnceOnStart()
+        {
+            m_log.Trace("ComponentBase::OnceOnStart()");
+        };
+        virtual void OnceOnStop()
+        {
+            m_log.Trace("ComponentBase::OnceOnStop()");
+        };
+        virtual void OnceOnExit()
+        {
+            m_log.Trace("ComponentBase::OnceOnExit()");
+        };
+
+        std::string m_thread_name;
+        Log::Logger& m_log;
+
+        int m_core;
+        int m_node;
+        int m_thread_number; // used when multiple threads of the same type used.
+
+        volatile bool m_start;
+        volatile bool m_running;
+        volatile bool m_spawned;
+        volatile bool m_stop;
+        volatile bool m_start_waiting;
+
+        bool m_rt_enabled;
+
+        std::thread m_thread;
+        pthread_t m_thread_id;
+
+        // threading stuff
+        std::mutex m_start_mutex;
+        std::condition_variable m_start_condition;
     };
 
-} // closes namespace Dao
+} // namespace Dao
 
 #endif // DAO_THREADS_HPP

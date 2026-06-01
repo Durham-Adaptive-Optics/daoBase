@@ -1,0 +1,4 @@
+# Cargo build configuration for the daoBase Rust bindings.
+# The C shared library must be built with waf before compiling Rust.
+[build]
+rustflags = ["-L", "../../../build/src"]  # path to libdao.so / libdao.a
