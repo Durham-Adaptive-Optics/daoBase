@@ -65,9 +65,19 @@ namespace Dao
 
             void Spawn()
             {
+                
                 for (auto thread = begin (m_threads); thread != end (m_threads); ++thread)
                 {
                     (*thread)->Spawn ();
+                }
+
+                //  wait for each thread to finish spawning usin isSpaw
+                for (auto thread = begin (m_threads); thread != end (m_threads); ++thread)
+                {
+                    while(!(*thread)->isSpawned())
+                    {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    }
                 }
             }
 
@@ -90,7 +100,7 @@ namespace Dao
 
             // matches API of Signal table to propagate signals to all threads 
             void Signal( int index )
-            {
+            { 
                 for (auto thread = begin (m_threads); thread != end (m_threads); ++thread)
                 {
                     (*thread)->Signal(index);

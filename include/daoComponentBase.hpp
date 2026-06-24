@@ -91,7 +91,7 @@ namespace Dao
             void Idle(){};
             void OnFailure(){};
             void Recover(){};
-            void Log(std::string message){};
+            //virtual void Log(std::string message){};
 
             virtual void PROCESS_OTHER(std::string Payload)
             {
