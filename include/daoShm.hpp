@@ -361,7 +361,7 @@ namespace Dao
             // Derived from the stored memsize metadata field as its not stored directly.
             size_t const keywordsFootprint = image_.md->NBkw * sizeof(IMAGE_KEYWORD);
             size_t const metadataFootprint = image_.md->fifo_size * sizeof(IMAGE_METADATA);
-            size_t const segmentSize =  (image_.memsize - keywordsFootprint - metadataFootprint) / GetFifoCount();
+            size_t const segmentSize =  (image_.memsize - keywordsFootprint - metadataFootprint) / get_fifo_count();
             
             return segmentSize;
         }
