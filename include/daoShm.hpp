@@ -342,6 +342,30 @@ namespace Dao
             return const_cast<IMAGE_METADATA*>(segment_md_);
         }
 
+        /* Returns the element datatype.
+         * See dao.h for possible values (_DATATYPE_XXX).
+        */
+        auto get_datatype() const {
+            return image_.md->atype;
+        }
+
+        /* Returns the FIFO depth.
+        */
+        auto get_fifo_count() const {
+            return image_.md->fifo_size;
+        }
+
+        /* Computes and returns the FIFO segment size in bytes.
+        */
+        auto get_segment_size() const {
+            // Derived from the stored memsize metadata field as its not stored directly.
+            size_t const keywordsFootprint = image_.md->NBkw * sizeof(IMAGE_KEYWORD);
+            size_t const metadataFootprint = image_.md->fifo_size * sizeof(IMAGE_METADATA);
+            size_t const segmentSize =  (image_.memsize - keywordsFootprint - metadataFootprint) / GetFifoCount();
+            
+            return segmentSize;
+        }
+
         private:
         /**
          * @brief Compile time inference of dtype from T.
