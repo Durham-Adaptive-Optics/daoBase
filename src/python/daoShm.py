@@ -232,7 +232,7 @@ if sys.platform == "darwin":
             ("lastNb", ctypes.c_uint32),
             ("packetNb", ctypes.c_uint32),
             ("packetTotal", ctypes.c_uint32),
-            ("lastNbArray", ctypes.c_uint64 * 512),
+            ("lastNbArray", ctypes.c_uint64 * 2024),
             ("semCounter", ctypes.c_uint32 * 10),
             ("semLogCounter", ctypes.c_uint32),
             ("fifo_size", ctypes.c_uint32),
@@ -269,7 +269,7 @@ else:
             ("lastNb", ctypes.c_uint32),
             ("packetNb", ctypes.c_uint32),
             ("packetTotal", ctypes.c_uint32),
-            ("lastNbArray", ctypes.c_uint64 * 512),
+            ("lastNbArray", ctypes.c_uint64 * 2024),
             ("fifo_size", ctypes.c_uint32),
             ("fifo_last_written", ctypes.c_uint32)
         ]
