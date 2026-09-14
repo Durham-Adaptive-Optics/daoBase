@@ -1,5 +1,7 @@
 # daoBase [![CI Workflow](https://github.com/Durham-Adaptive-Optics/daoBase/actions/workflows/main.yml/badge.svg)](https://github.com/Durham-Adaptive-Optics/daoBase/actions/workflows/main.yml) [![DOI](https://zenodo.org/badge/506638374.svg)](https://doi.org/10.5281/zenodo.17264151)
-basic tools for dao
+`daoBase` is the core library of **DAO** (Durham Adaptive Optics), a real-time control framework for adaptive optics instruments. It provides the shared-memory (`dao.shm`) and messaging primitives that every other DAO repository builds on: fixed-layout `IMAGE`/`IMAGE_METADATA` shared-memory buffers for passing frames, slopes, and commands between real-time processes with minimal latency, a ZMQ-based command/event/logging layer, and a component/state-machine framework (`daoComponent`) for structuring long-running RTC processes.
+
+The core is written in C, with a C++ layer built on top for the component/threading/state-machine framework, and bindings for Python, Rust, Julia, and MATLAB — so a pipeline can mix languages freely while every process still talks over the same shared-memory buffers. See [`daoTools`](https://github.com/Durham-Adaptive-Optics/daoTools) for the application layer (centroiding, reconstruction, loop control, GUIs) built on top of this library.
 
 ## 📖 Documentation
 
