@@ -531,7 +531,21 @@ class shm:
             result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         else:
             # log.info("loading existing %s " % (fname))
+            # Fail cleanly instead of letting the C layer mmap nothing and
+            # segfault later on the first get_data()/set_data().
+            if fname is None or not os.path.isfile(fname):
+                raise FileNotFoundError(
+                    "daoShm.shm: shared memory file '%s' does not exist" % (fname,))
             result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
+            if result != self.DAO_SUCCESS:
+                raise OSError(
+                    "daoShm.shm: failed to load shared memory file '%s' "
+                    "(dao error %d)" % (fname, result))
+        # Cache the SHM element type and count once. atype/naxis/size/nelement are
+        # written only at creation and never mutated, so set_data() can validate
+        # incoming arrays against these cached ints for a few tens of ns instead
+        # of walking the ctypes metadata struct on every call.
+        self._cache_expected_type()
         # Publisher
         self.pubPort = pubPort
         self.pubContext = 0# zmq.Context()
@@ -550,6 +564,27 @@ class shm:
         self.subEnable = False
         #self.subThread.start()
 
+    def _cache_expected_type(self):
+        ''' --------------------------------------------------------------
+        Cache the SHM element dtype (as np.dtype.num) and element count so
+        set_data() can validate incoming arrays cheaply. Silently disables
+        the check if the metadata cannot be read.
+        '''
+        self._expected_dtype_num = None
+        self._expected_nelement = None
+        try:
+            md = self.image.md.contents
+            npType = daoType2NpType(md.atype)
+            if npType is not None:
+                self._expected_dtype_num = np.dtype(npType).num
+            naxis = md.naxis
+            nelement = 1
+            for i in range(naxis):
+                nelement *= md.size[i]
+            self._expected_nelement = int(nelement)
+        except (ValueError, AttributeError):
+            pass
+
     def set_data(self, data):
         ''' --------------------------------------------------------------
         Upload new data to the SHM file.
@@ -558,6 +593,22 @@ class shm:
         ----------
         - data: the array to upload to SHM
         '''
+        # Cheap guard against a caller passing an array whose dtype or element
+        # count does not match the SHM. The C layer trusts data.size as the
+        # memcpy count and reads the element size from the SHM's own atype, so a
+        # mismatch means silent corruption (wrong dtype) or a buffer overrun
+        # (too many elements). Costs ~50 ns; the SHM type/geometry is immutable.
+        if self._expected_dtype_num is not None \
+                and data.dtype.num != self._expected_dtype_num:
+            raise TypeError(
+                "set_data: array dtype %s does not match SHM type (dao atype %d)"
+                % (data.dtype, self.image.md.contents.atype))
+        if self._expected_nelement is not None \
+                and data.size != self._expected_nelement:
+            raise ValueError(
+                "set_data: array has %d elements but SHM expects %d"
+                % (data.size, self._expected_nelement))
+
         # Call the daoShmImage2Shm function to feel the SHM
         if data.flags['C_CONTIGUOUS']:
             cData = data.ctypes.data_as(ctypes.c_void_p)
