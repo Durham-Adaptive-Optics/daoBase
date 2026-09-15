@@ -88,12 +88,13 @@ dependency like BLAS or CUDA). Re-running `./install.sh` in full is always
 fine too — being idempotent, it will just confirm everything is already in
 place; that's slower, not harmful, so use whichever you prefer.
 
-### Testing a change to the installer itself
+### For developers of `install.sh`
 
-See [`test/install/`](test/install/README.md) to run `install.sh` inside a
-disposable Docker container on a fresh Ubuntu/Rocky image with a real
-non-root sudo user — useful for checking a change to `install.sh` before
-trusting it on an actual machine.
+[`test/install/`](test/install/README.md) holds a Docker-based harness that
+runs `install.sh` on a disposable, fresh Ubuntu/Rocky container as a
+non-root sudo user. It's there for anyone changing `install.sh` itself, to
+check it still works end to end before it reaches a real machine — not
+something you need as a regular user.
 
 ## Manual install (step by step)
 
