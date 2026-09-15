@@ -385,7 +385,7 @@ build_waf() {
   step "Build & install daoBase (waf)"
   if [ "$DO_BUILD" -eq 0 ]; then info "skipped (--skip-build)"; return; fi
   local waf="waf"; command -v waf >/dev/null 2>&1 || waf="$BIN_DIR/waf"
-  if ! run_sh "$(env_prefix) cd \"$DAO_SRC\" && \"$waf\" distclean 2>/dev/null; \"$waf\" configure --prefix=\"$DAOROOT\" && \"$waf\" && \"$waf\" install"; then    if [ "$OS" = linux ] && [ "$ARCH" = arm64 ]; then
+  if ! run_sh "$(env_prefix) cd \"$DAO_SRC\" && \"$waf\" distclean 2>/dev/null; \"$waf\" configure --prefix=\"$DAOROOT\" && \"$waf\" && \"$waf\" install"; then
     if [ "$OS" = linux ] && [ "$ARCH" = arm64 ]; then
       warn "build failed. On Linux arm64 this is commonly a libprotobuf/protoc"
       warn "version mismatch in the distro package (see README.md's 'Linux"
