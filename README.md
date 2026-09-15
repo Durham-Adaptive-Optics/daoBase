@@ -44,7 +44,64 @@ If you use this software in your research or work, please cite it using the foll
 
 ---
 
-# Build
+# Installation
+
+## Quick start (recommended)
+
+For a first install, run the installer from the repo root:
+
+```bash
+./install.sh
+```
+
+It builds *everything*, end to end: detects your OS and installs the system
+packages (`apt`/`dnf`/`yum`/`pacman`/`zypper`/`brew`), reuses Miniconda if you
+already have it or installs it otherwise, proposes a dedicated `dao` conda env
+(optional — decline it and it'll ask which existing env to use instead), gets
+`waf`, asks where `DAOROOT`/`DAODATA` should live (default `/opt/dao/...`,
+created with `sudo` and handed back to you if that needs root the first
+time), installs the Python dependencies, and finally builds and installs
+daoBase itself (`waf configure && waf && waf install`) — finishing with a
+real `import daoShm` + shared-memory round-trip to confirm it actually works.
+
+```bash
+./install.sh --help
+```
+
+lists every option (skip a step, pick a different prefix, non-interactive
+`--yes`, `--dry-run`, ...). It's idempotent — safe to re-run any time; it
+reuses whatever it finds (existing conda, existing env, existing waf, ...)
+rather than redoing work.
+
+### Re-installing / updating after a `git pull`
+
+If daoBase is already installed and only the source changed (no new system
+dependency), you don't need the full installer again — from the repo root:
+
+```bash
+waf install
+```
+
+(or `waf configure --prefix=$DAOROOT && waf && waf install` if you changed
+something `configure` cares about, e.g. enabling a newly-available optional
+dependency like BLAS or CUDA). Re-running `./install.sh` in full is always
+fine too — being idempotent, it will just confirm everything is already in
+place; that's slower, not harmful, so use whichever you prefer.
+
+### For developers of `install.sh`
+
+[`test/install/`](test/install/README.md) holds a Docker-based harness that
+runs `install.sh` on a disposable, fresh Ubuntu/Rocky container as a
+non-root sudo user. It's there for anyone changing `install.sh` itself, to
+check it still works end to end before it reaches a real machine — not
+something you need as a regular user.
+
+## Manual install (step by step)
+
+The installer above automates everything below; this is kept as a reference
+for doing it by hand, or for platform quirks (e.g. arm64 protobuf) it doesn't
+cover.
+
 (for build instructions on Windows, see windows-build.md)
 # Prerequiries
 ## Linux package

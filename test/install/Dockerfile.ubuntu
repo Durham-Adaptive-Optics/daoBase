@@ -1,0 +1,30 @@
+# Fresh-distro target for testing ../../install.sh end to end.
+#
+# Deliberately kept close to a bare Ubuntu install: install.sh is supposed to
+# bootstrap everything else itself (system packages, conda, waf, the build).
+# Only the handful of tools needed to even fetch/run install.sh are added
+# here so the test actually exercises install.sh's own system_deps() step
+# instead of pre-empting it.
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+ARG DAO_USER=daouser
+ARG DAO_PASS='!daousr4u'
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        bash ca-certificates curl sudo && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd -m -s /bin/bash "$DAO_USER" && \
+    echo "$DAO_USER:$DAO_PASS" | chpasswd && \
+    usermod -aG sudo "$DAO_USER" && \
+    echo "$DAO_USER ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/90-$DAO_USER" && \
+    chmod 0440 "/etc/sudoers.d/90-$DAO_USER"
+# NOPASSWD is for run.sh's non-interactive `docker run` (no tty to type a
+# password into, same constraint a real unattended --yes install would
+# have) -- the real password above is there for anyone who wants to
+# `docker exec -it ... su - daouser` and drive sudo by hand instead.
+
+USER daouser
+WORKDIR /home/daouser
