@@ -161,7 +161,7 @@ namespace Dao
              * @brief Default constructor.
              * @param
              */
-            void Kill(int /*signal*/)
+            void Kill(int /*signal*/) // commenting out variable as function unused and not complete. Supressing warnings for now. Beaware if completing function
             {
                 // std::terminate();
             };
