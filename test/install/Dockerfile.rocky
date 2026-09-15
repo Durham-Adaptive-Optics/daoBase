@@ -1,0 +1,24 @@
+# Fresh-distro target for testing ../../install.sh end to end, exercising
+# the dnf code path (system_deps()'s "dnf|yum" case) that Ubuntu can't.
+FROM rockylinux:9
+
+ARG DAO_USER=daouser
+ARG DAO_PASS='!daousr4u'
+
+# --allowerasing: the base image ships curl-minimal, which conflicts with
+# the full curl package otherwise (the same conflict install.sh's own
+# system_deps() now works around for a real Rocky/RHEL/Fedora install).
+RUN dnf install -y --allowerasing bash ca-certificates curl sudo passwd && \
+    dnf clean all && \
+    useradd -m -s /bin/bash "$DAO_USER" && \
+    echo "$DAO_USER:$DAO_PASS" | chpasswd && \
+    usermod -aG wheel "$DAO_USER" && \
+    echo "$DAO_USER ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/90-$DAO_USER" && \
+    chmod 0440 "/etc/sudoers.d/90-$DAO_USER"
+# NOPASSWD is for run.sh's non-interactive `docker run` (no tty to type a
+# password into, same constraint a real unattended --yes install would
+# have) -- the real password above is there for anyone who wants to
+# `docker exec -it ... su - daouser` and drive sudo by hand instead.
+
+USER daouser
+WORKDIR /home/daouser
