@@ -184,7 +184,7 @@ namespace Dao
                 {Events::Recover,   std::make_tuple<State,State,std::function<void()>>(State::Error,   State::Idle,     [&](){this->transition_Error_Idle();}   )}
             };
 
-            void changeState(Events event, State requiredStartState, State requestedEndState, std::function<void()> eventFunction)
+            void changeState(Events /*event*/, State requiredStartState, State requestedEndState, std::function<void()> eventFunction)
             {
                 try {
                     // calling exit function of current state

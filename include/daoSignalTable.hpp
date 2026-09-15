@@ -132,7 +132,7 @@ namespace Dao
              * @note No error checking occurs if index outside range 0->max_signals the system may segfault
              * @note Not implimented
              */
-            inline uint64_t SignalReceiveSpinTimeout( int signum, uint64_t timeout_us )
+            inline uint64_t SignalReceiveSpinTimeout( int /*signum*/, uint64_t /*timeout_us*/ )
             {
                 // TODO: impliment version using a simple timeout
                 return 0;

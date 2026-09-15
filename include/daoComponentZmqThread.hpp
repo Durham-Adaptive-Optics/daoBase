@@ -34,13 +34,13 @@ namespace Dao
         public:
             ComponentZmqThread(std::string name, Log::Logger& logger, int core=-1, int handle=-1, bool rt_enabled=true)
             : Thread("ZMQ_"+ name, logger, core, handle, rt_enabled)
-            , m_configured(false)
             , m_ip("")
             , m_port(0)
             , m_buffer_len(0)
             , m_error_code(0)
             , m_error_string("")
             , m_payload("")
+            , m_configured(false)
             {
                 GOOGLE_PROTOBUF_VERIFY_VERSION;
             }
@@ -141,10 +141,8 @@ namespace Dao
                 {
                     int nBytes = 0;
                     Dao::CommandMessage command;
-                        // 
-                    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+                        //
                     nBytes = zmq_recv(m_responder,m_buf, m_buffer_len*sizeof(char), 0);
-                    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
                     if(nBytes == -1)
                     {
                         if(errno != EAGAIN)
@@ -155,7 +153,7 @@ namespace Dao
                     } 
                     else if(nBytes > 0)
                     {
-                        if(nBytes >= m_buffer_len)
+                        if(static_cast<size_t>(nBytes) >= m_buffer_len)
 
                         {
                             m_log.Error("message too long... message truncated");

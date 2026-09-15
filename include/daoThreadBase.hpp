@@ -39,12 +39,12 @@ namespace Dao
             , m_core(core)
             , m_node(-1)
             , m_thread_number(thread_number)
-            , m_rt_enabled(rt_enabled)
             , m_start(false)
             , m_running(false)
             , m_spawned(false)
             , m_stop(true)
             , m_start_waiting(false)
+            , m_rt_enabled(rt_enabled)
             {
                 m_thread_name.resize(15);
                 // calculate node from core...
@@ -124,9 +124,9 @@ namespace Dao
                         int maxLen = std::min(m_thread_name.length(), (size_t)15);
                         m_thread_name.resize(maxLen);
 #ifdef __APPLE__
-                        int rc = pthread_setname_np(m_thread_name.c_str());
+                        (void)pthread_setname_np(m_thread_name.c_str());
 #else
-                        int rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
+                        (void)pthread_setname_np(pthread_self(), m_thread_name.c_str());
 #endif
                         // check error code?
                     }
@@ -161,7 +161,7 @@ namespace Dao
              * @brief Default constructor.
              * @param
              */
-            void Kill(int signal)
+            void Kill(int /*signal*/)
             {
                 // std::terminate();
             };
