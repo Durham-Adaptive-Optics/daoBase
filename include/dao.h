@@ -58,6 +58,7 @@
 extern "C" {
     #endif
 
+    char* daoBaseGetTimeStamp();
     void daoLog(int log_level, const char* format, ...);
     void daoLogError(const char* format, ...);
     void daoLogPrint(const char* format, ...);
@@ -90,7 +91,6 @@ extern "C" {
 #define ANSI_COLOR_BLUE     "\x1b[34m"
 #define ANSI_COLOR_RESET     "\x1b[0m"
 
-char* daoBaseGetTimeStamp();
 #ifdef _WIN32
 // Need to find an equivalent way to get the filename with MSVC
 #define __FILENAME__ __FILE__
