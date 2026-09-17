@@ -232,7 +232,7 @@ if sys.platform == "darwin":
             ("lastNb", ctypes.c_uint32),
             ("packetNb", ctypes.c_uint32),
             ("packetTotal", ctypes.c_uint32),
-            ("lastNbArray", ctypes.c_uint64 * 512),
+            ("lastNbArray", ctypes.c_uint64 * 2024),
             ("semCounter", ctypes.c_uint32 * 10),
             ("semLogCounter", ctypes.c_uint32),
             ("fifo_size", ctypes.c_uint32),
@@ -269,7 +269,7 @@ else:
             ("lastNb", ctypes.c_uint32),
             ("packetNb", ctypes.c_uint32),
             ("packetTotal", ctypes.c_uint32),
-            ("lastNbArray", ctypes.c_uint64 * 512),
+            ("lastNbArray", ctypes.c_uint64 * 2024),
             ("fifo_size", ctypes.c_uint32),
             ("fifo_last_written", ctypes.c_uint32)
         ]
@@ -531,7 +531,21 @@ class shm:
             result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
         else:
             # log.info("loading existing %s " % (fname))
+            # Fail cleanly instead of letting the C layer mmap nothing and
+            # segfault later on the first get_data()/set_data().
+            if fname is None or not os.path.isfile(fname):
+                raise FileNotFoundError(
+                    "daoShm.shm: shared memory file '%s' does not exist" % (fname,))
             result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
+            if result != self.DAO_SUCCESS:
+                raise OSError(
+                    "daoShm.shm: failed to load shared memory file '%s' "
+                    "(dao error %d)" % (fname, result))
+        # Cache the SHM element type and count once. atype/naxis/size/nelement are
+        # written only at creation and never mutated, so set_data() can validate
+        # incoming arrays against these cached ints for a few tens of ns instead
+        # of walking the ctypes metadata struct on every call.
+        self._cache_expected_type()
         # Publisher
         self.pubPort = pubPort
         self.pubContext = 0# zmq.Context()
@@ -550,6 +564,27 @@ class shm:
         self.subEnable = False
         #self.subThread.start()
 
+    def _cache_expected_type(self):
+        ''' --------------------------------------------------------------
+        Cache the SHM element dtype (as np.dtype.num) and element count so
+        set_data() can validate incoming arrays cheaply. Silently disables
+        the check if the metadata cannot be read.
+        '''
+        self._expected_dtype_num = None
+        self._expected_nelement = None
+        try:
+            md = self.image.md.contents
+            npType = daoType2NpType(md.atype)
+            if npType is not None:
+                self._expected_dtype_num = np.dtype(npType).num
+            naxis = md.naxis
+            nelement = 1
+            for i in range(naxis):
+                nelement *= md.size[i]
+            self._expected_nelement = int(nelement)
+        except (ValueError, AttributeError):
+            pass
+
     def set_data(self, data):
         ''' --------------------------------------------------------------
         Upload new data to the SHM file.
@@ -558,6 +593,22 @@ class shm:
         ----------
         - data: the array to upload to SHM
         '''
+        # Cheap guard against a caller passing an array whose dtype or element
+        # count does not match the SHM. The C layer trusts data.size as the
+        # memcpy count and reads the element size from the SHM's own atype, so a
+        # mismatch means silent corruption (wrong dtype) or a buffer overrun
+        # (too many elements). Costs ~50 ns; the SHM type/geometry is immutable.
+        if self._expected_dtype_num is not None \
+                and data.dtype.num != self._expected_dtype_num:
+            raise TypeError(
+                "set_data: array dtype %s does not match SHM type (dao atype %d)"
+                % (data.dtype, self.image.md.contents.atype))
+        if self._expected_nelement is not None \
+                and data.size != self._expected_nelement:
+            raise ValueError(
+                "set_data: array has %d elements but SHM expects %d"
+                % (data.size, self._expected_nelement))
+
         # Call the daoShmImage2Shm function to feel the SHM
         if data.flags['C_CONTIGUOUS']:
             cData = data.ctypes.data_as(ctypes.c_void_p)
@@ -567,7 +618,7 @@ class shm:
         nbVal = ctypes.c_uint32(data.size)
         result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
 
-    def get_data_next(self, wait=False, reform=True):
+    def get_data_next(self, wait=False, reform=True, x=None, y=None):
         ''' --------------------------------------------------------------
         Reads and returns the next data part of the SHM file
 
@@ -575,6 +626,9 @@ class shm:
         ----------
         - wait: integer (last index) if not False, waits image update
         - reform: boolean, if True, reshapes the array in a 2-3D format
+        - x, y: optional slice objects to extract only a sub-region of the
+                image (e.g. x=slice(5,10), y=slice(10,15) for a 5x5 crop).
+                Same convention as get_data.
         -------------------------------------------------------------- '''
 
         if wait == True:
@@ -607,18 +661,29 @@ class shm:
             else:
                 data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
 
+            # Apply the requested ROI to the zero-copy view *before* the
+            # complex-reconstruction/cast below, so only the sub-region ends
+            # up being copied out of shared memory instead of the whole frame.
+            if x is not None or y is not None:
+                ySlice = y if y is not None else slice(None)
+                xSlice = x if x is not None else slice(None)
+                if data.ndim == 1:
+                    data = data[xSlice]
+                else:
+                    data = data[ySlice, xSlice]
+
             # Check if the dtype is structured (i.e., for complex types)
             if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
                 # Reconstruct complex array by combining real and imaginary parts
                 data = data['real'] + 1j * data['imag']
-            
+
             # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
             data = data.astype(daoType2NpType(self.image.md.contents.atype))
-        
+
         return (result, data)
     
 
-    def get_data_arbitrary(self, index):
+    def get_data_arbitrary(self, index, x=None, y=None):
         ''' --------------------------------------------------------------
         Reads and returns the requested data segment of the SHM file
 
@@ -626,6 +691,9 @@ class shm:
         ----------
         - wait: integer (last index) if not False, waits image update
         - reform: boolean, if True, reshapes the array in a 2-3D format
+        - x, y: optional slice objects to extract only a sub-region of the
+                image (e.g. x=slice(5,10), y=slice(10,15) for a 5x5 crop).
+                Same convention as get_data.
         -------------------------------------------------------------- '''
 
         # First, check the requested number of items is valid
@@ -654,18 +722,29 @@ class shm:
         else:
             data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
 
+        # Apply the requested ROI to the zero-copy view *before* the
+        # complex-reconstruction/cast below, so only the sub-region ends up
+        # being copied out of shared memory instead of the whole frame.
+        if x is not None or y is not None:
+            ySlice = y if y is not None else slice(None)
+            xSlice = x if x is not None else slice(None)
+            if data.ndim == 1:
+                data = data[xSlice]
+            else:
+                data = data[ySlice, xSlice]
+
         # Check if the dtype is structured (i.e., for complex types)
         if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
             # Reconstruct complex array by combining real and imaginary parts
             data = data['real'] + 1j * data['imag']
-        
+
         # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
         data = data.astype(daoType2NpType(self.image.md.contents.atype))
 
         return data
-    
 
-    def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False):
+
+    def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, x=None, y=None):
         ''' --------------------------------------------------------------
         Reads and returns the newest data segment of the SHM file
 
@@ -673,6 +752,11 @@ class shm:
         ----------
         - check: integer (last index) if not False, waits image update
         - reform: boolean, if True, reshapes the array in a 2-3D format
+        - x, y: optional slice objects to extract only a sub-region of the
+                image (e.g. x=slice(5,10), y=slice(10,15) for a 5x5 crop).
+                The view onto shared memory is zero-copy regardless of
+                image size, so slicing it before the final dtype cast
+                means only the requested sub-region is actually copied.
         -------------------------------------------------------------- '''
         if check == True:
             if spin == True:
@@ -717,11 +801,22 @@ class shm:
         else:
             data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
 
+        # Apply the requested ROI to the zero-copy view *before* the
+        # complex-reconstruction/cast below, so only the sub-region ends up
+        # being copied out of shared memory instead of the whole frame.
+        if x is not None or y is not None:
+            ySlice = y if y is not None else slice(None)
+            xSlice = x if x is not None else slice(None)
+            if data.ndim == 1:
+                data = data[xSlice]
+            else:
+                data = data[ySlice, xSlice]
+
         # Check if the dtype is structured (i.e., for complex types)
         if data.dtype.fields is not None and 'real' in data.dtype.fields and 'imag' in data.dtype.fields:
             # Reconstruct complex array by combining real and imaginary parts
             data = data['real'] + 1j * data['imag']
-        
+
         # Cast to the desired NumPy type (e.g., complex64, complex128, or float, or...)
         data = data.astype(daoType2NpType(self.image.md.contents.atype))
 
@@ -729,7 +824,7 @@ class shm:
 
 
 
-    def get_history(self, num_items=1, check=False, semNb=0, timeout=0, spin=False, buffer=False):
+    def get_history(self, num_items=1, check=False, semNb=0, timeout=0, spin=False, buffer=False, x=None, y=None):
         ''' --------------------------------------------------------------
         Reads and returns the last N segments written to the SHM
 
@@ -742,6 +837,10 @@ class shm:
         - spin:   if True, use counter-based wait instead of semaphore
         - buffer: if True, waits for num_items new writes since last call before
                   returning the array (implies semaphore waiting per write)
+        - x, y: optional slice objects to crop each returned frame to a
+                sub-region (e.g. x=slice(5,10), y=slice(10,15) for a 5x5
+                crop). Same convention as get_data - only the requested
+                sub-region is copied out of shared memory per history entry.
         -------------------------------------------------------------- '''
 
         # First, check the requested number of items is valid
@@ -787,11 +886,24 @@ class shm:
         
         if arraySize[2] == 0:
             if arraySize[1] == 0:
-                result_shape = (num_items, arraySize[0],)
+                frame_shape = (arraySize[0],)
             else:
-                result_shape = (num_items, arraySize[0], arraySize[1],)
+                frame_shape = (arraySize[0], arraySize[1])
         else:
-            result_shape = (num_items, arraySize[0], arraySize[1], arraySize[2])
+            frame_shape = (arraySize[0], arraySize[1], arraySize[2])
+
+        # Compute the cropped per-frame shape (if x/y were requested) so the
+        # preallocated history buffer, and thus every per-frame copy below,
+        # only ever holds the requested sub-region instead of full frames.
+        ySlice = y if y is not None else slice(None)
+        xSlice = x if x is not None else slice(None)
+        if len(frame_shape) == 1:
+            cropped_frame_shape = (len(range(*xSlice.indices(int(frame_shape[0])))),)
+        else:
+            cropped_frame_shape = (len(range(*ySlice.indices(int(frame_shape[0])))),
+                                    len(range(*xSlice.indices(int(frame_shape[1]))))) + tuple(frame_shape[2:])
+
+        result_shape = (num_items,) + cropped_frame_shape
 
         history_data = np.empty(result_shape, dtype=daoType2NpType(self.image.md.contents.atype))
 
@@ -807,8 +919,14 @@ class shm:
             arrayPtr = ctypes.c_void_p(None)
             self.daoShmGetArbitrarySegment(ctypes.byref(self.image), ctypes.byref(arrayPtr), ctypes.c_uint32(current_idx))
             arrayPtr = ctypes.cast(arrayPtr.value, ctypes.POINTER(element_ctype))
-            
-            current_data = np.ctypeslib.as_array(arrayPtr, shape=result_shape[1:])
+
+            current_data = np.ctypeslib.as_array(arrayPtr, shape=frame_shape)
+
+            if x is not None or y is not None:
+                if len(frame_shape) == 1:
+                    current_data = current_data[xSlice]
+                else:
+                    current_data = current_data[ySlice, xSlice]
 
             if current_data.dtype.fields is not None \
                     and 'real' in current_data.dtype.fields \

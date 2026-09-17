@@ -133,7 +133,7 @@ namespace Dao
              * @note No error checking occurs if index outside range 0->max_signals the system may segfault
              * @note Returns 1 if signal received, 0 if timeout occurred
              */
-            inline uint64_t SignalReceiveSpinTimeout( int signum, uint64_t timeout_us )
+            inline uint64_t SignalReceiveSpinTimeout( int /*signum*/, uint64_t /*timeout_us*/ ) // commented out variables as currently unused. Beaware when completing function
             {
                 auto start_time = std::chrono::high_resolution_clock::now();
                 auto timeout_duration = std::chrono::microseconds(timeout_us);

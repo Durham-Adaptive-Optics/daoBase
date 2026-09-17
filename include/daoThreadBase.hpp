@@ -123,9 +123,9 @@ namespace Dao
                         int maxLen = std::min(m_thread_name.length(), (size_t)15);
                         m_thread_name.resize(maxLen);
 #ifdef __APPLE__
-                        int rc = pthread_setname_np(m_thread_name.c_str());
+                        (void)pthread_setname_np(m_thread_name.c_str());
 #else
-                        int rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
+                        (void)pthread_setname_np(pthread_self(), m_thread_name.c_str());
 #endif
                         if(rc != 0)
                         {
@@ -164,7 +164,7 @@ namespace Dao
              * @brief Default constructor.
              * @param
              */
-            void Kill(int signal)
+            void Kill(int /*signal*/) // commenting out variable as function unused and not complete. Supressing warnings for now. Beaware if completing function
             {
                 // std::terminate();
                 pthread_kill(pthread_self(), signal);

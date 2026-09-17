@@ -91,7 +91,7 @@ namespace Dao
             void Idle(){};
             void OnFailure(){};
             void Recover(){};
-            //virtual void Log(std::string message){};
+            void Log(std::string /*message*/){}; // commented out payload to supress warnings should not effect anything downstream but beaware.
 
             virtual void PROCESS_OTHER(std::string Payload)
             {

@@ -141,7 +141,7 @@ namespace Dao
                 {
                     int nBytes = 0;
                     Dao::CommandMessage command;
-                        // 
+                        //
                     nBytes = zmq_recv(m_responder,m_buf, m_buffer_len*sizeof(char), 0);
                     if(nBytes == -1)
                     {
@@ -153,7 +153,7 @@ namespace Dao
                     } 
                     else if(nBytes > 0)
                     {
-                        if(nBytes >= static_cast<int>(m_buffer_len))
+                        if(static_cast<size_t>(nBytes) >= m_buffer_len)
                         {
                             // message is too long
                             m_error_code = -1;

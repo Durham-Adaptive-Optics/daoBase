@@ -38,6 +38,12 @@
 #define DLL_EXPORT
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#define DAO_MAYBE_UNUSED __attribute__((unused))
+#else
+#define DAO_MAYBE_UNUSED
+#endif
+
  // BOTH old and new log system are available and maintained
  // New Log System
 #define LOG_LEVEL_ERROR 0
@@ -52,6 +58,7 @@
 extern "C" {
     #endif
 
+    char* daoBaseGetTimeStamp();
     void daoLog(int log_level, const char* format, ...);
     void daoLogError(const char* format, ...);
     void daoLogPrint(const char* format, ...);
@@ -84,7 +91,6 @@ extern "C" {
 #define ANSI_COLOR_BLUE     "\x1b[34m"
 #define ANSI_COLOR_RESET     "\x1b[0m"
 
-char* daoBaseGetTimeStamp();
 #ifdef _WIN32
 // Need to find an equivalent way to get the filename with MSVC
 #define __FILENAME__ __FILE__
@@ -92,7 +98,11 @@ char* daoBaseGetTimeStamp();
 #define __FILENAME__ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
-static int daoLogLevel = 0; // default 0 (warning+error)
+// This is a per-translation-unit static, not a true global: including this
+// header gives every .c/.cpp file its own private copy, so daoSetLogLevel()
+// only affects the TU it's called from. Some TUs never touch it (no
+// daoInfo/daoDebug/etc. calls), hence DAO_MAYBE_UNUSED.
+static int daoLogLevel DAO_MAYBE_UNUSED = 0; // default 0 (warning+error)
 
 #define daoError(fmt, ...) fprintf(stderr, ANSI_COLOR_RESET ANSI_COLOR_BLUE "%s " ANSI_COLOR_RESET ANSI_COLOR_RED "[error]" ANSI_COLOR_RESET " %s:%d: " fmt, daoBaseGetTimeStamp(), __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #define	daoPrint(fmt, ...) \
