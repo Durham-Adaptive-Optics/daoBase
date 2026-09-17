@@ -199,7 +199,7 @@ to the following shared memory interface:
    // Open an existing shared memory segment.
    Dao::Shm(const std::string &name);
 
-   // Write frame to shared memory.
+   // Write frame to shared memory (copies data and publishes in one call).
    Dao::Shm::set_frame(const T *frame);
 
    // Get the newest frame (with optional synchronization).
@@ -212,7 +212,56 @@ to the following shared memory interface:
    T* Dao::Shm::get_arbitrary_frame(uint32_t segment_idx);
    int_fast8_t Dao::Shm::check_segment_overwrite();
 
+   // In-place writing: obtain a pointer to the next writable segment,
+   // write into it directly, then publish it explicitly.
+   T* Dao::Shm::get_write_frame();
+   void Dao::Shm::set_frame_id(uint64_t frameId);
+   void Dao::Shm::finalise_frame(std::optional<uint64_t> frameId = std::nullopt);
+
 Information on the full C++ interface can be found in the Doxygen documentation.
+
+Writing In-Place
+~~~~~~~~~~~~~~~~
+
+In addition to ``set_frame()``, which copies a complete frame into shared
+memory and publishes it in one call, the C++ interface also allows a caller
+to write directly into the next writable segment without an intermediate
+buffer or copy:
+
+.. code-block:: cpp
+
+   // Get a pointer to the next unpublished segment
+   float *buf = shm.get_write_frame();
+
+   // Write directly into shared memory
+   for (size_t i = 0; i < shm.get_element_count(); i++)
+       buf[i] = compute_value(i);
+
+   // Optionally tag the segment with an application-defined frame ID
+   shm.set_frame_id(my_frame_counter);
+
+   // Publish: timestamps the segment, advances the FIFO, and posts
+   // semaphores so readers can pick it up
+   shm.finalise_frame();
+
+   // set_frame_id() can also be passed directly to finalise_frame():
+   shm.finalise_frame(my_frame_counter);
+
+.. warning::
+
+   ``get_write_frame()``, ``set_frame_id()``, and ``finalise_frame()`` are
+   **not thread-safe with respect to each other**. They assume a single
+   writer per shared memory object. If multiple threads compute into
+   different portions of the *same* segment (e.g. lane-partitioned MVM
+   output), only **one** thread should call ``get_write_frame()`` per
+   frame — after a synchronization barrier ensures every thread is working
+   on the same segment — and only **one** thread (typically a dedicated
+   "mover" or coordinator) should call ``finalise_frame()``, once all
+   contributing threads have finished writing. Calling ``get_write_frame()``
+   independently from multiple threads without such coordination can
+   return different segment indices to different threads if a publish
+   happens between calls, leading to writes landing in inconsistent
+   segments.
 
 C Interface
 -----------
