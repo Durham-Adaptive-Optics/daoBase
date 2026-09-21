@@ -9,6 +9,10 @@ The complete documentation for installation, usage, and API reference can be fou
 
 [**Read the Docs**](https://daobase.readthedocs.io/en/latest/)
 
+The companion application and utilities layer is available in
+[daoTools on GitHub](https://github.com/Durham-Adaptive-Optics/daoTools), with
+documentation at [daotools.readthedocs.io](https://daotools.readthedocs.io/en/latest/).
+
 ---
 
 ## Citation
