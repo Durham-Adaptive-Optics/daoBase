@@ -85,7 +85,7 @@ Once Miniconda is installed, you can open a Miniconda terminal session using the
 You should then run the below command, which will install the necessary Python packages.
 
 ```
-pip install zmq protobuf==3.20.0 astropy python-statemachine statemachine redis sphinx screeninfo
+pip install zmq protobuf astropy python-statemachine statemachine redis sphinx screeninfo
 ```
 
 ## Waf
@@ -160,7 +160,7 @@ The script automatically downloads, builds, and configures:
 3. **Protocol Buffers 3.20.0** (built from source)
 4. **pkg-config-lite 0.28-1** (with automatic .pc file creation)
 5. **Miniconda** (Python environment)
-6. **Required Python packages** (zmq, protobuf==3.20.0, astropy, python-statemachine, statemachine, redis, sphinx, screeninfo)
+6. **Required Python packages** (zmq, protobuf, astropy, python-statemachine, statemachine, redis, sphinx, screeninfo)
 7. **Waf 2.0.26** (build system)
 
 ## Running the Automated Installation
