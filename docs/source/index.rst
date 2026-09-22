@@ -106,6 +106,7 @@ Repository Structure
    <div class="repo-badges">
       <a href="https://github.com/Durham-Adaptive-Optics/daoBase" class="repo-badge">🏗️ daoBase - Core Library</a>
       <a href="https://github.com/Durham-Adaptive-Optics/daoTools" class="repo-badge">🛠️ daoTools - Utilities</a>
+      <a href="https://daotools.readthedocs.io/en/latest/" class="repo-badge">📚 daoTools Documentation</a>
       <a href="https://github.com/Durham-Adaptive-Optics/daoHw" class="repo-badge">⚙️ daoHw - Hardware Layer</a>
    </div>
 
@@ -199,9 +200,9 @@ Documentation Guide
             <h4>API Reference</h4>
             <p>Complete function and class documentation</p>
          </a>
-         <a href="daoTools.html" class="doc-link">
+         <a href="https://daotools.readthedocs.io/en/latest/" class="doc-link">
             <h4>DAO Tools</h4>
-            <p>Utility functions and helper libraries</p>
+            <p>Public documentation for the DAO application and utilities layer</p>
          </a>
          <a href="daoHw.html" class="doc-link">
             <h4>Hardware Support</h4>

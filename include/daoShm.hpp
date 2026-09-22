@@ -92,6 +92,40 @@ namespace Dao
         }
 
         /**
+        * @brief Retrieve a pointer to the next writable segment of the shared memory
+        * frame array, without publishing it. The caller is responsible for writing
+        * exactly get_element_count() elements into the returned buffer, then calling
+        * finalise_frame() to publish it. Do not call this again before finalizing
+        * the previously obtained segment — it will return the same segment.
+        * @return Pointer to the next writable frame segment.
+        */
+        T* get_write_frame() {
+            volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image_.md;
+            const uint32_t writing_idx = (vol_md[0].fifo_last_written + 1) % vol_md[0].fifo_size;
+            vol_md[writing_idx].write = 1;
+
+            void *segment_ptr;
+            daoShmGetArbitrarySegment(&image_, &segment_ptr, writing_idx);
+
+            return (T*)segment_ptr;
+        }
+
+        /**
+        * @brief Publish the segment most recently obtained via get_write_frame() as
+        * the newest frame: optionally sets its frame ID (cnt2), timestamps it,
+        * advances the FIFO write position, and posts synchronization primitives
+        * (semaphores/counter) so readers pick it up.
+        * @param frameId Optional value to store in the segment's cnt2 field, readable
+        * later via get_frame_id(). Omit to leave cnt2 untouched.
+        */
+        void finalise_frame(std::optional<uint64_t> frameId = std::nullopt) {
+            if (frameId.has_value())
+                set_frame_id(frameId.value());
+
+            daoShmImagePart2ShmFinalize(&image_);
+        }
+
+        /**
          * @brief Retrieve a pointer to the newest segment of the shared memory frame array.
          * Optionally blocks until the next frame is written to shared memory.
          * @param sync Synchronization option (see Dao::ShmSync).
@@ -304,6 +338,29 @@ namespace Dao
             volatile IMAGE_METADATA *segment_md_ = &(md_[fifo_idx % (md_->fifo_size)]);
 
             return segment_md_->cnt2;
+        }
+
+        /**
+        * @brief Set the frame ID (cnt2) of a given segment. Does not affect
+        * publication state — call finalize_frame() separately to publish.
+        * @param frameId Value to store in the segment's cnt2 field.
+        * @param fifo_idx Segment index to tag. Defaults to the next writable
+        * segment (the one returned by get_write_frame()).
+        */
+        void set_frame_id(uint64_t frameId, uint32_t fifo_idx) {
+            volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image_.md;
+            vol_md[fifo_idx % vol_md[0].fifo_size].cnt2 = frameId;
+        }
+
+        /**
+        * @brief Set the frame ID (cnt2) of the next writable segment (the one
+        * that will be published by the next finalize_frame() call).
+        * @param frameId Value to store in cnt2.
+        */
+        void set_frame_id(uint64_t frameId) {
+            volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image_.md;
+            const uint32_t writing_idx = (vol_md[0].fifo_last_written + 1) % vol_md[0].fifo_size;
+            set_frame_id(frameId, writing_idx);
         }
 
         /**

@@ -9,6 +9,10 @@ The complete documentation for installation, usage, and API reference can be fou
 
 [**Read the Docs**](https://daobase.readthedocs.io/en/latest/)
 
+The companion application and utilities layer is available in
+[daoTools on GitHub](https://github.com/Durham-Adaptive-Optics/daoTools), with
+documentation at [daotools.readthedocs.io](https://daotools.readthedocs.io/en/latest/).
+
 ---
 
 ## Citation
@@ -200,7 +204,7 @@ rm -rf ~/miniconda3/miniconda.sh
 ```
 The following package should be installed
 ```
-pip install posix_ipc zmq protobuf==3.20.0 astropy python-statemachine statemachine redis sphinx screeninfo
+pip install posix_ipc zmq protobuf astropy python-statemachine statemachine redis sphinx screeninfo
 ```
 For MACOS, check the version of your protoc
 ```
