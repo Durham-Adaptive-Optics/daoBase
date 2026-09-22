@@ -355,69 +355,68 @@ class shm:
     DAO_NOTREADY = -3
 
     def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=0, depth=1):
-        # int8_t daoShmInit1D(const char *name, char *prefix, uint32_t nbVal, IMAGE **image);
-        self.daoShmInit1D = daoLib.daoShmInit1D
-        self.daoShmInit1D.argtypes = [
+        # int8_t daoShmCreate1D(const char *name, uint32_t nbVal, IMAGE **image);
+        self.daoShmCreate1D = daoLib.daoShmCreate1D
+        self.daoShmCreate1D.argtypes = [
             ctypes.c_char_p,
-            ctypes.POINTER(ctypes.c_char),
             ctypes.c_uint32,
             ctypes.POINTER(ctypes.POINTER(IMAGE))
         ]
-        self.daoShmInit1D.restype = ctypes.c_int8
+        self.daoShmCreate1D.restype = ctypes.c_int8
 
         # set the log level
         setLogLevel(logLevel)
 
-        # int8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image);
-        self.daoShmShm2Img = daoLib.daoShmShm2Img
-        self.daoShmShm2Img.argtypes = [
+        # int8_t daoShmOpen(const char *name, IMAGE *image);
+        self.daoShmOpen = daoLib.daoShmOpen
+        self.daoShmOpen.argtypes = [
             ctypes.c_char_p,
             ctypes.POINTER(IMAGE)
         ]
-        self.daoShmShm2Img.restype = ctypes.c_int8
+        self.daoShmOpen.restype = ctypes.c_int8
 
-        # int8_t daoShmImage2Shm(void *procim, uint32_t nbVal, IMAGE *image);
-        self.daoShmImage2Shm = daoLib.daoShmImage2Shm
-        self.daoShmImage2Shm.argtypes = [
+        # int8_t daoShmSetData(IMAGE *image, void *im, uint32_t nbVal);
+        self.daoShmSetData = daoLib.daoShmSetData
+        self.daoShmSetData.argtypes = [
+            ctypes.POINTER(IMAGE),
             ctypes.c_void_p,
-            ctypes.c_uint32,
-            ctypes.POINTER(IMAGE)
+            ctypes.c_uint32
         ]
-        self.daoShmImage2Shm.restype = ctypes.c_int8
+        self.daoShmSetData.restype = ctypes.c_int8
 
-        # int8_t daoShmImage2ShmQuiet(void *procim, uint32_t nbVal, IMAGE *image);
-        self.daoShmImage2ShmQuiet = daoLib.daoShmImage2ShmQuiet
-        self.daoShmImage2ShmQuiet.argtypes = [
+        # int8_t daoShmSetDataQuiet(IMAGE *image, void *im, uint32_t nbVal);
+        self.daoShmSetDataQuiet = daoLib.daoShmSetDataQuiet
+        self.daoShmSetDataQuiet.argtypes = [
+            ctypes.POINTER(IMAGE),
             ctypes.c_void_p,
-            ctypes.c_uint32,
-            ctypes.POINTER(IMAGE)
+            ctypes.c_uint32
         ]
-        self.daoShmImage2ShmQuiet.restype = ctypes.c_int8
+        self.daoShmSetDataQuiet.restype = ctypes.c_int8
 
-        # int8_t daoShmImagePart2Shm(char *procim, uint32_t nbVal, IMAGE *image, uint32_t position,
-        #                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber);
-        self.daoShmImagePart2Shm = daoLib.daoShmImagePart2Shm
-        self.daoShmImagePart2Shm.argtypes = [
+        # int8_t daoShmSetDataPart(IMAGE *image, char *im, uint32_t nbVal, uint32_t position,
+        #                          uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber);
+        self.daoShmSetDataPart = daoLib.daoShmSetDataPart
+        self.daoShmSetDataPart.argtypes = [
+            ctypes.POINTER(IMAGE),
             ctypes.POINTER(ctypes.c_char),
             ctypes.c_uint32,
-            ctypes.POINTER(IMAGE),
             ctypes.c_uint32,
             ctypes.c_uint16,
             ctypes.c_uint16,
             ctypes.c_uint64
         ]
-        self.daoShmImagePart2Shm.restype = ctypes.c_int8
+        self.daoShmSetDataPart.restype = ctypes.c_int8
 
-        # int8_t daoShmImagePart2ShmFinalize(IMAGE *image);
-        self.daoShmImagePart2ShmFinalize = daoLib.daoShmImagePart2ShmFinalize
-        self.daoShmImagePart2ShmFinalize.argtypes = [ctypes.POINTER(IMAGE)]
-        self.daoShmImagePart2ShmFinalize.restype = ctypes.c_int8
+        # int8_t daoShmSetDataPartFinalize(IMAGE *image);
+        self.daoShmSetDataPartFinalize = daoLib.daoShmSetDataPartFinalize
+        self.daoShmSetDataPartFinalize.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmSetDataPartFinalize.restype = ctypes.c_int8
 
 
-        # int8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis, uint32_t *size,
-        #                              uint8_t atype, int shared, int NBkw);
-        self.daoShmImageCreate_FIFO = daoLib.daoShmImageCreate_FIFO
-        self.daoShmImageCreate_FIFO.argtypes = [
+        # int8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis, uint32_t *size,
+        #                         uint8_t atype, int shared, int NBkw, uint32_t fifo_size);
+        self.daoShmCreateFifo = daoLib.daoShmCreateFifo
+        self.daoShmCreateFifo.argtypes = [
             ctypes.POINTER(IMAGE),
             ctypes.c_char_p,
             ctypes.c_long,
@@ -427,12 +426,12 @@ class shm:
             ctypes.c_int,
             ctypes.c_uint32
         ]
-        self.daoShmImageCreate_FIFO.restype = ctypes.c_int8
+        self.daoShmCreateFifo.restype = ctypes.c_int8
 
-        # int8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
-        #                              uint8_t atype, int shared, int NBkw);
-        self.daoShmImageCreate = daoLib.daoShmImageCreate
-        self.daoShmImageCreate.argtypes = [
+        # int8_t daoShmCreate(IMAGE *image, const char *name, long naxis, uint32_t *size,
+        #                     uint8_t atype, int shared, int NBkw);
+        self.daoShmCreate = daoLib.daoShmCreate
+        self.daoShmCreate.argtypes = [
             ctypes.POINTER(IMAGE),
             ctypes.c_char_p,
             ctypes.c_long,
@@ -441,73 +440,73 @@ class shm:
             ctypes.c_int,
             ctypes.c_int
         ]
-        self.daoShmImageCreate.restype = ctypes.c_int8
+        self.daoShmCreate.restype = ctypes.c_int8
 
-        # int8_t daoShmCombineShm2Shm(IMAGE **imageCude, IMAGE *image, int nbChannel, int nbVal);
-        self.daoShmCombineShm2Shm = daoLib.daoShmCombineShm2Shm
-        self.daoShmCombineShm2Shm.argtypes = [
+        # int8_t daoShmCombine(IMAGE **imageCube, IMAGE *image, int nbChannel, int nbVal);
+        self.daoShmCombine = daoLib.daoShmCombine
+        self.daoShmCombine.argtypes = [
             ctypes.POINTER(ctypes.POINTER(IMAGE)),
             ctypes.POINTER(IMAGE),
             ctypes.c_int,
             ctypes.c_int
         ]
-        self.daoShmCombineShm2Shm.restype = ctypes.c_int8
+        self.daoShmCombine.restype = ctypes.c_int8
 
         # uint64_t daoShmGetCounter(IMAGE *image);
         self.daoShmGetCounter = daoLib.daoShmGetCounter
         self.daoShmGetCounter.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmGetCounter.restype = ctypes.c_uint64
 
-        self.daoShmWaitForSemaphore = daoLib.daoShmWaitForSemaphore
-        self.daoShmWaitForSemaphore.argtypes = [
+        self.daoShmWaitSem = daoLib.daoShmWaitSem
+        self.daoShmWaitSem.argtypes = [
             ctypes.POINTER(IMAGE),
             ctypes.c_int32
         ]
-        self.daoShmWaitForSemaphore.restype = ctypes.c_int8
+        self.daoShmWaitSem.restype = ctypes.c_int8
 
-        self.daoShmWaitForSemaphoreTimeout = daoLib.daoShmWaitForSemaphoreTimeout
-        self.daoShmWaitForSemaphoreTimeout.argtypes = [
+        self.daoShmWaitSemTimeout = daoLib.daoShmWaitSemTimeout
+        self.daoShmWaitSemTimeout.argtypes = [
             ctypes.POINTER(IMAGE),
             ctypes.c_int32,
             ctypes.POINTER(timespec)
         ]
-        self.daoShmWaitForSemaphoreTimeout.restype = ctypes.c_int8
+        self.daoShmWaitSemTimeout.restype = ctypes.c_int8
 
-        self.daoShmWaitForCounter = daoLib.daoShmWaitForCounter
-        self.daoShmWaitForCounter.argtypes = [ctypes.POINTER(IMAGE)]
-        self.daoShmWaitForCounter.restype = ctypes.c_int8
+        self.daoShmWaitCounter = daoLib.daoShmWaitCounter
+        self.daoShmWaitCounter.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmWaitCounter.restype = ctypes.c_int8
 
-        # new FIFO functions
-        self.daoShmGetNextSegment = daoLib.daoShmGetNextSegment
-        self.daoShmGetNextSegment.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p),\
+        # FIFO functions
+        self.daoShmGetDataNext = daoLib.daoShmGetDataNext
+        self.daoShmGetDataNext.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p),\
                                               ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint64)]
-        self.daoShmGetNextSegment.restype = ctypes.c_int8
+        self.daoShmGetDataNext.restype = ctypes.c_int8
 
-        self.daoShmWaitForNextSegment = daoLib.daoShmWaitForNextSegment
-        self.daoShmWaitForNextSegment.argtypes = [ctypes.POINTER(IMAGE)]
-        self.daoShmWaitForNextSegment.restype = ctypes.c_int8
+        self.daoShmWaitData = daoLib.daoShmWaitData
+        self.daoShmWaitData.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmWaitData.restype = ctypes.c_int8
 
-        self.daoShmGetArbitrarySegment = daoLib.daoShmGetArbitrarySegment
-        self.daoShmGetArbitrarySegment.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint32]
-        self.daoShmGetArbitrarySegment.restype = ctypes.c_int8
+        self.daoShmGetDataAt = daoLib.daoShmGetDataAt
+        self.daoShmGetDataAt.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint32]
+        self.daoShmGetDataAt.restype = ctypes.c_int8
 
-        self.daoShmGetNewestSegment = daoLib.daoShmGetNewestSegment
-        self.daoShmGetNewestSegment.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p),\
+        self.daoShmGetData = daoLib.daoShmGetData
+        self.daoShmGetData.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_void_p),\
                                               ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint64)]
-        self.daoShmGetNewestSegment.restype = ctypes.c_int8
+        self.daoShmGetData.restype = ctypes.c_int8
 
-        self.daoShmCheckSegmentOverwrite = daoLib.daoShmCheckSegmentOverwrite
-        self.daoShmCheckSegmentOverwrite.argtypes = [ctypes.POINTER(IMAGE)]
-        self.daoShmCheckSegmentOverwrite.restype = ctypes.c_int8
+        self.daoShmCheckOverwrite = daoLib.daoShmCheckOverwrite
+        self.daoShmCheckOverwrite.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmCheckOverwrite.restype = ctypes.c_int8
 
-        self.daoShmResetTail = daoLib.daoShmResetTail
-        self.daoShmResetTail.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint64)]
-        self.daoShmResetTail.restype = ctypes.c_int8
-        
-        # int8_t daoShmCloseShm(IMAGE *image);
-        self.daoShmCloseShm = daoLib.daoShmCloseShm
-        self.daoShmCloseShm.argtypes = [ctypes.POINTER(IMAGE)]
-        self.daoShmCloseShm.restype = ctypes.c_int8
+        self.daoShmResetReadTail = daoLib.daoShmResetReadTail
+        self.daoShmResetReadTail.argtypes = [ctypes.POINTER(IMAGE), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint64)]
+        self.daoShmResetReadTail.restype = ctypes.c_int8
+
+        # int8_t daoShmClose(IMAGE *image);
+        self.daoShmClose = daoLib.daoShmClose
+        self.daoShmClose.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmClose.restype = ctypes.c_int8
 
         self.image=IMAGE()
         if fname == '':
@@ -519,7 +518,7 @@ class shm:
 
             log.info("%s will be created or overwritten" % (fname,))
             dataSize = data.shape
-            self.daoShmImageCreate_FIFO(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
+            self.daoShmCreateFifo(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
                                 (ctypes.c_uint32 * len(dataSize))(*dataSize),\
                                 npType2DaoType(data), 1, 0, depth)
             if data.flags['C_CONTIGUOUS']:
@@ -528,7 +527,7 @@ class shm:
                 cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
             nbVal = ctypes.c_uint32(data.size)
             # Call the daoShmImage2Shm function to feel the SHM
-            result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
+            result = self.daoShmSetData(ctypes.byref(self.image), cData, nbVal)
         else:
             # log.info("loading existing %s " % (fname))
             # Fail cleanly instead of letting the C layer mmap nothing and
@@ -536,7 +535,7 @@ class shm:
             if fname is None or not os.path.isfile(fname):
                 raise FileNotFoundError(
                     "daoShm.shm: shared memory file '%s' does not exist" % (fname,))
-            result = self.daoShmShm2Img(fname.encode('utf-8'), ctypes.byref(self.image))
+            result = self.daoShmOpen(fname.encode('utf-8'), ctypes.byref(self.image))
             if result != self.DAO_SUCCESS:
                 raise OSError(
                     "daoShm.shm: failed to load shared memory file '%s' "
@@ -616,7 +615,7 @@ class shm:
             cData = np.ascontiguousarray(data).ctypes.data_as(ctypes.c_void_p)
 
         nbVal = ctypes.c_uint32(data.size)
-        result = self.daoShmImage2Shm(cData, nbVal, ctypes.byref(self.image))
+        result = self.daoShmSetData(ctypes.byref(self.image), cData, nbVal)
 
     def get_data_next(self, wait=False, reform=True, x=None, y=None):
         ''' --------------------------------------------------------------
@@ -632,7 +631,7 @@ class shm:
         -------------------------------------------------------------- '''
 
         if wait == True:
-            result = self.daoShmWaitForNextSegment(ctypes.byref(self.image))
+            result = self.daoShmWaitData(ctypes.byref(self.image))
             if result != 0:
                 log.error("Error waiting for counter")
                 return None
@@ -641,7 +640,7 @@ class shm:
         temp32 = ctypes.c_uint32()
         temp64 = ctypes.c_uint64()
         
-        result = self.daoShmGetNextSegment(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
+        result = self.daoShmGetDataNext(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
                                            ctypes.byref(temp32),  ctypes.byref(temp64))
         
         data = None
@@ -702,7 +701,7 @@ class shm:
         
         arrayPtr = ctypes.c_void_p(None)
         
-        result = self.daoShmGetArbitrarySegment(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
+        result = self.daoShmGetDataAt(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
                                            ctypes.c_uint32(fifo_idx))
 
         # Cast our void pointer to the desired type
@@ -760,7 +759,7 @@ class shm:
         -------------------------------------------------------------- '''
         if check == True:
             if spin == True:
-                result = self.daoShmWaitForCounter(ctypes.byref(self.image))
+                result = self.daoShmWaitCounter(ctypes.byref(self.image))
             else:
                 if timeout == 0:
                     # On Windows, daoShmWaitForSemaphore returns DAO_TIMEOUT
@@ -769,10 +768,10 @@ class shm:
                     # We loop here in Python so Ctrl+C works correctly.
                     result = -1
                     while result == -1:
-                        result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
+                        result = self.daoShmWaitSem(ctypes.byref(self.image), semNb)
                 else:
                     ts = make_timespec_from_now(timeout)
-                    result = self.daoShmWaitForSemaphoreTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))
+                    result = self.daoShmWaitSemTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))
                     if result != 0:
                         log.error("Timeout waiting for semaphore")
                         return None
@@ -781,7 +780,7 @@ class shm:
         seg_idx = ctypes.c_uint32(0)
         seg_cnt0 = ctypes.c_uint64(0)
         
-        result = self.daoShmGetNewestSegment(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
+        result = self.daoShmGetData(ctypes.byref(self.image), ctypes.byref(arrayPtr),\
                                            ctypes.byref(seg_idx), ctypes.byref(seg_cnt0))
         
         # Cast our void pointer to the desired type
@@ -856,15 +855,15 @@ class shm:
         def _wait_one():
             """Wait for a single new semaphore post. Returns False on timeout."""
             if spin:
-                self.daoShmWaitForCounter(ctypes.byref(self.image))
+                self.daoShmWaitCounter(ctypes.byref(self.image))
             else:
                 if timeout == 0:
                     result = -1
                     while result == -1:
-                        result = self.daoShmWaitForSemaphore(ctypes.byref(self.image), semNb)
+                        result = self.daoShmWaitSem(ctypes.byref(self.image), semNb)
                 else:
                     ts = make_timespec_from_now(timeout)
-                    result = self.daoShmWaitForSemaphoreTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))
+                    result = self.daoShmWaitSemTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))
                     if result != 0:
                         log.error("Timeout waiting for semaphore")
                         return False
@@ -917,7 +916,7 @@ class shm:
             current_idx = (idx_base + idx_offset) % fifo_size
 
             arrayPtr = ctypes.c_void_p(None)
-            self.daoShmGetArbitrarySegment(ctypes.byref(self.image), ctypes.byref(arrayPtr), ctypes.c_uint32(current_idx))
+            self.daoShmGetDataAt(ctypes.byref(self.image), ctypes.byref(arrayPtr), ctypes.c_uint32(current_idx))
             arrayPtr = ctypes.cast(arrayPtr.value, ctypes.POINTER(element_ctype))
 
             current_data = np.ctypeslib.as_array(arrayPtr, shape=frame_shape)
@@ -959,7 +958,7 @@ class shm:
             seg_idx = ctypes.c_uint32(0)
             seg_cnt0 = ctypes.c_uint64(0)
 
-            self.daoShmGetNewestSegment(ctypes.byref(self.image),\
+            self.daoShmGetData(ctypes.byref(self.image),\
                                         ctypes.byref(seg_ptr),\
                                         ctypes.byref(seg_idx),
                                         ctypes.byref(seg_cnt0))
@@ -1019,7 +1018,7 @@ class shm:
         -------------------------------------------------------------- '''
         tail_index = ctypes.c_uint32()
         tail_timestamp = ctypes.c_uint64()
-        result = self.daoShmResetTail(
+        result = self.daoShmResetReadTail(
             ctypes.byref(self.image),
             ctypes.byref(tail_index),
             ctypes.byref(tail_timestamp)
@@ -1077,7 +1076,7 @@ class shm:
         Close the SHM file.
 
         -------------------------------------------------------------- '''
-        result = self.daoShmCloseShm(ctypes.byref(self.image))
+        result = self.daoShmClose(ctypes.byref(self.image))
         
     def __del__(self):
         ''' --------------------------------------------------------------

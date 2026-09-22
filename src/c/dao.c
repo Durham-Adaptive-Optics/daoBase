@@ -461,7 +461,7 @@ void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa, PACL dacl)
  * Extract image from a shared memory
  */
 //int_fast8_t daoShmShm2Img(const char *name, char *prefix, IMAGE *image)
-int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
+int_fast8_t daoShmOpen(const char *name, IMAGE *image)
 {
     daoTrace("\n");
 
@@ -832,7 +832,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 
         uint32_t tmp32;
         uint64_t tmp64;
-        daoShmResetTail(image, &tmp32, &tmp64);
+        daoShmResetReadTail(image, &tmp32, &tmp64);
     }
     return(rval);
 }
@@ -840,7 +840,7 @@ int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
 /**
  * Init 1D array in shared memory
  */
-int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
+int_fast8_t daoShmCreate1D(const char *name, uint32_t nbVal, IMAGE **image)
 {
     daoTrace("\n");
     int naxis = 2;
@@ -870,7 +870,7 @@ int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
     memset(*image, 0, sizeof(IMAGE)*NBIMAGES);
     daoDebug("ECHO %i, %i\n", imsize[0], NBIMAGES);
 
-    daoShmImageCreate(*image, fullName, naxis, imsize, _DATATYPE_FLOAT, 1, 0);
+    daoShmCreate(*image, fullName, naxis, imsize, _DATATYPE_FLOAT, 1, 0);
 
     return DAO_SUCCESS;
 }
@@ -878,7 +878,7 @@ int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
 /*
  * The image is send to the shared memory.
  */
-int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image) 
+int_fast8_t daoShmSetData(IMAGE *image, void *im, uint32_t nbVal)
 {
     daoTrace("\n");
 
@@ -916,7 +916,7 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
     else if (image->md[writing_idx].atype == _DATATYPE_COMPLEX_DOUBLE)
         memcpy(&image->array.CD[fifo_writing_offset], (complex_double *)im, nbVal*sizeof(complex_double));
 
-    daoShmImagePart2ShmFinalize(image);
+    daoShmSetDataPartFinalize(image);
 
     return DAO_SUCCESS;
 }
@@ -924,7 +924,7 @@ int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
 /*
  * The image is send to the shared memory.
  */
-int_fast8_t daoShmImage2ShmQuiet(void *im, uint32_t nbVal, IMAGE *image) 
+int_fast8_t daoShmSetDataQuiet(IMAGE *image, void *im, uint32_t nbVal)
 {
     daoTrace("\n");
 
@@ -971,8 +971,8 @@ int_fast8_t daoShmImage2ShmQuiet(void *im, uint32_t nbVal, IMAGE *image)
  * The image is send to the shared memory.
  * No release of semaphore since it is a part write
  */
-int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t position,
-                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber) 
+int_fast8_t daoShmSetDataPart(IMAGE *image, char *im, uint32_t nbVal, uint32_t position,
+                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber)
 {
     daoTrace("\n");
 
@@ -1026,7 +1026,7 @@ int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t
  * The image has beed sent to the shared memory.
  * Release of semaphore since it is a part write
  */
-int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image) 
+int_fast8_t daoShmSetDataPartFinalize(IMAGE *image)
 {
     daoTrace("\n");
 
@@ -1040,11 +1040,11 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
     image->md[0].fifo_last_written = writing_idx;
 
     daoShmTimestampShm(image);
-    daoSemPostAll(image);
+    daoShmPostSemAll(image);
 
     if(image->semlog != NULL)
     {
-        daoSemLogPost(image);
+        daoShmPostLog(image);
     }
 	 
 
@@ -1058,7 +1058,7 @@ int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
  * @param NBsem 
  * @return int_fast8_t 
  */
-int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
+int_fast8_t daoShmCreateSem(IMAGE *image, long NBsem)
 {
     daoTrace("\n");
     char shmSemName[256];
@@ -1224,7 +1224,7 @@ int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
 /*
  * Create SHM
  */
-int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis, 
+int_fast8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis,
                               uint32_t *size, uint8_t atype, int shared, int NBkw, uint32_t fifo_size)
 {
     daoTrace("\n");
@@ -1973,7 +1973,7 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
     if(shared==1)
     {
         daoInfo("Creating Semaphores\n");
-        daoImageCreateSem(image, 10); // by default, create 10 semaphores
+        daoShmCreateSem(image, 10); // by default, create 10 semaphores
         daoInfo("Semaphores created\n");
 
 #ifdef __APPLE__
@@ -2001,7 +2001,7 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
 
     uint32_t tmp32;
     uint64_t tmp64;
-    daoShmResetTail(image, &tmp32, &tmp64);
+    daoShmResetReadTail(image, &tmp32, &tmp64);
 
     // initialize keywords
     for(kw=0; kw<image->md[0].NBkw; kw++)
@@ -2011,7 +2011,7 @@ int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
     return(0);
 }
 
-int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel, int nbVal)
+int_fast8_t daoShmCombine(IMAGE **imageCube, IMAGE *image, int nbChannel, int nbVal)
 {
     daoTrace("\n");
     int pp;
@@ -2197,16 +2197,16 @@ int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel,
         }
     }
 	
-    daoShmImagePart2ShmFinalize(image);
+    daoShmSetDataPartFinalize(image);
 
     return DAO_SUCCESS;
 }
 
 /* Function for compatibility - creates 1-deep DAO SHM */
-int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis, 
+int_fast8_t daoShmCreate(IMAGE *image, const char *name, long naxis,
                               uint32_t *size, uint8_t atype, int shared, int NBkw)
 {
-    return daoShmImageCreate_FIFO(image, name, naxis, size, atype, shared, NBkw, 1);
+    return daoShmCreateFifo(image, name, naxis, size, atype, shared, NBkw, 1);
 }
 
 /**
@@ -2215,7 +2215,7 @@ int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
  * @param image 
  * @return uint_fast64_t 
  */
-int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
+int_fast8_t daoShmWaitSem(IMAGE *image, int32_t semNb)
 {
     daoTrace("\n");
     // Wait for new image
@@ -2306,7 +2306,7 @@ int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
  * @return uint_fast64_t 
  * @timeout timespec
  */
-int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const struct timespec * timeout)
+int_fast8_t daoShmWaitSemTimeout(IMAGE *image, int32_t semNb, const struct timespec * timeout)
 {
     daoTrace("\n");
     // Wait for new image
@@ -2380,7 +2380,7 @@ int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const str
  * @param image 
  * @return int_fast8_t 
  */
-int_fast8_t daoShmWaitForCounter(IMAGE *image)
+int_fast8_t daoShmWaitCounter(IMAGE *image)
 {
     daoTrace("\n");
     volatile IMAGE_METADATA *md = (volatile IMAGE_METADATA *)image->md;
@@ -2445,7 +2445,7 @@ int_fast8_t daoShmWaitForCounter(IMAGE *image)
  * @param targetCnt0 The cnt0 value to spin until. 
  * @return int_fast8_t 
  */
-int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
+int_fast8_t daoShmWaitTargetCounter(IMAGE *image, uint64_t targetCnt0)
 {
     daoTrace("\n");
 
@@ -2534,7 +2534,7 @@ uint_fast64_t daoShmGetCounter(IMAGE *image)
  * @param segment_idx Numerical index of the next segment
  * @return int_fast8_t DAO_OVERWRITE if tail has been lapped, otherwise DAO_SUCCESS
  */
-int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
+int_fast8_t daoShmGetDataNext(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
 {
     // Pseudocode
     // 1. get last_read_idx from IMAGE
@@ -2612,9 +2612,9 @@ int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segment_ptr, uint32_t* seg
  * @param image 
  * @return int_fast8_t
  */
-int_fast8_t daoShmWaitForNextSegment(IMAGE *image)
+int_fast8_t daoShmWaitData(IMAGE *image)
 {
-    return daoShmWaitForTargetCounter(image, image->fifo_last_read_cnt0 + 1);
+    return daoShmWaitTargetCounter(image, image->fifo_last_read_cnt0 + 1);
 }
 
 /**
@@ -2625,7 +2625,7 @@ int_fast8_t daoShmWaitForNextSegment(IMAGE *image)
  * @param segment_idx Numerical index of the segment to get
  * @return int_fast8_t
  */
-int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segment_ptr, uint_fast32_t fifo_idx)
+int_fast8_t daoShmGetDataAt(IMAGE *image, void** segment_ptr, uint_fast32_t fifo_idx)
 {
     uint32_t actual_idx = (uint32_t)(fifo_idx % image->md[0].fifo_size);
 
@@ -2665,7 +2665,7 @@ int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segment_ptr, uint_fas
  * @param segment_idx Numerical index of the newest segment
  * @return int_fast8_t
  */
-int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
+int_fast8_t daoShmGetData(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
 {
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
@@ -2709,7 +2709,7 @@ int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segment_ptr, uint32_t* s
  * @param image 
  * @return int_fast8_t DAO_OVERWRITE if segment was overwritten, DAO_SUCCESS otherwise
  */
-int_fast8_t daoShmCheckSegmentOverwrite(IMAGE *image)
+int_fast8_t daoShmCheckOverwrite(IMAGE *image)
 {
     // Pseudocode
     // 1. get last read CNT0 from IMAGE
@@ -2741,7 +2741,7 @@ int_fast8_t daoShmCheckSegmentOverwrite(IMAGE *image)
  * @param segment_cnt0 Current CNT0 of the segment to which the tail was reset
  * @return int_fast8_t
  */
-int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segment_idx, uint64_t *segment_cnt0)
+int_fast8_t daoShmResetReadTail(IMAGE *image, uint32_t* segment_idx, uint64_t *segment_cnt0)
 {
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
@@ -2763,7 +2763,7 @@ int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segment_idx, uint64_t *segme
  * 
  * Properly closes file descriptors, unmaps memory, and releases semaphores
  */
-int_fast8_t daoShmCloseShm(IMAGE *image)
+int_fast8_t daoShmClose(IMAGE *image)
 {
     daoTrace("\n");
     int s;
@@ -2881,7 +2881,7 @@ int_fast8_t daoShmTimestampShm(IMAGE *image)
  * @param semNb 
  * @return int_fast8_t 
  */
-int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
+int_fast8_t daoShmPostSem(IMAGE *image, int32_t semNb)
 {
     daoTrace("\n");
 
@@ -2931,13 +2931,13 @@ int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
  * @param image 
  * @return int_fast8_t 
  */
-int_fast8_t daoSemPostAll(IMAGE *image)
+int_fast8_t daoShmPostSemAll(IMAGE *image)
 {
     daoTrace("\n");
     int ss;
     for(ss = 0; ss < image->md[0].sem; ss++)
     {
-        daoSemPost(image, ss);
+        daoShmPostSem(image, ss);
     }
     return DAO_SUCCESS;
 }
@@ -2948,7 +2948,7 @@ int_fast8_t daoSemPostAll(IMAGE *image)
  * @param image 
  * @return int_fast8_t 
  */
-int_fast8_t daoSemLogPost(IMAGE *image)
+int_fast8_t daoShmPostLog(IMAGE *image)
 {
     daoTrace("\n");
 
@@ -2980,4 +2980,145 @@ int_fast8_t daoSemLogPost(IMAGE *image)
     }
     #endif
     return DAO_SUCCESS;
+}
+
+/* ==========================================================================
+ * Legacy names
+ *
+ * These are the pre-existing daoShm... and daoSem... names, kept unchanged
+ * for existing code. Each one simply forwards to the equivalently-named
+ * function above (see dao.h for the mapping table). New code should use
+ * the functions above instead.
+ * ========================================================================== */
+
+int_fast8_t daoShmImageCreate(IMAGE *image, const char *name, long naxis,
+                              uint32_t *size, uint8_t atype, int shared, int NBkw)
+{
+    return daoShmCreate(image, name, naxis, size, atype, shared, NBkw);
+}
+
+int_fast8_t daoShmImageCreate_FIFO(IMAGE *image, const char *name, long naxis,
+                              uint32_t *size, uint8_t atype, int shared, int NBkw, uint32_t fifo_size)
+{
+    return daoShmCreateFifo(image, name, naxis, size, atype, shared, NBkw, fifo_size);
+}
+
+int_fast8_t daoShmInit1D(const char *name, uint32_t nbVal, IMAGE **image)
+{
+    return daoShmCreate1D(name, nbVal, image);
+}
+
+int_fast8_t daoImageCreateSem(IMAGE *image, long NBsem)
+{
+    return daoShmCreateSem(image, NBsem);
+}
+
+/* dao.h has always declared this name, but no matching definition ever
+ * existed (the real implementation was daoImageCreateSem, above). Defining
+ * it here as a forwarder to daoShmCreateSem fixes that dangling
+ * declaration as a side effect. */
+int_fast8_t daoShmImageCreateSem(IMAGE *image, long NBsem)
+{
+    return daoShmCreateSem(image, NBsem);
+}
+
+int_fast8_t daoShmShm2Img(const char *name, IMAGE *image)
+{
+    return daoShmOpen(name, image);
+}
+
+int_fast8_t daoShmCloseShm(IMAGE *image)
+{
+    return daoShmClose(image);
+}
+
+int_fast8_t daoShmImage2Shm(void *im, uint32_t nbVal, IMAGE *image)
+{
+    return daoShmSetData(image, im, nbVal);
+}
+
+int_fast8_t daoShmImage2ShmQuiet(void *im, uint32_t nbVal, IMAGE *image)
+{
+    return daoShmSetDataQuiet(image, im, nbVal);
+}
+
+int_fast8_t daoShmImagePart2Shm(char *im, uint32_t nbVal, IMAGE *image, uint32_t position,
+                             uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber)
+{
+    return daoShmSetDataPart(image, im, nbVal, position, packetId, packetTotal, frameNumber);
+}
+
+int_fast8_t daoShmImagePart2ShmFinalize(IMAGE *image)
+{
+    return daoShmSetDataPartFinalize(image);
+}
+
+int_fast8_t daoShmCombineShm2Shm(IMAGE **imageCube, IMAGE *image, int nbChannel, int nbVal)
+{
+    return daoShmCombine(imageCube, image, nbChannel, nbVal);
+}
+
+int_fast8_t daoShmGetNewestSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
+{
+    return daoShmGetData(image, segment_ptr, segment_idx, segment_cnt0);
+}
+
+int_fast8_t daoShmGetNextSegment(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
+{
+    return daoShmGetDataNext(image, segment_ptr, segment_idx, segment_cnt0);
+}
+
+int_fast8_t daoShmGetArbitrarySegment(IMAGE *image, void** segment_ptr, uint_fast32_t fifo_idx)
+{
+    return daoShmGetDataAt(image, segment_ptr, fifo_idx);
+}
+
+int_fast8_t daoShmCheckSegmentOverwrite(IMAGE *image)
+{
+    return daoShmCheckOverwrite(image);
+}
+
+int_fast8_t daoShmResetTail(IMAGE *image, uint32_t* segment_idx, uint64_t *segment_cnt0)
+{
+    return daoShmResetReadTail(image, segment_idx, segment_cnt0);
+}
+
+int_fast8_t daoShmWaitForSemaphore(IMAGE *image, int32_t semNb)
+{
+    return daoShmWaitSem(image, semNb);
+}
+
+int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE *image, int32_t semNb, const struct timespec * timeout)
+{
+    return daoShmWaitSemTimeout(image, semNb, timeout);
+}
+
+int_fast8_t daoShmWaitForCounter(IMAGE *image)
+{
+    return daoShmWaitCounter(image);
+}
+
+int_fast8_t daoShmWaitForTargetCounter(IMAGE *image, uint64_t targetCnt0)
+{
+    return daoShmWaitTargetCounter(image, targetCnt0);
+}
+
+int_fast8_t daoShmWaitForNextSegment(IMAGE *image)
+{
+    return daoShmWaitData(image);
+}
+
+int_fast8_t daoSemPost(IMAGE *image, int32_t semNb)
+{
+    return daoShmPostSem(image, semNb);
+}
+
+int_fast8_t daoSemPostAll(IMAGE *image)
+{
+    return daoShmPostSemAll(image);
+}
+
+int_fast8_t daoSemLogPost(IMAGE *image)
+{
+    return daoShmPostLog(image);
 }
