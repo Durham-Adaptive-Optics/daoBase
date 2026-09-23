@@ -85,6 +85,7 @@ static int clock_gettime(int clk_id, struct timespec *t)
 // #endif
 
 #include "dao.h"
+#include "daoGpuInternal.h"
 static int current_log_level = DEFAULT_LOG_LEVEL;
 
 /**
@@ -464,6 +465,8 @@ void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa, PACL dacl)
 int_fast8_t daoShmOpen(const char *name, IMAGE *image)
 {
     daoTrace("\n");
+    image->d_array = NULL;
+    image->gpu = NULL;
 
     char shmName[256];
     IMAGE_METADATA *map;
@@ -833,6 +836,10 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
         uint32_t tmp32;
         uint64_t tmp64;
         daoShmResetReadTail(image, &tmp32, &tmp64);
+
+        // GPU SHM: map the GPU payload into this process
+        if (rval == DAO_SUCCESS && daoShmIsGpu(image) && daoGpuAttach(image) != DAO_SUCCESS)
+            rval = DAO_ERROR;
     }
     return(rval);
 }
@@ -882,6 +889,9 @@ int_fast8_t daoShmSetData(IMAGE *image, void *im, uint32_t nbVal)
 {
     daoTrace("\n");
 
+    if (daoShmIsGpu(image))
+        return daoGpuSetData(image, im, nbVal, 1);
+
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
     uint32_t last_written = vol_md[0].fifo_last_written;
@@ -927,6 +937,9 @@ int_fast8_t daoShmSetData(IMAGE *image, void *im, uint32_t nbVal)
 int_fast8_t daoShmSetDataQuiet(IMAGE *image, void *im, uint32_t nbVal)
 {
     daoTrace("\n");
+
+    if (daoShmIsGpu(image))
+        return daoGpuSetData(image, im, nbVal, 0);
 
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
@@ -975,6 +988,12 @@ int_fast8_t daoShmSetDataPart(IMAGE *image, char *im, uint32_t nbVal, uint32_t p
                              uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber)
 {
     daoTrace("\n");
+
+    if (daoShmIsGpu(image))
+    {
+        daoError("%s: partial writes are not supported on GPU SHMs\n", image->name);
+        return DAO_ERROR;
+    }
 
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
@@ -1228,6 +1247,8 @@ int_fast8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis,
                               uint32_t *size, uint8_t atype, int shared, int NBkw, uint32_t fifo_size)
 {
     daoTrace("\n");
+    image->d_array = NULL;
+    image->gpu = NULL;
     long i;//,ii;
     long nelement;
     struct timespec timenow;
@@ -2014,6 +2035,12 @@ int_fast8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis,
 int_fast8_t daoShmCombine(IMAGE **imageCube, IMAGE *image, int nbChannel, int nbVal)
 {
     daoTrace("\n");
+
+    if (daoShmIsGpu(image))
+    {
+        daoError("%s: daoShmCombine does not support GPU SHMs\n", image->name);
+        return DAO_ERROR;
+    }
     int pp;
     int k;
     uint64_t fifo_reading_offset[DAO_MAX_COMBINE_CHANNELS];
@@ -2536,6 +2563,8 @@ uint_fast64_t daoShmGetCounter(IMAGE *image)
  */
 int_fast8_t daoShmGetDataNext(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
 {
+    if (daoShmIsGpu(image) && daoGpuRefreshHost(image) != DAO_SUCCESS)
+        return DAO_ERROR;
     // Pseudocode
     // 1. get last_read_idx from IMAGE
     // 3. increment last_read_idx next segment
@@ -2627,6 +2656,8 @@ int_fast8_t daoShmWaitData(IMAGE *image)
  */
 int_fast8_t daoShmGetDataAt(IMAGE *image, void** segment_ptr, uint_fast32_t fifo_idx)
 {
+    if (daoShmIsGpu(image) && daoGpuRefreshHost(image) != DAO_SUCCESS)
+        return DAO_ERROR;
     uint32_t actual_idx = (uint32_t)(fifo_idx % image->md[0].fifo_size);
 
     if (image->md[0].atype == _DATATYPE_UINT8)
@@ -2667,6 +2698,8 @@ int_fast8_t daoShmGetDataAt(IMAGE *image, void** segment_ptr, uint_fast32_t fifo
  */
 int_fast8_t daoShmGetData(IMAGE *image, void** segment_ptr, uint32_t* segment_idx, uint64_t *segment_cnt0)
 {
+    if (daoShmIsGpu(image) && daoGpuRefreshHost(image) != DAO_SUCCESS)
+        return DAO_ERROR;
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
     uint32_t last_written = vol_md[0].fifo_last_written;
@@ -2772,6 +2805,9 @@ int_fast8_t daoShmClose(IMAGE *image)
         daoWarning("Null image pointer passed to daoShmCloseShm\n");
         return DAO_ERROR;
     }
+
+    // GPU SHM: unmap this process's view of the payload (daoGpuShmd keeps it)
+    daoGpuDetach(image);
 
     // Release all semaphores
     if (image->semptr) {

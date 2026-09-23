@@ -346,6 +346,17 @@ extern "C"
         uint32_t fifo_size;
         uint32_t fifo_last_written;
 
+        // GPU payload (daoShmCreateGpu), meaningful in md[0] only. Valid when
+        // gpu_magic == DAO_GPU_MAGIC; for CPU SHMs (zero-filled at creation)
+        // the payload is the data region of this file. For a GPU SHM that
+        // region is a host copy, kept up to date if gpu_flags has DAO_GPU_MIRROR.
+        uint32_t gpu_magic;
+        int32_t  gpu_device;            /**< CUDA ordinal in the creating process (informative)        */
+        uint8_t  gpu_uuid[16];          /**< GPU UUID; ordinals depend on CUDA_VISIBLE_DEVICES          */
+        uint32_t gpu_flags;             /**< DAO_GPU_MIRROR, ...                                        */
+        uint64_t gpu_size;              /**< bytes allocated on the GPU (rounded to its granularity)    */
+        uint64_t gpu_id;                /**< unique id of the allocation, matched against daoGpuShmd    */
+
         #ifdef DATA_PACKED
     } __attribute__((__packed__)) IMAGE_METADATA;
     #else
@@ -472,6 +483,10 @@ extern "C"
         uint32_t fifo_last_read;
         uint64_t fifo_last_read_cnt0;
 
+        // GPU SHM (daoShmCreateGpu / daoShmOpen of a GPU SHM), NULL otherwise
+        void* d_array;                      /**< device pointer to the payload, valid in this process */
+        void* gpu;                          /**< private state of daoGpu.c                             */
+
         // total size is 152 byte = 1216 bit
         // (on Windows,  160 byte = 1280 bit)
         #ifdef DATA_PACKED
@@ -536,6 +551,26 @@ extern "C" {
     DLL_EXPORT int_fast8_t daoShmPostSem(IMAGE* image, int32_t semNb);
     DLL_EXPORT int_fast8_t daoShmPostSemAll(IMAGE* image);
     DLL_EXPORT int_fast8_t daoShmPostLog(IMAGE* image);
+
+    // ----------------------------------------------------------------------
+    // GPU SHM: metadata and semaphores in the /tmp file, payload on a GPU.
+    // The GPU payload is held by the daoGpuShmd daemon (started on demand), so
+    // it outlives the process that created it, including a crash; it is
+    // freed when the /tmp file is removed. daoShmOpen, daoShmSetData,
+    // daoShmGetData and daoShmClose handle GPU SHMs transparently; image->d_array
+    // is the device pointer for CUDA code. Streams are cudaStream_t / CUstream
+    // passed as void* (NULL = default stream). Linux + CUDA only.
+    // ----------------------------------------------------------------------
+    #define DAO_GPU_MAGIC   0x55504744u   /**< 'DGPU' in md[0].gpu_magic                  */
+    #define DAO_GPU_MIRROR  0x1u          /**< keep the /tmp host copy current on each update */
+
+    DLL_EXPORT int         daoShmGpuAvailable(void);
+    DLL_EXPORT int_fast8_t daoShmCreateGpu(IMAGE* image, const char* name, long naxis, uint32_t* size,
+        uint8_t atype, int device, int NBkw, uint32_t flags);
+    DLL_EXPORT int         daoShmIsGpu(const IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmCommit(IMAGE* image, void* stream);
+    DLL_EXPORT int_fast8_t daoShmSetDataDevice(IMAGE* image, const void* d_src, uint32_t nbVal, void* stream);
+    DLL_EXPORT int_fast8_t daoShmCopyToHost(IMAGE* image, void* dst, uint32_t nbVal);
 
     // ----------------------------------------------------------------------
     // Legacy names, kept for existing code. Each one forwards to the

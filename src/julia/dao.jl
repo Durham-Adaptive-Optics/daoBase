@@ -75,6 +75,12 @@ end
         semLogCounter::uint32_t            # macOS-only: log semaphore atomic counter
         fifo_size::uint32_t             # Number of slots in the FIFO
         fifo_last_written::uint32_t     # Index of the most recently written slot
+        gpu_magic::uint32_t             # DAO_GPU_MAGIC for a GPU SHM (daoShmCreateGpu)
+        gpu_device::int32_t             # CUDA ordinal in the creating process
+        gpu_uuid::NTuple{16, uint8_t}   # GPU UUID
+        gpu_flags::uint32_t             # DAO_GPU_MIRROR, ...
+        gpu_size::uint64_t              # Bytes allocated on the GPU
+        gpu_id::uint64_t                # Id of the allocation held by daoGpuShmd
     end
 else
     struct IMAGE_METADATA
@@ -102,6 +108,12 @@ else
         lastNbArray::NTuple{2024, uint64_t}
         fifo_size::uint32_t             # Number of slots in the FIFO
         fifo_last_written::uint32_t     # Index of the most recently written slot
+        gpu_magic::uint32_t             # DAO_GPU_MAGIC for a GPU SHM (daoShmCreateGpu)
+        gpu_device::int32_t             # CUDA ordinal in the creating process
+        gpu_uuid::NTuple{16, uint8_t}   # GPU UUID
+        gpu_flags::uint32_t             # DAO_GPU_MIRROR, ...
+        gpu_size::uint64_t              # Bytes allocated on the GPU
+        gpu_id::uint64_t                # Id of the allocation held by daoGpuShmd
     end
 end
 
@@ -123,6 +135,8 @@ struct IMAGE
     semWritePID::Ptr{int32_t}  # PID of the process writing the data
     fifo_last_read::uint32_t   # Index of this reader's FIFO tail
     fifo_last_read_cnt0::uint64_t # cnt0 of this reader's FIFO tail
+    d_array::Ptr{Cvoid}        # GPU SHM: device pointer of the payload
+    gpu::Ptr{Cvoid}            # GPU SHM: private state of libdao
 end
 
 
