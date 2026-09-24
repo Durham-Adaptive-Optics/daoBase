@@ -184,25 +184,55 @@ namespace Dao
                 {Events::Recover,   std::make_tuple<State,State,std::function<void()>>(State::Error,   State::Idle,     [&](){this->transition_Error_Idle();}   )}
             };
 
-            void changeState(Events /*event*/, State requiredStartState, State requestedEndState, std::function<void()> eventFunction) // commented out event variable as unused in function should not break anythig downstream but be aware
+            void changeState(Events event, State requiredStartState, State requestedEndState, std::function<void()> eventFunction)
             {
+
                 try {
                     // calling exit function of current state
-                    if(requiredStartState != requestedEndState) // check a state transition happens
+                    if(requiredStartState != requestedEndState)// check a state transition happens
+                    {
                         m_state_exit_function.at(m_state)();
+                    }
 
-                    // calling transition
+                }
+                catch (const std::exception &e)
+                {
+                    m_log.Error("Error in change state: not in required state for event: %s, current state: %s, error: %s",
+                                m_event_text.at(event).c_str(), m_state_text.at(m_state).c_str(), e.what());
+                    m_state = State::Error;
+                    return;
+                }
+
+
+                try
+                {
                     if(eventFunction)
+                    {
                         eventFunction();
+                    }
+                }
+                catch (const std::exception &e)
+                {
+                    m_log.Error("Error in change state: something went wrong in event function for event: %s, current state: %s error: %s",
+                                m_event_text.at(event).c_str(), m_state_text.at(m_state).c_str(), e.what());
+                    m_state = State::Error;
+                    return;
+                }
 
-                    //calling entry function of new state
-                    if(requiredStartState != requestedEndState) 
+                try
+                {
+                    if(requiredStartState != requestedEndState)
+                    {
+                        // calling entry function of new state
                         m_state_entry_function.at(requestedEndState)();
+                    }
 
                     m_state = requestedEndState;
                 }
-                catch (const std::exception &e) {
-                    m_log.Error("Failed to change state to %s: %s", m_state_text.at(requestedEndState).c_str(), e.what());
+                catch (const std::exception &e)
+                {
+                    m_log.Error("Error in change state: not in required end state for event: %s, current state: %s: error: %s",
+                                m_event_text.at(event).c_str(), m_state_text.at(m_state).c_str(), e.what());
                     m_state = State::Error;
                 }
             }

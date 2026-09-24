@@ -13,7 +13,7 @@ if platform.system() == "Darwin":
     add_c_flags += ['']
 elif platform.system() == "Linux":
 	add_ld_flags += ['-lnuma', '-pthread']
-	add_cxx_flags += ['-lrt', '-pthread']
+	add_cxx_flags += ['-lrt', '-pthread', '-std=c++17', '-O3', '-march=native']
 	add_c_flags +=  ['-lrt']
 elif platform.system() == "Windows":
     # Windows

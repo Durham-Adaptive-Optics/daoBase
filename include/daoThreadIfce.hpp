@@ -27,7 +27,9 @@ namespace Dao
         virtual void Spawn()    = 0;
         virtual void Join()     = 0;
         virtual void Kill(int signal) = 0;    
-      
+        
+        virtual bool isSpawned() = 0;
+         virtual bool isRunning() = 0;
       // some signals
          virtual void Signal(int index) = 0;
          virtual void SignalWaitSpin(int index) = 0;

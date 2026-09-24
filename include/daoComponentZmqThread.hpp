@@ -154,6 +154,17 @@ namespace Dao
                     else if(nBytes > 0)
                     {
                         if(static_cast<size_t>(nBytes) >= m_buffer_len)
+                        {
+                            // message is too long
+                            m_error_code = -1;
+                            m_error_string << "message too long: " << nBytes << " bytes";
+                            m_log.Error("%s %s", m_thread_name.c_str(), m_error_string.str().c_str());
+                        }
+                        else if(nBytes < 0)
+                        {
+                            m_log.Error("zmq_recv returned negative value");
+                        }
+                        else if(nBytes > 1000000)
 
                         {
                             m_log.Error("message too long... message truncated");

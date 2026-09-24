@@ -16,6 +16,7 @@
 #include <type_traits>
 #include <vector>
 #include <dao.h>
+#include <optional>
 
 namespace Dao
 {
