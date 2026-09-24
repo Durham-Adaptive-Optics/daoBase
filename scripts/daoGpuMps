@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# daoGpuMps - start / stop / check the NVIDIA MPS server for GPU SHM pipelines.
+#
+# Several processes using the same GPU every frame (a GPU SHM pipeline) need
+# MPS: without it the GPU time-slices between them and every hand-over costs
+# about 100 us. Start MPS before the pipeline processes: CUDA programs started
+# afterwards use it automatically (those already running do not).
+#
+# Usage: daoGpuMps start [--devices 0,1]   start the MPS control daemon
+#        daoGpuMps stop                    stop it (MPS clients must have exited)
+#        daoGpuMps status                  running or not, servers and clients
+#
+# Uses the standard MPS variables: CUDA_MPS_PIPE_DIRECTORY (default
+# /tmp/nvidia-mps, where clients look for the server) and
+# CUDA_MPS_LOG_DIRECTORY (default /var/log/nvidia-mps if writable,
+# otherwise /tmp/nvidia-mps-log-$USER).
+#
+# Notes: while this user's MPS server runs, other users' CUDA programs wait
+# for it to stop; programs sharing an MPS server are less isolated from each
+# other's GPU faults. See daoBase docs, "GPU Shared Memory".
+
+set -u
+PIPE_DIR="${CUDA_MPS_PIPE_DIRECTORY:-/tmp/nvidia-mps}"
+if [ -n "${CUDA_MPS_LOG_DIRECTORY:-}" ]; then
+    LOG_DIR="$CUDA_MPS_LOG_DIRECTORY"
+elif [ -w /var/log/nvidia-mps ] || { [ ! -e /var/log/nvidia-mps ] && [ -w /var/log ]; }; then
+    LOG_DIR=/var/log/nvidia-mps
+else
+    LOG_DIR="/tmp/nvidia-mps-log-${USER:-$(id -un)}"
+fi
+export CUDA_MPS_PIPE_DIRECTORY="$PIPE_DIR" CUDA_MPS_LOG_DIRECTORY="$LOG_DIR"
+
+control_pid() {
+    local f="$PIPE_DIR/nvidia-cuda-mps-control.pid" pid
+    [ -r "$f" ] || return 1
+    pid=$(tr -dc '0-9' < "$f")
+    [ -n "$pid" ] && [ -d "/proc/$pid" ] && echo "$pid"     # also true for another user's daemon
+}
+
+usage() {
+    sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+    exit "${1:-0}"
+}
+
+command -v nvidia-cuda-mps-control >/dev/null 2>&1 || {
+    echo "daoGpuMps: nvidia-cuda-mps-control not found (NVIDIA driver utilities)" >&2
+    exit 1
+}
+
+case "${1:-}" in
+start)
+    shift
+    if [ "${1:-}" = "--devices" ] && [ -n "${2:-}" ]; then
+        export CUDA_VISIBLE_DEVICES="$2"
+    fi
+    if pid=$(control_pid); then
+        echo "MPS already running (control daemon pid $pid, pipe $PIPE_DIR)"
+        exit 0
+    fi
+    mkdir -p "$PIPE_DIR" "$LOG_DIR" || exit 1
+    nvidia-cuda-mps-control -d || exit 1
+    for _ in $(seq 50); do
+        if pid=$(control_pid); then
+            echo "MPS started (control daemon pid $pid, pipe $PIPE_DIR, logs $LOG_DIR)"
+            echo "CUDA programs started from now on use it."
+            exit 0
+        fi
+        sleep 0.1
+    done
+    echo "daoGpuMps: MPS did not start, see $LOG_DIR/control.log" >&2
+    exit 1
+    ;;
+stop)
+    if ! pid=$(control_pid); then
+        echo "MPS is not running (pipe $PIPE_DIR)"
+        exit 0
+    fi
+    echo quit | nvidia-cuda-mps-control
+    for _ in $(seq 100); do
+        control_pid >/dev/null || { echo "MPS stopped"; exit 0; }
+        sleep 0.1
+    done
+    echo "daoGpuMps: MPS still running (clients still attached?); see $LOG_DIR/control.log" >&2
+    exit 1
+    ;;
+status)
+    if ! pid=$(control_pid); then
+        echo "MPS is not running (pipe $PIPE_DIR)"
+        exit 3
+    fi
+    echo "MPS running: control daemon pid $pid, pipe $PIPE_DIR"
+    servers=$(echo get_server_list | nvidia-cuda-mps-control 2>/dev/null)
+    if [ -z "$servers" ]; then
+        echo "  no server yet (one starts with the first CUDA client)"
+    fi
+    for s in $servers; do
+        clients=$(echo "get_client_list $s" | nvidia-cuda-mps-control 2>/dev/null | tr '\n' ' ')
+        echo "  server pid $s, clients: ${clients:-none}"
+    done
+    exit 0
+    ;;
+-h|--help|help)
+    usage 0
+    ;;
+*)
+    usage 2
+    ;;
+esac

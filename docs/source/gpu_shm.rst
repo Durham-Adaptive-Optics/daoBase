@@ -16,9 +16,12 @@ waiting and naming work as usual. Only the data moves to GPU memory.
 * ``daoShmOpen``, ``daoShmSetData``, ``daoShmGetData`` and ``daoShmClose`` handle GPU SHMs
   transparently: ``SetData`` copies the host buffer to the GPU, ``GetData`` returns the data in host
   memory.
-* CUDA code works on the payload directly through ``image->d_array``. A kernel writes into it, then
-  ``daoShmCommit`` publishes the frame: once the kernel has finished, ``cnt0`` is incremented, the
-  frame is timestamped and the semaphores are posted, without blocking the writer.
+* CUDA code works on the payload directly through ``image->d_array``. The writer marks the frame
+  (``daoShmBeginWrite``), launches its kernel, then publishes it (``daoShmCommit`` or
+  ``daoShmCommitSync``): once the kernel has finished, ``cnt0`` is incremented, the frame is
+  timestamped and the semaphores are posted.
+* Reads through ``daoShmGetData`` / ``get_data`` always return a complete frame, never one a kernel
+  is still writing (see `Consistent reads`_).
 * Stages can therefore be chained on the GPU (camera → calibration → reconstruction …) with no
   copy through host memory between them.
 
@@ -44,6 +47,146 @@ libdao loads the CUDA driver (``libcuda.so.1``) only when it meets a GPU SHM: it
 dependency on CUDA, and machines without a GPU keep using CPU SHMs unchanged. Building with GPU
 support only needs the CUDA headers (``waf configure`` finds them from ``nvcc``, ``CUDA_HOME`` or
 ``/usr/local/cuda``; ``--without-gpu`` disables it).
+
+Several processes on one GPU: use MPS
+--------------------------------------
+
+By default a GPU **time-slices** between processes: each time the GPU switches from one process's
+work to another's, it pays a context switch. A GPU SHM pipeline has one process per stage, all
+working on the same GPU for every frame, so without MPS each hand-over between stages costs about
+**100 µs**, whatever the frame size.
+
+NVIDIA **MPS** (Multi-Process Service) removes this: the processes' work goes through one shared
+server and runs without context switches. MPS works with GPU SHMs (the daoGpuShmd allocations are
+shared between MPS clients). **Run MPS for any pipeline where several processes use the same GPU
+every frame**, with or without GPU SHMs.
+
+MPS is **not started automatically**: it affects every CUDA program of the user, not only dao.
+Start it before the pipeline processes, with the ``daoGpuMps`` helper installed with daoBase:
+
+.. code-block:: bash
+
+   daoGpuMps start      # [--devices 0,1] to restrict the GPUs
+   # ... start the pipeline processes: CUDA programs started from now on use MPS ...
+   daoGpuMps status     # control daemon, servers and their client processes
+   daoGpuMps stop       # once the pipeline processes have exited
+
+Processes already running when MPS starts do not use it. ``daoGpuMps`` uses the standard
+``CUDA_MPS_PIPE_DIRECTORY`` (default ``/tmp/nvidia-mps``) and ``CUDA_MPS_LOG_DIRECTORY``.
+
+If a process creates or opens a GPU SHM while MPS is not running, libdao logs once:
+*NVIDIA MPS is not running: passing GPU SHMs between processes costs about 100 us per frame*.
+``DAO_GPU_NO_MPS_WARNING=1`` hides it (e.g. for a single process using a GPU SHM alone).
+
+Things to know about MPS:
+
+* While one user's MPS server runs on a GPU, other users' CUDA programs wait until it stops.
+* Programs sharing an MPS server are less isolated: some GPU faults in one can stop the others.
+* On a dedicated real-time machine, MPS can run permanently, e.g. as a systemd user service
+  (``~/.config/systemd/user/dao-mps.service``, then ``systemctl --user enable --now dao-mps``):
+
+  .. code-block:: ini
+
+     [Unit]
+     Description=NVIDIA MPS for dao GPU pipelines
+
+     [Service]
+     Type=forking
+     ExecStart=/path/to/DAOROOT/bin/daoGpuMps start
+     ExecStop=/path/to/DAOROOT/bin/daoGpuMps stop
+
+     [Install]
+     WantedBy=default.target
+
+* The GPU compute mode can also be set to exclusive-process, so that only the MPS server uses the
+  GPU (``nvidia-smi -c EXCLUSIVE_PROCESS``, needs root).
+
+Measured gain
+^^^^^^^^^^^^^
+
+``test/bench_gpu_shm.py``: stage A produces a frame on the GPU; stage B, another process, sums its
+rows on the GPU and publishes the result. Time from the start of A's GPU work to B's result, median
+of 500 frames, RTX 5060 Ti (PCIe), µs:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Frame
+     - host SHM, MPS off
+     - GPU SHM, MPS off
+     - host SHM, MPS on
+     - GPU SHM (commit), MPS on
+     - GPU SHM (sync), MPS on
+   * - 0.25 MB
+     - 158
+     - 140
+     - 74
+     - 30
+     - 17
+   * - 1 MB
+     - 314
+     - 130
+     - 275
+     - 34
+     - 26
+   * - 4 MB
+     - 726
+     - 144
+     - 679
+     - 49
+     - 33
+   * - 16 MB
+     - 2472
+     - 189
+     - 2414
+     - 84
+     - 67
+
+* The host SHM path copies each frame to the host and back, so it grows with the frame size; the
+  GPU SHM path does not copy the frame.
+* With MPS and GPU SHMs, a 16 MB frame goes from one process to the next in under 100 µs.
+* Without MPS, GPU SHMs still avoid the copies, but every frame pays the context switches.
+* For small data (a few kB, e.g. the input and output vectors of a matrix-vector multiply) the
+  copies are negligible and GPU SHMs bring nothing: measured with daoMvMGPU, 8192 x 2048 matrix,
+  170 µs either way (the time is spent reading the matrix).
+
+Publishing: daoShmCommit or daoShmCommitSync
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``daoShmCommit`` does not block: the frame is published by a CUDA host callback when the stream
+reaches it, which lets the writer queue more work. The callback runs on a CUDA driver thread and
+adds about 10-15 µs. ``daoShmCommitSync`` waits for the stream and publishes directly: use it in a
+loop that waits for its own GPU work anyway (set ``cudaSetDeviceFlags(cudaDeviceScheduleSpin)`` for
+the lowest wake-up latency). Both update the host copy first when the SHM is mirrored.
+
+Consistent reads
+----------------
+
+A kernel takes time to write a frame, so a reader copying the payload at that moment could get a
+**torn** frame: part old, part new. To prevent it:
+
+* the **writer** calls ``daoShmBeginWrite(image)`` before launching the kernel that writes
+  ``d_array``. This sets the frame's ``write`` flag; publishing (``daoShmCommit``,
+  ``daoShmCommitSync``) clears it and increments ``cnt0``. ``daoShmSetData`` and
+  ``daoShmSetDataDevice`` do both on their own.
+* ``daoShmGetData`` (and ``get_data`` in Python) and ``daoShmCopyToHost`` wait until no write is in
+  progress, copy, and keep the copy only if no write started or finished meanwhile; otherwise they
+  copy again. A read therefore waits at most for the write in progress.
+* If a writer dies between ``daoShmBeginWrite`` and publishing, reads give up after 1 s with a
+  warning and return the current data, rather than hang.
+
+Measured with a deliberately slow writer (4 MB frames, about 6 ms per write): without
+``daoShmBeginWrite``, 813 of 1000 reads were torn; with it, none.
+
+Notes:
+
+* A writer that does not call ``daoShmBeginWrite`` is only partly protected (``cnt0`` catches a
+  write that is published during the copy, not one still in progress).
+* With ``DAO_GPU_MIRROR``, ``daoShmGetData`` returns the host copy directly, like a CPU SHM: the
+  usual rule applies (wait on the semaphore, then read).
+* A kernel that **reads** a GPU SHM (the next stage of a pipeline) waits on the semaphore, so it
+  starts on a complete frame. If the writer can start the next frame before that kernel has
+  finished reading, the two overlap, as with CPU SHMs; FIFO GPU SHMs (planned) will remove this.
 
 The host copy (mirror)
 ----------------------
@@ -79,6 +222,7 @@ C API
    daoShmOpen("/tmp/pix.im.shm", &in);
    daoShmOpen("/tmp/calib.im.shm", &out);
    daoShmWaitSem(&in, 1);
+   daoShmBeginWrite(&out);                            // readers will not take a torn frame
    calibrate<<<grid, block, 0, stream>>>((float *) in.d_array, (float *) out.d_array);
    daoShmCommit(&out, stream);                        // publish when the kernel is done
 
@@ -90,9 +234,13 @@ C API
      - Purpose
    * - ``daoShmCreateGpu(image, name, naxis, size, atype, device, NBkw, flags)``
      - Create a GPU SHM on CUDA device ``device``; ``flags``: ``DAO_GPU_MIRROR`` or 0.
+   * - ``daoShmBeginWrite(image)``
+     - Mark the frame as being written, before launching the kernel that writes ``d_array``.
    * - ``daoShmCommit(image, stream)``
      - Publish data written on the GPU, once the work queued on ``stream`` is done
-       (``NULL`` = default stream). Keep ``image`` open until then.
+       (``NULL`` = default stream). Returns at once; keep ``image`` open until then.
+   * - ``daoShmCommitSync(image, stream)``
+     - Wait for ``stream``, then publish (about 10-15 µs sooner than ``daoShmCommit``).
    * - ``daoShmSetDataDevice(image, d_src, nbVal, stream)``
      - Copy from another device buffer, then commit.
    * - ``daoShmCopyToHost(image, dst, nbVal)``
@@ -114,8 +262,10 @@ Python
    x = s.get_data()             # numpy array
 
    d = s.get_device_array()     # CuPy array on the payload itself, no copy
+   s.begin_write()              # readers will not take a torn frame
    d *= 2                       # computed on the GPU
-   s.commit()                   # publish (stream=0: default stream, or a CuPy stream)
+   s.commit()                   # publish (stream=0: default stream, or a CuPy stream);
+                                # s.commit(sync=True) waits for the stream and publishes directly
 
 ``s.is_gpu()`` and ``s.device_ptr()`` give the type and the device pointer. Opening an existing
 GPU SHM is unchanged: ``daoShm.shm("/tmp/pix.im.shm")``.
@@ -146,3 +296,4 @@ Limits
 * FIFO GPU SHMs, ``daoShmSetDataPart`` and ``daoShmCombine`` are not supported yet.
 * A reader may see a frame while a kernel is still writing it, as with CPU SHMs; wait on the
   semaphores (or ``cnt0``) to read complete frames.
+* Several processes using the same GPU need MPS to be fast (see above).

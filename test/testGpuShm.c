@@ -11,6 +11,8 @@
  *   testGpuShm write  NAME VALUE          SetData
  *   testGpuShm wait   NAME SEM CNT0 TIMEOUT_S VALUE [STEP]   wait until cnt0 >= CNT0, then check
  *   testGpuShm info   NAME
+ *   testGpuShm consistent NAME COUNT   GetData COUNT times; count frames that are not uniform
+ *   testGpuShm big2   NAME DEVICE N    create an N-float, non-mirrored GPU SHM (1-D) and exit
  */
 #include <signal.h>
 #include <stdio.h>
@@ -57,6 +59,14 @@ int main(int argc, char **argv)
         if (daoShmCreateGpu(&image, name, 2, size, _DATATYPE_UINT8, atoi(argv[3]), 0, 0) != DAO_SUCCESS)
             return 1;
         printf("OK size=%llu\n", (unsigned long long) image.md[0].gpu_size);
+        daoShmClose(&image);
+        return 0;
+    }
+    if (!strcmp(mode, "big2")) {
+        uint32_t size[2] = { (uint32_t) atoi(argv[4]), 1 };
+        if (daoShmCreateGpu(&image, name, 2, size, _DATATYPE_FLOAT, atoi(argv[3]), 0, 0) != DAO_SUCCESS)
+            return 1;
+        printf("OK\n");
         daoShmClose(&image);
         return 0;
     }
@@ -119,6 +129,30 @@ int main(int argc, char **argv)
         printf("%s cnt0=%llu\n", ok ? "OK" : "FAIL", (unsigned long long) image.md[0].cnt0);
         daoShmClose(&image);
         return ok ? 0 : 1;
+    } else if (!strcmp(mode, "consistent")) {
+        int count = atoi(argv[3]), torn = 0;
+        long n = (long) image.md[0].nelement;
+        struct timespec start, now;
+        clock_gettime(CLOCK_MONOTONIC, &start);
+        for (int c = 0; c < count; c++) {
+            void *p;
+            uint32_t idx;
+            uint64_t cnt;
+            if (daoShmGetData(&image, &p, &idx, &cnt) != DAO_SUCCESS)
+                return 1;
+            const float *v = (const float *) p;
+            for (long i = 1; i < n; i++)
+                if (v[i] != v[0]) {
+                    torn++;
+                    break;
+                }
+            usleep(rand() % 700);
+        }
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        printf("TORN %d/%d in %.2f s\n", torn, count,
+               now.tv_sec - start.tv_sec + 1e-9 * (now.tv_nsec - start.tv_nsec));
+        daoShmClose(&image);
+        return 0;
     } else if (!strcmp(mode, "wait")) {
         int sem = atoi(argv[3]);
         uint64_t target = strtoull(argv[4], NULL, 10);

@@ -165,6 +165,40 @@ def main():
     check(f"pipeline IN -> kernel -> OUT, {frames} frames, each checked by a waiting reader",
           ok and pipe.returncode == 0 and f"frames={frames}" in pout, pout.strip()[-200:])
 
+    # --- daoShmCommitSync ---------------------------------------------------------------
+    target = cnt0(a) + 1
+    w = start(TOOL, "wait", a, 5, target, 10, 28, 4)
+    wait_line(w, "READY")
+    rc, out = run(KERNEL, "scalesync", a, 2)
+    wout = w.communicate(timeout=15)[0]
+    rc2, out2 = run(TOOL, "host", a, 28, 4)
+    check("daoShmCommitSync: publishes after the kernel, wakes the reader, mirror updated",
+          rc == 0 and w.returncode == 0 and rc2 == 0, out + " / " + wout.strip() + " / " + out2)
+
+    # --- consistent reads (daoShmBeginWrite) -------------------------------------------------
+    torn_name = "/tmp/dqg_t.im.shm"
+    run(TOOL, "big2", torn_name, 0, 1 << 20)
+    torn = {}
+    for m in ("nomark", "mark"):
+        wr = start(KERNEL, "writer", torn_name, 100000, 1000, m)
+        wait_line(wr, "READY")
+        time.sleep(0.5)
+        rc, out = run(TOOL, "consistent", torn_name, 300, timeout=120)
+        wr.kill()
+        wr.wait()
+        mt = re.search(r"TORN (\d+)/", out)
+        torn[m] = int(mt.group(1)) if mt else -1
+    check(f"reads during unmarked writes are torn ({torn['nomark']}/300: the test can see it)",
+          torn["nomark"] > 0)
+    check("with daoShmBeginWrite, GetData never returns a torn frame (0/300)", torn["mark"] == 0, str(torn))
+    run(KERNEL, "begin-abort", torn_name)
+    t0 = time.time()
+    rc, out = run(TOOL, "consistent", torn_name, 1, timeout=30)
+    dt = time.time() - t0
+    check(f"writer crashed mid-write: GetData gives up after ~1 s instead of hanging ({dt:.1f} s)",
+          rc == 0 and dt < 3)
+    os.remove(torn_name)
+
     # --- two GPUs, UUID lookup ------------------------------------------------------
     n_gpus = len(subprocess.run(["nvidia-smi", "-L"], capture_output=True, text=True).stdout.splitlines())
     if n_gpus > 1:
@@ -176,7 +210,7 @@ def main():
 
     # --- no GPU in the reader ---------------------------------------------------------
     nogpu = dict(ENV, CUDA_VISIBLE_DEVICES="")
-    rc, out = run(TOOL, "read", a, 14, 2, env=nogpu)
+    rc, out = run(TOOL, "read", a, 28, 4, env=nogpu)
     check("reader without GPU: mirrored SHM readable from its host copy", rc == 0 and "d_array=(nil)" in out, out)
     rc, out = run(TOOL, "read", b, 15, 3, env=nogpu)
     check("reader without GPU: non-mirrored SHM refused", rc != 0, out)
@@ -188,7 +222,7 @@ sys.path.insert(0, {os.path.join(ROOT, 'src', 'python')!r})
 import daoShm
 s = daoShm.shm({a!r})
 x = s.get_data()
-ok = np.array_equal(x.ravel(), (14 + 2 * np.arange(4096)).astype(np.float32))
+ok = np.array_equal(x.ravel(), (28 + 4 * np.arange(4096)).astype(np.float32))
 s.set_data((20 + np.arange(4096)).astype(np.float32).reshape(x.shape))
 print("OK" if ok else "FAIL", x.dtype, x.shape)
 """
@@ -204,9 +238,9 @@ import daoShm
 s = daoShm.shm({g!r}, (1 + np.arange(4096)).astype(np.float32).reshape(64, 64), gpu=0)
 d = s.get_device_array()
 ok = s.is_gpu() and isinstance(d, cupy.ndarray) and d.shape == (64, 64) and float(d[0, 0]) == 1.0
+s.begin_write()
 d *= 3                                   # in place on the GPU payload
-s.commit()                               # publish (default stream)
-cupy.cuda.Stream.null.synchronize()
+s.commit(sync=True)                      # publish (default stream)
 c = daoShm.shm("/tmp/dqg_cpu.im.shm", np.arange(12, dtype=np.int16).reshape(3, 4))
 ok = ok and not c.is_gpu() and c.device_ptr() is None
 c.set_data(np.full((3, 4), 7, np.int16))
@@ -219,6 +253,31 @@ print("OK" if ok else "FAIL")
           "OK" in p.stdout and rc2 == 0, p.stdout[-200:] + p.stderr[-400:] + " / " + out2)
     if os.path.exists("/tmp/dqg_cpu.im.shm"):
         os.remove("/tmp/dqg_cpu.im.shm")
+
+    # --- MPS: daoGpuMps helper and the libdao warning (private MPS folders) ------------------
+    helper = os.path.join(ROOT, "scripts", "daoGpuMps")
+    mps = dict(ENV, CUDA_MPS_PIPE_DIRECTORY=os.path.join(TMP, "mps"), CUDA_MPS_LOG_DIRECTORY=os.path.join(TMP, "mpslog"))
+    m = "/tmp/dqg_mps.im.shm"
+
+    def warned(env):
+        if os.path.exists(m):
+            os.remove(m)
+        p = subprocess.run([TOOL, "create", m, "0", "1", "1", "exit"], env=env, capture_output=True, text=True)
+        return "MPS is not running" in p.stdout + p.stderr
+
+    st0 = subprocess.run([helper, "status"], env=mps, capture_output=True, text=True).returncode
+    check("MPS not running: warning printed when a GPU SHM is created", st0 == 3 and warned(mps))
+    check("DAO_GPU_NO_MPS_WARNING=1 hides it", not warned(dict(mps, DAO_GPU_NO_MPS_WARNING="1")))
+    subprocess.run([helper, "start"], env=mps, capture_output=True, text=True)
+    st1 = subprocess.run([helper, "status"], env=mps, capture_output=True, text=True)
+    check("daoGpuMps start / status", st1.returncode == 0 and "MPS running" in st1.stdout, st1.stdout)
+    check("MPS running: no warning", not warned(mps))
+    rc, out = run(TOOL, "read", m, 1, env=mps)
+    check("GPU SHM read by an MPS client", rc == 0, out)
+    stop = subprocess.run([helper, "stop"], env=mps, capture_output=True, text=True)
+    st2 = subprocess.run([helper, "status"], env=mps, capture_output=True, text=True).returncode
+    check("daoGpuMps stop", "MPS stopped" in stop.stdout and st2 == 3, stop.stdout + stop.stderr)
+    os.remove(m)
 
     # --- cleanup semantics --------------------------------------------------------------
     os.remove(c)

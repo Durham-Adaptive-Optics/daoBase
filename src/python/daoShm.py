@@ -544,6 +544,12 @@ class shm:
         self.daoShmCommit = daoLib.daoShmCommit
         self.daoShmCommit.argtypes = [ctypes.POINTER(IMAGE), ctypes.c_void_p]
         self.daoShmCommit.restype = ctypes.c_int8
+        self.daoShmCommitSync = daoLib.daoShmCommitSync
+        self.daoShmCommitSync.argtypes = [ctypes.POINTER(IMAGE), ctypes.c_void_p]
+        self.daoShmCommitSync.restype = ctypes.c_int8
+        self.daoShmBeginWrite = daoLib.daoShmBeginWrite
+        self.daoShmBeginWrite.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmBeginWrite.restype = ctypes.c_int8
 
         self.image=IMAGE()
         if fname == '':
@@ -800,13 +806,22 @@ class shm:
         ''' Device pointer (int) of the GPU payload in this process, or None. '''
         return self.image.d_array or None
 
-    def commit(self, stream=0):
+    def begin_write(self):
+        ''' Mark the frame as being written, before launching GPU work on
+        device_ptr(); commit() clears it. Readers (get_data) then never return
+        a frame that is half written. '''
+        self.daoShmBeginWrite(ctypes.byref(self.image))
+
+    def commit(self, stream=0, sync=False):
         ''' Publish data written on the GPU (e.g. by a kernel into device_ptr()):
         once the work already queued on `stream` is done, cnt0 is incremented,
         the timestamp set and the semaphores posted. `stream` is a CUDA stream
-        handle (int, or a CuPy stream); 0 is the default stream. '''
+        handle (int, or a CuPy stream); 0 is the default stream.
+        sync=False returns at once (published by a CUDA callback); sync=True
+        waits for the stream and publishes directly, ~10-15 us sooner. '''
         handle = getattr(stream, "ptr", stream) or None
-        if self.daoShmCommit(ctypes.byref(self.image), ctypes.c_void_p(handle)) != self.DAO_SUCCESS:
+        fn = self.daoShmCommitSync if sync else self.daoShmCommit
+        if fn(ctypes.byref(self.image), ctypes.c_void_p(handle)) != self.DAO_SUCCESS:
             raise OSError("daoShm.shm: commit failed")
 
     def get_device_array(self):

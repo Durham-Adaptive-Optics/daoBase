@@ -568,7 +568,9 @@ extern "C" {
     DLL_EXPORT int_fast8_t daoShmCreateGpu(IMAGE* image, const char* name, long naxis, uint32_t* size,
         uint8_t atype, int device, int NBkw, uint32_t flags);
     DLL_EXPORT int         daoShmIsGpu(const IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmBeginWrite(IMAGE* image);
     DLL_EXPORT int_fast8_t daoShmCommit(IMAGE* image, void* stream);
+    DLL_EXPORT int_fast8_t daoShmCommitSync(IMAGE* image, void* stream);
     DLL_EXPORT int_fast8_t daoShmSetDataDevice(IMAGE* image, const void* d_src, uint32_t nbVal, void* stream);
     DLL_EXPORT int_fast8_t daoShmCopyToHost(IMAGE* image, void* dst, uint32_t nbVal);
 

@@ -4,6 +4,12 @@
  *   testGpuShmKernel scale    NAME FACTOR   d_array *= FACTOR in a kernel, then daoShmCommit
  *   testGpuShmKernel device   NAME VALUE    fill a cudaMalloc buffer, daoShmSetDataDevice
  *   testGpuShmKernel pipeline IN OUT FRAMES for FRAMES updates of IN: OUT = 2 * IN on the GPU
+ *   testGpuShmKernel scalesync NAME FACTOR  as scale, published with daoShmCommitSync
+ *   testGpuShmKernel writer   NAME FRAMES PERIOD_US mark|nomark
+ *                             uniform frames (all values = frame number) written by a slow
+ *                             kernel; "mark": daoShmBeginWrite + daoShmCommitSync, "nomark":
+ *                             synchronise and publish without marking the write
+ *   testGpuShmKernel begin-abort NAME       mark a write, then crash
  *
  * Built with nvcc against libdao; uses the CUDA runtime, whose primary context
  * is the one libdao maps GPU SHMs into.
@@ -13,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include "dao.h"
 
 #define CK(x) do { cudaError_t e_ = (x); if (e_) { printf("%s: %s\n", #x, cudaGetErrorString(e_)); return 1; } } while (0)
@@ -29,6 +36,17 @@ __global__ void ramp(float *p, float v, int n)
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n)
         p[i] = v + (float) i;
+}
+
+/* every value = v, blocks spread over ~1 ms so that a reader can land mid-write */
+__global__ void slowfill(float *p, float v, int n)
+{
+    long long start = clock64(), wait = (long long) blockIdx.x * 1000;
+    while (clock64() - start < wait)
+        ;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n)
+        p[i] = v;
 }
 
 __global__ void twice(const float *in, float *out, int n)
@@ -54,7 +72,35 @@ int main(int argc, char **argv)
     int n = (int) a.md[0].nelement, blocks = (n + 255) / 256;
     CK(cudaStreamCreate(&stream));
 
-    if (!strcmp(argv[1], "scale")) {
+    if (!strcmp(argv[1], "begin-abort")) {
+        daoShmBeginWrite(&a);
+        abort();
+    }
+    if (!strcmp(argv[1], "scalesync")) {
+        daoShmBeginWrite(&a);
+        scale<<<blocks, 256, 0, stream>>>((float *) a.d_array, (float) atof(argv[3]), n);
+        if (daoShmCommitSync(&a, stream) != DAO_SUCCESS)
+            return 1;
+        printf("OK cnt0=%llu\n", (unsigned long long) a.md[0].cnt0);
+    } else if (!strcmp(argv[1], "writer")) {
+        int frames = atoi(argv[3]), period = atoi(argv[4]), mark = !strcmp(argv[5], "mark");
+        int wb = (n + 1023) / 1024;
+        printf("READY\n");
+        fflush(stdout);
+        for (int k = 1; k <= frames; k++) {
+            if (mark)
+                daoShmBeginWrite(&a);
+            slowfill<<<wb, 1024, 0, stream>>>((float *) a.d_array, (float) k, n);
+            if (mark)
+                daoShmCommitSync(&a, stream);
+            else {
+                CK(cudaStreamSynchronize(stream));
+                daoShmSetDataPartFinalize(&a);
+            }
+            usleep(period);
+        }
+        printf("OK frames=%d\n", frames);
+    } else if (!strcmp(argv[1], "scale")) {
         scale<<<blocks, 256, 0, stream>>>((float *) a.d_array, (float) atof(argv[3]), n);
         CK(cudaGetLastError());
         if (daoShmCommit(&a, stream) != DAO_SUCCESS)

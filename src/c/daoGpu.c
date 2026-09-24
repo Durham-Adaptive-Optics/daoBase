@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -365,6 +366,38 @@ static int device_by_uuid(const uint8_t uuid[16], CUdevice *out)
     return 0;
 }
 
+/* Is an NVIDIA MPS control daemon running for this pipe directory? Its pid
+ * file disappears when it stops (the control socket does not). */
+static int mps_running(void)
+{
+    const char *dir = getenv("CUDA_MPS_PIPE_DIRECTORY");
+    char path[512];
+    long pid = 0;
+    FILE *f;
+    snprintf(path, sizeof path, "%s/nvidia-cuda-mps-control.pid", dir && *dir ? dir : "/tmp/nvidia-mps");
+    if (!(f = fopen(path, "r")))
+        return 0;
+    if (fscanf(f, "%ld", &pid) != 1)
+        pid = 0;
+    fclose(f);
+    return pid > 0 && (kill((pid_t) pid, 0) == 0 || errno == EPERM);
+}
+
+/* Once per process: GPU SHM pipelines need MPS to be fast. */
+static void warn_if_no_mps(void)
+{
+    static int done = 0;
+    const char *quiet = getenv("DAO_GPU_NO_MPS_WARNING");
+    if (__atomic_exchange_n(&done, 1, __ATOMIC_RELAXED))
+        return;
+    if (quiet && *quiet && strcmp(quiet, "0") != 0)
+        return;
+    if (!mps_running())
+        daoWarning("NVIDIA MPS is not running: passing GPU SHMs between processes costs about 100 us "
+                   "per frame (the GPU time-slices between them). Start it with 'daoGpuMps start' "
+                   "before the pipeline processes (DAO_GPU_NO_MPS_WARNING=1 hides this message).\n");
+}
+
 static int supports_fd_export(CUdevice dev)
 {
     int vmm = 0, fd = 0;
@@ -487,6 +520,7 @@ int_fast8_t daoShmCreateGpu(IMAGE *image, const char *name, long naxis, uint32_t
     image->gpu = st;
     daoInfo("GPU SHM %s: %zu B on device %d%s\n", name, st->bytes, device,
             st->mirror ? ", mirrored in /tmp" : "");
+    warn_if_no_mps();
     return DAO_SUCCESS;
 
 fail:
@@ -563,6 +597,7 @@ int_fast8_t daoGpuAttach(IMAGE *image)
 
     image->d_array = (void *) st->dptr;
     image->gpu = st;
+    warn_if_no_mps();
     return DAO_SUCCESS;
 
 fail:
@@ -638,27 +673,84 @@ int_fast8_t daoGpuSetData(IMAGE *image, const void *im, uint32_t nbVal, int post
     return DAO_SUCCESS;
 }
 
+/* ---------------------------------------------------------------------------
+ * consistent reads
+ *
+ * A GPU writer marks the frame with md[0].write = 1 (daoShmBeginWrite, or
+ * daoShmSetData/daoShmCommit) and publishing clears it and increments cnt0.
+ * A copy is kept only if no write was marked when it started, none when it
+ * ended, and cnt0 did not change in between; otherwise it is retried.
+ * ------------------------------------------------------------------------- */
+#define READ_TIMEOUT_S 1.0
+
+static double mono_s(void)
+{
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec + 1e-9 * t.tv_nsec;
+}
+
+static int writing(IMAGE *image)
+{
+    return __atomic_load_n(&image->md[0].write, __ATOMIC_ACQUIRE) != 0;
+}
+
+static uint64_t counter(IMAGE *image)
+{
+    return __atomic_load_n(&image->md[0].cnt0, __ATOMIC_ACQUIRE);
+}
+
+static int_fast8_t consistent_copy(IMAGE *image, GpuState *st, void *dst, size_t bytes)
+{
+    double deadline = mono_s() + READ_TIMEOUT_S;
+    CUresult r;
+    if (!push(st))
+        return DAO_ERROR;
+    for (;;) {
+        uint64_t before;
+        while (writing(image) && mono_s() < deadline) {
+            struct timespec ts = { 0, 20 * 1000 };
+            nanosleep(&ts, NULL);
+        }
+        if (mono_s() >= deadline)
+            break;
+        before = counter(image);
+        r = cu.MemcpyDtoH(dst, st->dptr, bytes);    /* synchronous */
+        if (r != CUDA_SUCCESS) {
+            pop();
+            daoError("%s: copy from the GPU failed: %s\n", image->name, cuerr(r));
+            return DAO_ERROR;
+        }
+        __atomic_thread_fence(__ATOMIC_ACQUIRE);
+        if (!writing(image) && counter(image) == before) {
+            pop();
+            return DAO_SUCCESS;
+        }
+    }
+    /* A writer that died between daoShmBeginWrite and publishing leaves the
+     * mark set: return the current data rather than hang. */
+    daoWarning("%s: no complete frame within %.0f s (writer stopped in the middle of a write?); "
+               "returning the current data\n", image->name, READ_TIMEOUT_S);
+    r = cu.MemcpyDtoH(dst, st->dptr, bytes);
+    pop();
+    return r == CUDA_SUCCESS ? DAO_SUCCESS : DAO_ERROR;
+}
+
 int_fast8_t daoGpuRefreshHost(IMAGE *image)
 {
     GpuState *st = state_of(image);
-    CUresult r;
     if (image->md[0].gpu_flags & DAO_GPU_MIRROR)
         return DAO_SUCCESS;                 /* the writer keeps it current */
     if (!st) {
         daoError("%s: GPU SHM not accessible from this process\n", image->name);
         return DAO_ERROR;
     }
-    if (!push(st))
-        return DAO_ERROR;
-    r = cu.MemcpyDtoH(st->host, st->dptr, st->bytes);
-    pop();
-    if (r != CUDA_SUCCESS) {
-        daoError("%s: copy from the GPU failed: %s\n", image->name, cuerr(r));
-        return DAO_ERROR;
-    }
-    return DAO_SUCCESS;
+    return consistent_copy(image, st, st->host, st->bytes);
 }
 
+/* ---------------------------------------------------------------------------
+ * publishing
+ * ------------------------------------------------------------------------- */
 static void CUDA_CB commit_callback(void *arg)
 {
     daoShmSetDataPartFinalize((IMAGE *) arg);   /* no CUDA call allowed here */
@@ -670,7 +762,7 @@ int_fast8_t daoShmCommit(IMAGE *image, void *stream)
     size_t bytes;
     if (!check_write(image, 0, &bytes))
         return DAO_ERROR;
-    image->md[0].write = 1;
+    daoShmBeginWrite(image);                /* in case the writer did not */
     if (!push(st))
         return DAO_ERROR;
     if (st->mirror)
@@ -684,12 +776,33 @@ fail:
     return DAO_ERROR;
 }
 
+int_fast8_t daoShmCommitSync(IMAGE *image, void *stream)
+{
+    GpuState *st = state_of(image);
+    size_t bytes;
+    if (!check_write(image, 0, &bytes))
+        return DAO_ERROR;
+    daoShmBeginWrite(image);
+    if (!push(st))
+        return DAO_ERROR;
+    if (st->mirror)
+        CU_TRY(cu.MemcpyDtoHAsync(st->host, st->dptr, st->bytes, (CUstream) stream));
+    CU_TRY(cu.StreamSynchronize((CUstream) stream));
+    pop();
+    return daoShmSetDataPartFinalize(image);
+fail:
+    pop();
+    image->md[0].write = 0;
+    return DAO_ERROR;
+}
+
 int_fast8_t daoShmSetDataDevice(IMAGE *image, const void *d_src, uint32_t nbVal, void *stream)
 {
     GpuState *st = state_of(image);
     size_t bytes;
     if (!check_write(image, nbVal, &bytes))
         return DAO_ERROR;
+    daoShmBeginWrite(image);
     if (!push(st))
         return DAO_ERROR;
     CU_TRY(cu.MemcpyDtoDAsync(st->dptr, (CUdeviceptr) (uintptr_t) d_src, bytes, (CUstream) stream));
@@ -697,6 +810,7 @@ int_fast8_t daoShmSetDataDevice(IMAGE *image, const void *d_src, uint32_t nbVal,
     return daoShmCommit(image, stream);
 fail:
     pop();
+    image->md[0].write = 0;
     return DAO_ERROR;
 }
 
@@ -704,7 +818,6 @@ int_fast8_t daoShmCopyToHost(IMAGE *image, void *dst, uint32_t nbVal)
 {
     GpuState *st = state_of(image);
     size_t bytes = (size_t) nbVal * elem_size(image->md[0].atype);
-    CUresult r;
     if (!daoShmIsGpu(image)) {
         daoError("%s is not a GPU SHM\n", image->name);
         return DAO_ERROR;
@@ -717,15 +830,7 @@ int_fast8_t daoShmCopyToHost(IMAGE *image, void *dst, uint32_t nbVal)
     }
     if (bytes > st->bytes)
         bytes = st->bytes;
-    if (!push(st))
-        return DAO_ERROR;
-    r = cu.MemcpyDtoH(dst, st->dptr, bytes);
-    pop();
-    if (r != CUDA_SUCCESS) {
-        daoError("%s: copy from the GPU failed: %s\n", image->name, cuerr(r));
-        return DAO_ERROR;
-    }
-    return DAO_SUCCESS;
+    return consistent_copy(image, st, dst, bytes);
 }
 
 #else  /* ---------------- built without CUDA, or not Linux ---------------- */
@@ -775,6 +880,8 @@ int_fast8_t daoGpuRefreshHost(IMAGE *image)
 }
 
 int_fast8_t daoShmCommit(IMAGE *image, void *stream) { (void) stream; return no_gpu(image->name); }
+
+int_fast8_t daoShmCommitSync(IMAGE *image, void *stream) { (void) stream; return no_gpu(image->name); }
 
 int_fast8_t daoShmSetDataDevice(IMAGE *image, const void *d_src, uint32_t nbVal, void *stream)
 {

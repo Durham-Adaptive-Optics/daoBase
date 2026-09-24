@@ -2887,6 +2887,24 @@ int_fast8_t daoShmClose(IMAGE *image)
 }
 
 /**
+ * @brief Mark the next frame as being written (md.write = 1), until it is
+ * published (daoShmSetDataPartFinalize, daoShmCommit, daoShmCommitSync).
+ * A GPU writer calls it before launching the kernel that fills d_array, so
+ * that readers (daoShmGetData, daoShmCopyToHost) never keep a torn frame.
+ */
+int_fast8_t daoShmBeginWrite(IMAGE *image)
+{
+    uint32_t idx = (image->md[0].fifo_last_written + 1) % image->md[0].fifo_size;
+#if defined(_MSC_VER)
+    ((volatile IMAGE_METADATA *) image->md)[idx].write = 1;
+    MemoryBarrier();
+#else
+    __atomic_store_n(&image->md[idx].write, 1, __ATOMIC_SEQ_CST);
+#endif
+    return DAO_SUCCESS;
+}
+
+/**
  * @brief Time stamp the most recently written segment of the image
  * 
  * @param image 
