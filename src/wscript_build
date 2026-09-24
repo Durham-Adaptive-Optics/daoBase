@@ -38,19 +38,20 @@ if platform.system() != "Windows":
 		cxxflags 	= ['-Wall', '-Wextra'] + add_cxx_flags,
 		target 		= 'daoNuma',
 		name   		= 'daoNuma',
+		use			= ['dao', 'daoProto'],
 		features	= 'pkg_build',
 		vnum   		= '0.0.1')
 
 	bld.shlib(
 		source 		= 'cpp/daoComponent.cpp',
-		includes 	= ['../include',  f'{bld.env.PREFIX}/include'],
+		includes 	= ['../include',  f'{bld.env.PREFIX}/include', '../build/'],
 		ldflags		= [''] + add_ld_flags,
 		cxxflags 	= ['-Wall', '-Wextra'] + add_cxx_flags,
 		target 		= 'daoComponent',
 		name   		= 'daoComponent',
 		features	= 'pkg_build',
+		use			= ['daoNuma', 'dao', 'daoProto'],
 		vnum   		= '0.0.1')
-	
 	
 	bld.shlib(
 		source = 'c/dao.c',
