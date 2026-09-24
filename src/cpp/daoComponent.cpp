@@ -31,14 +31,14 @@ namespace Dao
         
         // Run the component continuously until a signal is received
         int received_signal;
-        bool running = true;
+        // bool running = true;
         
         m_log.Info("Component loop started. Waiting for signals...");
         int result = sigwait(&signal_set, &received_signal);
         if (result == 0)
         {
             m_log.Info("Signal received: %s ", strsignal(received_signal));
-            running = false;
+            // running = false;
         }
         else
         {

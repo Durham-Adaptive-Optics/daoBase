@@ -122,10 +122,11 @@ namespace Dao
                         // Linux has a 16 byte name limit for threads
                         int maxLen = std::min(m_thread_name.length(), (size_t)15);
                         m_thread_name.resize(maxLen);
+                        int rc = 0;
 #ifdef __APPLE__
-                        (void)pthread_setname_np(m_thread_name.c_str());
+                        rc = pthread_setname_np(m_thread_name.c_str());
 #else
-                        (void)pthread_setname_np(pthread_self(), m_thread_name.c_str());
+                        rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
 #endif
                         if(rc != 0)
                         {
@@ -164,9 +165,8 @@ namespace Dao
              * @brief Default constructor.
              * @param
              */
-            void Kill(int /*signal*/) // commenting out variable as function unused and not complete. Supressing warnings for now. Beaware if completing function
+            void Kill(int signal)
             {
-                // std::terminate();
                 pthread_kill(pthread_self(), signal);
             };
 

@@ -14,6 +14,7 @@
 #include <time.h>
 #include <vector>
 #include <dao.h>
+#include <optional>
 
 namespace Dao
 {

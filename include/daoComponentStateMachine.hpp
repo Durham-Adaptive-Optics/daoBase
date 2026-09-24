@@ -184,7 +184,7 @@ namespace Dao
                 {Events::Recover,   std::make_tuple<State,State,std::function<void()>>(State::Error,   State::Idle,     [&](){this->transition_Error_Idle();}   )}
             };
 
-            void changeState(Events /*event*/, State requiredStartState, State requestedEndState, std::function<void()> eventFunction) // commented out event variable as unused in function should not break anythig downstream but be aware
+            void changeState(Events event, State requiredStartState, State requestedEndState, std::function<void()> eventFunction)
             {
 
                 try {

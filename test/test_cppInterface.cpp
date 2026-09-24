@@ -14,6 +14,7 @@
 #include <future>
 #include <sstream>
 #include <chrono>
+#include <functional>
 
  /**
   * @brief Test fixture for providing and cleaning up a shared memory file path.
@@ -27,7 +28,7 @@ class Suite : public ::testing::Test
     {
         std::stringstream ss;
         const auto testInfo = ::testing::UnitTest::GetInstance()->current_test_info();
-        ss << "/tmp/" << testInfo->test_suite_name() << "_" << testInfo->name() << ".im.shm"; 
+        ss << "/tmp/" << testInfo->test_case_name() << "_" << testInfo->name() << ".im.shm"; 
         shmPath_ = ss.str();
     }
 

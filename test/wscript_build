@@ -13,7 +13,7 @@ if platform.system() == "Darwin":
     add_c_flags += ['']
 elif platform.system() == "Linux":
 	add_ld_flags += ['-lnuma', '-pthread']
-	add_cxx_flags += ['-lrt', '-pthread']
+	add_cxx_flags += ['-lrt', '-pthread', '-std=c++17', '-O3', '-march=native']
 	add_c_flags +=  ['-lrt']
 elif platform.system() == "Windows":
     # Windows
@@ -135,7 +135,7 @@ bld.program(
 	target   = 'test_cpp_interface',
 	source   = [ 'test_cppInterface.cpp' ],
     includes = ['../include/', f"{bld.env.PREFIX}/include", '../build/'],
-    lib = [ 'gtest', 'gtest_main'],
+    lib = [ 'gtest', 'gtest_main', 'stdc++fs'],
 	ldflags=[f'-L{bld.env.PREFIX}/lib64'] + add_ld_flags,
     cxxflags = [] + add_cxx_flags,
 	use=['dao', 'daoNuma', 'daoProto', 'ZMQ', 'PROTOBUF']

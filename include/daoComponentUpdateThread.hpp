@@ -23,6 +23,7 @@
 #include <daoThread.hpp>
 #include <daoShm.hpp>
 #include <daoDoubleBuffer.hpp>
+#include <functional>
 
 namespace Dao
 {
