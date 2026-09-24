@@ -179,6 +179,11 @@ def daoType2CtypesType(daoType):
 
     return ctypesType
 
+# Must match dao.h: size of the SHM name fields, and the SHM layout it describes
+DAO_SHM_NAME_LEN = 256
+DAO_SHM_MAGIC = 0x4D485344
+DAO_SHM_LAYOUT_VERSION = 2
+
 # Define the struct timespec structure
 class timespec(ctypes.Structure):
     _fields_ = [
@@ -211,7 +216,9 @@ if sys.platform == "darwin":
             ]
 
         _fields_ = [
-            ("name", ctypes.c_char * 80),
+            ("magic", ctypes.c_uint32),          # DAO_SHM_MAGIC
+            ("layout", ctypes.c_uint32),         # DAO_SHM_LAYOUT_VERSION
+            ("name", ctypes.c_char * DAO_SHM_NAME_LEN),
             ("naxis", ctypes.c_uint8),
             ("size", ctypes.c_uint32 * 3),
             ("nelement", ctypes.c_uint64),
@@ -255,7 +262,9 @@ else:
             ]
 
         _fields_ = [
-            ("name", ctypes.c_char * 80),
+            ("magic", ctypes.c_uint32),          # DAO_SHM_MAGIC
+            ("layout", ctypes.c_uint32),         # DAO_SHM_LAYOUT_VERSION
+            ("name", ctypes.c_char * DAO_SHM_NAME_LEN),
             ("naxis", ctypes.c_uint8),
             ("size", ctypes.c_uint32 * 3),
             ("nelement", ctypes.c_uint64),
@@ -309,7 +318,7 @@ if sys.platform == "win32":
     #        ]
             
         _fields_ = [
-            ('name', ctypes.c_char * 80),
+            ('name', ctypes.c_char * DAO_SHM_NAME_LEN),
             ('used', ctypes.c_uint8),
             ('shmfd', ctypes.POINTER(ctypes.c_void_p)),
             ('memsize', ctypes.c_uint64),
@@ -348,7 +357,7 @@ else:
     #        ]
             
         _fields_ = [
-            ('name', ctypes.c_char * 80),
+            ('name', ctypes.c_char * DAO_SHM_NAME_LEN),
             ('used', ctypes.c_uint8),
             ('shmfd', ctypes.c_int32),
             ('memsize', ctypes.c_uint64),
@@ -571,9 +580,11 @@ class shm:
                 if result != self.DAO_SUCCESS:
                     raise OSError("daoShm.shm: failed to create GPU SHM '%s' on device %s" % (fname, gpu))
             else:
-                self.daoShmCreateFifo(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
+                result = self.daoShmCreateFifo(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
                                 (ctypes.c_uint32 * len(dataSize))(*dataSize),\
                                 npType2DaoType(data), 1, 0, depth)
+                if result != self.DAO_SUCCESS:
+                    raise OSError("daoShm.shm: failed to create SHM '%s'" % (fname,))
             if data.flags['C_CONTIGUOUS']:
                 cData = data.ctypes.data_as(ctypes.c_void_p)
             else:

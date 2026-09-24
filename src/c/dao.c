@@ -458,6 +458,20 @@ void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa, PACL dacl)
 
 #endif
 
+/* The full path is stored in IMAGE.name and IMAGE_METADATA.name
+ * (DAO_SHM_NAME_LEN bytes): refuse longer names rather than overflowing them. */
+/* semaphore names: the local name plus a prefix/suffix such as "Local\\DAO_" and "_sem00" */
+#define SEM_NAME_LEN (DAO_SHM_NAME_LEN + 32)
+
+static int shm_name_fits(const char *name)
+{
+    if (strlen(name) < sizeof(((IMAGE_METADATA *) 0)->name))
+        return 1;
+    daoError("SHM name %s is too long (max %zu characters)\n", name,
+             sizeof(((IMAGE_METADATA *) 0)->name) - 1);
+    return 0;
+}
+
 /**
  * Extract image from a shared memory
  */
@@ -468,12 +482,12 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
     image->d_array = NULL;
     image->gpu = NULL;
 
-    char shmName[256];
+    char shmName[DAO_SHM_NAME_LEN];
     IMAGE_METADATA *map;
     char *mapv;
     uint8_t atype;
     int kw;
-    char shmSemName[256];
+    char shmSemName[SEM_NAME_LEN];
     int sOK;
     long snb;
     long s;
@@ -484,8 +498,8 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
     HANDLE shmFd; // shared memory file handle
 	HANDLE shmFm; // shared memory file mapping object
 	HANDLE stest;
-	WCHAR wideShmName[256];
-	WCHAR wideShmSemName[256];
+	WCHAR wideShmName[DAO_SHM_NAME_LEN];
+	WCHAR wideShmSemName[SEM_NAME_LEN];
 #else
     int shmFd;
     struct stat file_stat;
@@ -493,11 +507,16 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
 #endif
 
     int rval = DAO_ERROR;
+    if (!shm_name_fits(name))
+    {
+        image->used = 0;
+        return DAO_ERROR;
+    }
     sprintf(shmName, "%s", name);
     //sprintf(shmName, "%s/%s%s.im.shm", SHAREDMEMDIR, prefix, name);
 
 #ifdef _WIN32
-    MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, 256);
+    MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, DAO_SHM_NAME_LEN);
 	shmFd = CreateFileW(wideShmName, GENERIC_READ | GENERIC_WRITE,
 						FILE_SHARE_READ | FILE_SHARE_WRITE,
 						NULL, OPEN_EXISTING, FILE_ATTRIBUTE_TEMPORARY, NULL);
@@ -570,6 +589,28 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
         //        image->md[0].sem = 0;
 
 #endif
+        // made by a dao with another metadata layout: refuse it rather than
+        // misreading every field (before writing anything into it)
+        if ((uint64_t) image->memsize < sizeof(IMAGE_METADATA) || map->magic != DAO_SHM_MAGIC
+            || map->layout != DAO_SHM_LAYOUT_VERSION)
+        {
+            if ((uint64_t) image->memsize >= sizeof(uint32_t) * 2 && map->magic == DAO_SHM_MAGIC)
+                daoError("%s has SHM layout %u, this dao uses %u: recreate it (or rebuild this program)\n",
+                         name, map->layout, DAO_SHM_LAYOUT_VERSION);
+            else
+                daoError("%s was created by an older dao (other SHM layout): recreate it\n", name);
+#ifdef _WIN32
+            UnmapViewOfFile(map);
+            CloseHandle(shmFm);
+            CloseHandle(shmFd);
+#else
+            munmap(map, image->memsize);
+            close(shmFd);
+#endif
+            image->md = NULL;
+            image->used = 0;
+            return DAO_ERROR;
+        }
         atype = image->md[0].atype;
         image->md[0].shared = 1;
 
@@ -748,7 +789,7 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
 		while(sOK==1)
 		{
             sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, snb);
-			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, SEM_NAME_LEN);
             daoDebug("semaphore %s\n", shmSemName);
 			stest = CreateSemaphoreW(saShm, 0, 1, wideShmSemName);
             if(stest == NULL)
@@ -775,7 +816,7 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
         for(s=0; s<snb; s++)
         {
             sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, s);
-			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, SEM_NAME_LEN);
             if ((image->semptr[s] = CreateSemaphoreW(saShm, 0, 1, wideShmSemName)) == NULL) 
             {
                 daoError("could not open semaphore %s\n", shmSemName);
@@ -785,7 +826,7 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
 		daoDebug("%d found\n", snb);
 		
         sprintf(shmSemName, "Local\\DAO_%s_semlog", localName);
-		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, SEM_NAME_LEN);
         if ((image->semlog = CreateSemaphoreW(saShm, 0, 1, wideShmSemName)) == NULL) 
         {
             daoWarning("could not open semaphore %s\n", shmSemName);
@@ -851,8 +892,10 @@ int_fast8_t daoShmCreate1D(const char *name, uint32_t nbVal, IMAGE **image)
 {
     daoTrace("\n");
     int naxis = 2;
-    char fullName[64];
-    sprintf(fullName, "%s", name);
+    char fullName[sizeof(((IMAGE_METADATA *) 0)->name)];
+    if (!shm_name_fits(name))
+        return DAO_ERROR;
+    snprintf(fullName, sizeof fullName, "%s", name);
 
     daoDebug("daoInit1D(%s, %i)\n", fullName, nbVal);
     uint32_t imsize[2];
@@ -1080,17 +1123,17 @@ int_fast8_t daoShmSetDataPartFinalize(IMAGE *image)
 int_fast8_t daoShmCreateSem(IMAGE *image, long NBsem)
 {
     daoTrace("\n");
-    char shmSemName[256];
+    char shmSemName[SEM_NAME_LEN];
     long s;
 //    int r;
 //    char command[256];
 //    int semfile[100];
 
 #ifdef _WIN32
-	WCHAR wideShmSemName[256];
+	WCHAR wideShmSemName[SEM_NAME_LEN];
 	PACL dacl;
 #else
-	char fname[256];
+	char fname[SEM_NAME_LEN + 16];               /* "/dev/shm/sem." + semaphore name */
     long s1;
 #endif
 
@@ -1204,7 +1247,7 @@ int_fast8_t daoShmCreateSem(IMAGE *image, long NBsem)
         {
 #ifdef _WIN32
             sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, s);
-			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+			MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, SEM_NAME_LEN);
 			
 			if (!(image->semptr[s] = CreateSemaphoreW(saShm, 0, 1, wideShmSemName))) {
 				DWORD last_error = GetLastError();
@@ -1252,19 +1295,21 @@ int_fast8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis,
     long i;//,ii;
     long nelement;
     struct timespec timenow;
-    char shmSemName[256];
+    char shmSemName[SEM_NAME_LEN];
     size_t sharedsize = 0; // shared memory size in bytes
-    char shmName[256];
+    char shmName[DAO_SHM_NAME_LEN];
     IMAGE_METADATA *map=NULL;
     char *mapv; // pointed cast in bytes
     int kw;
 //    char comment[80];
 //    char kname[16];
+    if (!shm_name_fits(name))
+        return DAO_ERROR;
     nelement = 1;
 
 #ifdef _WIN32
-    WCHAR wideShmSemName[256];
-	WCHAR wideShmName[256];
+    WCHAR wideShmSemName[SEM_NAME_LEN];
+	WCHAR wideShmName[DAO_SHM_NAME_LEN];
 	HANDLE shmFd; // shared memory file handle
 	HANDLE shmFm; // shared memory file mapping object
 #else
@@ -1322,7 +1367,7 @@ int_fast8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis,
         sprintf(shmSemName, "Local\\DAO_%s_semlog", semFName);
         image->semlog = NULL;
 		
-		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, 256);
+		MultiByteToWideChar(CP_UTF8, 0, shmSemName, -1, wideShmSemName, SEM_NAME_LEN);
 		
 		PACL daclSem;
 		SECURITY_ATTRIBUTES *saSem = daoCreateWindowsSecurityAttrs(0600, &daclSem);
@@ -1412,7 +1457,7 @@ int_fast8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis,
 
 #ifdef _WIN32
         sprintf(shmName, "%s", name);
-		MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, 256);
+		MultiByteToWideChar(CP_UTF8, 0, shmName, -1, wideShmName, DAO_SHM_NAME_LEN);
 		
 		PACL daclFile;
 		SECURITY_ATTRIBUTES *saFile = daoCreateWindowsSecurityAttrs(0600, &daclFile);
@@ -1547,6 +1592,8 @@ int_fast8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis,
         image->md[fifo_idx].atype = atype;
         image->md[fifo_idx].naxis = (uint8_t)naxis;
 
+        image->md[fifo_idx].magic = DAO_SHM_MAGIC;
+        image->md[fifo_idx].layout = DAO_SHM_LAYOUT_VERSION;
         strcpy(image->md[fifo_idx].name, name);
 
         for(i=0; i<naxis; i++)
@@ -2260,9 +2307,9 @@ int_fast8_t daoShmWaitSem(IMAGE *image, int32_t semNb)
     if (!image->semptr || !image->semptr[semNb]) {
         // Build the semaphore name from the image name, same scheme as
         // daoImageCreateSem / daoShmShm2Img.
-        char semName[256];
-        WCHAR wSemName[256];
-        char nameCopy[256];
+        char semName[SEM_NAME_LEN];
+        WCHAR wSemName[SEM_NAME_LEN];
+        char nameCopy[DAO_SHM_NAME_LEN];
         strncpy(nameCopy, image->md[0].name, sizeof(nameCopy)-1);
         nameCopy[sizeof(nameCopy)-1] = '\0';
         char *tok = strtok(nameCopy, PATH_SEPARATOR);
@@ -2272,7 +2319,7 @@ int_fast8_t daoShmWaitSem(IMAGE *image, int32_t semNb)
             char *localName = strtok(last, ".");
             if (localName) {
                 sprintf(semName, "Local\\DAO_%s_sem%02d", localName, (int)semNb);
-                MultiByteToWideChar(CP_UTF8, 0, semName, -1, wSemName, 256);
+                MultiByteToWideChar(CP_UTF8, 0, semName, -1, wSemName, SEM_NAME_LEN);
                 HANDLE h = OpenSemaphoreW(SEMAPHORE_ALL_ACCESS, FALSE, wSemName);
                 if (h && image->semptr) {
                     image->semptr[semNb] = h;

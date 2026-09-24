@@ -73,6 +73,17 @@ extern "C" {
 #endif
 
 // original Log System
+/** Size of the SHM name fields (IMAGE.name, IMAGE_METADATA.name): the longest
+ * SHM path dao accepts is DAO_SHM_NAME_LEN - 1 characters. */
+#define DAO_SHM_NAME_LEN 256
+
+/** First bytes of every SHM (IMAGE_METADATA.magic, .layout): an SHM made by a dao
+ * with another layout is refused instead of being misread. Bump the version
+ * whenever IMAGE_METADATA or IMAGE_KEYWORD change. The unversioned layout of
+ * earlier releases (80-byte name first) counts as version 1. */
+#define DAO_SHM_MAGIC          0x4D485344u   /**< 'DSHM' */
+#define DAO_SHM_LAYOUT_VERSION 2u
+
 #define DAO_SUCCESS     0
 #define DAO_ERROR       1
 #define DAO_TIMEOUT     -1
@@ -226,10 +237,13 @@ extern "C"
      *
      */
     typedef struct {
-        /** @brief Image Name */
-        char name[80];
+        uint32_t magic;                /**< DAO_SHM_MAGIC                                           */
+        uint32_t layout;               /**< DAO_SHM_LAYOUT_VERSION                                  */
 
-        // mem offset = 80 when packed
+        /** @brief Image Name */
+        char name[DAO_SHM_NAME_LEN];
+
+        // mem offset = 264 when packed
 
         /** @brief Number of axis
          *
@@ -373,8 +387,8 @@ extern "C"
      */
     typedef struct          		/**< structure used to store data arrays                      */
     {
-        char name[80]; 				/**< local name (can be different from name in shared memory) */
-        // mem offset = 80
+        char name[DAO_SHM_NAME_LEN]; 	/**< local name (can be different from name in shared memory) */
+        // mem offset = 256
 
         /** @brief Image usage flag
          *
