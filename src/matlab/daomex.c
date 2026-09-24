@@ -14,7 +14,12 @@ void shm_init(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     // Parse input arguments
     const char *name = mxArrayToString(prhs[0]);
 
-    IMAGE *newImage = (IMAGE *)malloc(sizeof(IMAGE));
+    // calloc, not malloc: daoShmClose() frees whichever of
+    // semReadPID/semWritePID/semptr are non-NULL, and daoShmCreate/
+    // daoShmOpen don't set every field, so an uninitialized struct leaves
+    // them as garbage pointers instead of NULL - calloc guarantees a clean
+    // slate.
+    IMAGE *newImage = (IMAGE *)calloc(1, sizeof(IMAGE));
     // Check if the optional input argument is provided
     if (nrhs == 2 && !mxIsEmpty(prhs[1]) && mxIsNumeric(prhs[1]))
     {
@@ -40,35 +45,35 @@ void shm_init(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         // Check the data type
         if (dataType == mxUINT8_CLASS)
         {
-            result = daoShmImageCreate(newImage, name, 2, size, _DATATYPE_UINT8, 1, 0);
+            result = daoShmCreate(newImage, name, 2, size, _DATATYPE_UINT8, 1, 0);
         }
         else if (dataType == mxINT8_CLASS)
         {
-            result = daoShmImageCreate(newImage, name, 2, size, _DATATYPE_INT8, 1, 0);
+            result = daoShmCreate(newImage, name, 2, size, _DATATYPE_INT8, 1, 0);
         }
         else if (dataType == mxUINT16_CLASS)
         {
-            result = daoShmImageCreate(newImage, name, 2, size, _DATATYPE_UINT16, 1, 0);
+            result = daoShmCreate(newImage, name, 2, size, _DATATYPE_UINT16, 1, 0);
         }
         else if (dataType == mxINT16_CLASS)
         {
-            result = daoShmImageCreate(newImage, name, 2, size, _DATATYPE_INT16, 1, 0);
+            result = daoShmCreate(newImage, name, 2, size, _DATATYPE_INT16, 1, 0);
         }
         else if (dataType == mxUINT32_CLASS)
         {
-            result = daoShmImageCreate(newImage, name, 2, size, _DATATYPE_UINT32, 1, 0);
+            result = daoShmCreate(newImage, name, 2, size, _DATATYPE_UINT32, 1, 0);
         }
         else if (dataType == mxINT64_CLASS)
         {
-            result = daoShmImageCreate(newImage, name, 2, size, _DATATYPE_INT64, 1, 0);
+            result = daoShmCreate(newImage, name, 2, size, _DATATYPE_INT64, 1, 0);
         }
         else if (dataType == mxSINGLE_CLASS)
         {
-            result = daoShmImageCreate(newImage, name, 2, size, _DATATYPE_FLOAT, 1, 0);
+            result = daoShmCreate(newImage, name, 2, size, _DATATYPE_FLOAT, 1, 0);
         }
         else if (dataType == mxDOUBLE_CLASS)
         {
-            result = daoShmImageCreate(newImage, name, 2, size, _DATATYPE_DOUBLE, 1, 0);
+            result = daoShmCreate(newImage, name, 2, size, _DATATYPE_DOUBLE, 1, 0);
         }
         else
         {
@@ -79,11 +84,11 @@ void shm_init(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         //if (result != DAO_SUCCESS)
         //{
         //    mexErrMsgIdAndTxt("MATLAB:shm_init:daoError",
-        //                      "daoShmImageCreate failed.");
+        //                      "daoShmCreate failed.");
         //}
         //else
         //{
-        //    daoShmImage2Shm(mxGetData(dataMatrix), numRows*numCols, &newImage[0]);
+        //    daoShmSetData(&newImage[0], mxGetData(dataMatrix), numRows*numCols);
         //}
     }
     else
@@ -98,13 +103,13 @@ void shm_init(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                               "Failed to allocate memory for IMAGE structure.");
         }
 
-        // Call the daoShmShm2Img function to initialize the IMAGE structure
-        int_fast8_t result = daoShmShm2Img(name, newImage);
+        // Call the daoShmOpen function to initialize the IMAGE structure
+        int_fast8_t result = daoShmOpen(name, newImage);
 
         if (result != DAO_SUCCESS)
         {
             mexErrMsgIdAndTxt("MATLAB:shm_init:daoError",
-                              "daoShmShm2Img failed.");
+                              "daoShmOpen failed.");
         }
     }
 
@@ -168,7 +173,7 @@ void get_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
 	if (timeout_sec == 0)
 	{
-            daoShmWaitForSemaphore(selectedImage, semNb);
+            daoShmWaitSem(selectedImage, semNb);
             //sem_wait(selectedImage[0].semptr[semNb]);
 	}
 	else
@@ -176,7 +181,7 @@ void get_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             struct timespec timeout;
             clock_gettime(CLOCK_REALTIME, &timeout);
             timeout.tv_sec += timeout_sec;//1; // 1 second timeout
-            daoShmWaitForSemaphoreTimeout(selectedImage, semNb, &timeout);
+            daoShmWaitSemTimeout(selectedImage, semNb, &timeout);
             //if (sem_timedwait(selectedImage[0].semptr[semNb], &timeout) == -1)
             //{
             //    daoInfo("Time out (1s) waiting for new data in the SHM, using what is currently in it\n");
@@ -316,7 +321,7 @@ void set_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     int numRows = mxGetM(data);
     int numCols = mxGetN(data);
 
-    daoShmImage2Shm(mxGetData(data), numRows*numCols, &selectedImage[0]);
+    daoShmSetData(&selectedImage[0], mxGetData(data), numRows*numCols);
     // Print the type and size information
     daoDebug("Received data type: %s\n", dataTypeName);
     daoDebug("Received data size: %d x %d\n", numRows, numCols);
@@ -356,6 +361,30 @@ void get_counter(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     plhs[0] = counterScalar;
 }
 
+// Function to release a selected IMAGE structure (semaphores, mmap'd
+// metadata, and the IMAGE struct itself, which shm_init malloc'd).
+void close_shm(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+{
+    if (nrhs != 1 || nlhs != 0)
+    {
+        mexErrMsgIdAndTxt("MATLAB:close_shm:invalidNumArgs",
+                          "Invalid number of input or output arguments.");
+    }
+
+    // Parse the input argument to get the pointer to the IMAGE structure
+    uint64_t *ptr = (uint64_t *)mxGetData(prhs[0]);
+    IMAGE *selectedImage = (IMAGE *)(*ptr);
+
+    if (selectedImage == NULL)
+    {
+        mexErrMsgIdAndTxt("MATLAB:close_shm:noImageSelected",
+                          "No IMAGE structure is currently selected.");
+    }
+
+    daoShmClose(selectedImage);
+    free(selectedImage);
+}
+
 // Entry point for the MEX-file
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
@@ -382,6 +411,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         {
             // Call the "get_counter" function
             get_counter(nlhs, plhs, nrhs - 1, prhs + 1);
+        }
+        else if (strcmp(funcName, "close_shm") == 0)
+        {
+            // Call the "close_shm" function
+            close_shm(nlhs, plhs, nrhs - 1, prhs + 1);
         }
         else
         {

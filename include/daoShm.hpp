@@ -9,9 +9,11 @@
 #ifndef DAO_SHM_HPP
 #define DAO_SHM_HPP
 
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <time.h>
+#include <type_traits>
 #include <vector>
 #include <dao.h>
 #include <optional>
@@ -45,18 +47,18 @@ namespace Dao
             if(shape.size() != 2 && shape.size() != 3)
                 throw std::runtime_error("invalid dao shape");
 
-            const auto status = daoShmImageCreate_FIFO(
+            const auto status = daoShmCreateFifo(
                 &image_,
                 name.c_str(),
-                shape.size(),
-                (uint32_t*)shape.data(),
+                static_cast<long>(shape.size()),
+                const_cast<uint32_t*>(shape.data()),
                 inferDaoType(),
                 1, // shared memory
                 0, // no keywords
                 depth
             );
-            md_ = (volatile IMAGE_METADATA *)image_.md;
-            
+            md_ = reinterpret_cast<volatile IMAGE_METADATA *>(image_.md);
+
             if(status != DAO_SUCCESS)
                 throw std::runtime_error("failed to create dao shared memory");
 
@@ -69,8 +71,8 @@ namespace Dao
          * @param name Shared memory name.
          */
         Shm(const std::string &name) {
-            const auto status = daoShmShm2Img(name.c_str(), &image_);
-            md_ = (volatile IMAGE_METADATA *)image_.md;
+            const auto status = daoShmOpen(name.c_str(), &image_);
+            md_ = reinterpret_cast<volatile IMAGE_METADATA *>(image_.md);
 
             if(status != DAO_SUCCESS)
                 throw std::runtime_error("failed to open dao shared memory");
@@ -81,7 +83,7 @@ namespace Dao
          * however the object itself will still persist afterward.
          */
         ~Shm() {
-            daoShmCloseShm(&image_);
+            daoShmClose(&image_);
         }
 
         /**
@@ -89,7 +91,7 @@ namespace Dao
          * @param frame Pointer to the frame array.
          */
         void set_frame(const T *frame) {
-            daoShmImage2Shm((T*)frame, image_.md->nelement, &image_);
+            daoShmSetData(&image_, const_cast<T *>(frame), static_cast<uint32_t>(image_.md->nelement));
         }
 
         /**
@@ -101,14 +103,14 @@ namespace Dao
         * @return Pointer to the next writable frame segment.
         */
         T* get_write_frame() {
-            volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image_.md;
+            volatile IMAGE_METADATA *vol_md = reinterpret_cast<volatile IMAGE_METADATA *>(image_.md);
             const uint32_t writing_idx = (vol_md[0].fifo_last_written + 1) % vol_md[0].fifo_size;
             vol_md[writing_idx].write = 1;
 
-            void *segment_ptr;
-            daoShmGetArbitrarySegment(&image_, &segment_ptr, writing_idx);
+            void *segment_ptr = nullptr;
+            daoShmGetDataAt(&image_, &segment_ptr, writing_idx);
 
-            return (T*)segment_ptr;
+            return static_cast<T *>(segment_ptr);
         }
 
         /**
@@ -123,7 +125,7 @@ namespace Dao
             if (frameId.has_value())
                 set_frame_id(frameId.value());
 
-            daoShmImagePart2ShmFinalize(&image_);
+            daoShmSetDataPartFinalize(&image_);
         }
 
         /**
@@ -138,23 +140,23 @@ namespace Dao
                 case ShmSync::NONE: {} break;
 
                 case ShmSync::SPIN: {
-                    if(daoShmWaitForCounter(&image_) != DAO_SUCCESS)
+                    if(daoShmWaitCounter(&image_) != DAO_SUCCESS)
                         return nullptr;
                 } break;
 
                 default: {
-                    const int32_t semNb = (sync == ShmSync::SEM) ? (int32_t)ShmSync::SEM0 : (int32_t)sync;
-                    if(daoShmWaitForSemaphore(&image_, semNb) != DAO_SUCCESS)
+                    const int32_t semNb = (sync == ShmSync::SEM) ? static_cast<int32_t>(ShmSync::SEM0) : static_cast<int32_t>(sync);
+                    if(daoShmWaitSem(&image_, semNb) != DAO_SUCCESS)
                         return nullptr;
                 } break;
             }
 
-            void *newest_data;
-            uint32_t segment_idx;
-            uint64_t segment_cnt0;
-            daoShmGetNewestSegment(&image_, &newest_data, &segment_idx, &segment_cnt0);
+            void *newest_data = nullptr;
+            uint32_t segment_idx = 0;
+            uint64_t segment_cnt0 = 0;
+            daoShmGetData(&image_, &newest_data, &segment_idx, &segment_cnt0);
 
-            return (T*)newest_data;
+            return static_cast<T *>(newest_data);
         }
 
         /**
@@ -170,27 +172,27 @@ namespace Dao
                 case ShmSync::NONE: {} break;
 
                 case ShmSync::SPIN: {
-                    if(daoShmWaitForTargetCounter(&image_, syncValue) != DAO_SUCCESS)
+                    if(daoShmWaitTargetCounter(&image_, static_cast<uint64_t>(syncValue)) != DAO_SUCCESS)
                         return nullptr;
                 } break;
 
                 default: {
                     timespec ts;
                     clock_gettime(CLOCK_REALTIME, &ts);
-                    ts.tv_sec += syncValue;
+                    ts.tv_sec += static_cast<time_t>(syncValue);
 
-                    const int32_t semNb = (sync == ShmSync::SEM) ? (int32_t)ShmSync::SEM0 : (int32_t)sync;
-                    if(daoShmWaitForSemaphoreTimeout(&image_, semNb, &ts) != DAO_SUCCESS)
+                    const int32_t semNb = (sync == ShmSync::SEM) ? static_cast<int32_t>(ShmSync::SEM0) : static_cast<int32_t>(sync);
+                    if(daoShmWaitSemTimeout(&image_, semNb, &ts) != DAO_SUCCESS)
                         return nullptr;
                 } break;
             }
 
-            void *newest_data;
-            uint32_t segment_idx;
-            uint64_t segment_cnt0;
-            daoShmGetNewestSegment(&image_, &newest_data, &segment_idx, &segment_cnt0);
+            void *newest_data = nullptr;
+            uint32_t segment_idx = 0;
+            uint64_t segment_cnt0 = 0;
+            daoShmGetData(&image_, &newest_data, &segment_idx, &segment_cnt0);
 
-            return (T*)newest_data;
+            return static_cast<T *>(newest_data);
         }
 
         /**
@@ -204,20 +206,20 @@ namespace Dao
         T* get_next_frame(bool wait, int_fast8_t &status) {
             // Wait for the next frame if requested
             if (wait) {
-                if (daoShmWaitForNextSegment(&image_) != DAO_SUCCESS) {
+                if (daoShmWaitData(&image_) != DAO_SUCCESS) {
                     status = DAO_ERROR;
                     return nullptr;
                 }
             }
 
             // Get the next frame
-            void *segment_ptr;
-            uint32_t segment_idx;
-            uint64_t segment_cnt0;
+            void *segment_ptr = nullptr;
+            uint32_t segment_idx = 0;
+            uint64_t segment_cnt0 = 0;
 
-            status = daoShmGetNextSegment(&image_, &segment_ptr, &segment_idx, &segment_cnt0);
+            status = daoShmGetDataNext(&image_, &segment_ptr, &segment_idx, &segment_cnt0);
 
-            return (T*)segment_ptr;
+            return static_cast<T *>(segment_ptr);
         }
 
         /**
@@ -232,19 +234,19 @@ namespace Dao
         T* get_next_frame(bool wait, int_fast8_t &status, uint64_t &segment_cnt0) {
             // Wait for the next frame if requested
             if (wait) {
-                if (daoShmWaitForNextSegment(&image_) != DAO_SUCCESS) {
+                if (daoShmWaitData(&image_) != DAO_SUCCESS) {
                     status = DAO_ERROR;
                     return nullptr;
                 }
             }
 
             // Get the next frame
-            void *segment_ptr;
-            uint32_t segment_idx;
+            void *segment_ptr = nullptr;
+            uint32_t segment_idx = 0;
 
-            status = daoShmGetNextSegment(&image_, &segment_ptr, &segment_idx, &segment_cnt0);
+            status = daoShmGetDataNext(&image_, &segment_ptr, &segment_idx, &segment_cnt0);
 
-            return (T*)segment_ptr;
+            return static_cast<T *>(segment_ptr);
         }
 
         /**
@@ -252,7 +254,7 @@ namespace Dao
          * @return Status code, either DAO_SUCCESS if not overwritten, or DAO_OVERWRITE otherwise.
          */
         int_fast8_t check_segment_overwrite() {
-            return daoShmCheckSegmentOverwrite(&image_);
+            return daoShmCheckOverwrite(&image_);
         }
 
         /**
@@ -264,11 +266,11 @@ namespace Dao
          */
         T* get_arbitrary_frame(uint32_t segment_idx) {
             // Get the next frame
-            void *segment_ptr;
+            void *segment_ptr = nullptr;
 
-            daoShmGetArbitrarySegment(&image_, &segment_ptr, segment_idx);
+            daoShmGetDataAt(&image_, &segment_ptr, segment_idx);
 
-            return (T*)segment_ptr;
+            return static_cast<T *>(segment_ptr);
         }
 
         /**

@@ -26,11 +26,11 @@ protected:
         const char* shmFile = "/tmp/test.im.shm";
         // Initialize 1D array with 100 elements
         IMAGE* image = nullptr;
-        int result = daoShmInit1D(shmFile, 100, &image);
+        int result = daoShmCreate1D(shmFile, 100, &image);
         ASSERT_EQ(result, DAO_SUCCESS) << "Failed to create shared memory file";
-        
+
         if (image) {
-            daoShmCloseShm(image);
+            daoShmClose(image);
             free(image);
         }
     }
