@@ -17,7 +17,7 @@ elif platform.system() == "Windows":
 	add_c_flags +=  ['']
 else:
 	add_ld_flags += ['-lnuma']
-	add_cxx_flags += ['-march=native']
+	add_cxx_flags += ['-march=native', '-O3', '-std=c++17']
 	add_c_flags +=  ['-lrt', '-Ofast', '-pthread']
 
 
@@ -38,7 +38,19 @@ if platform.system() != "Windows":
 		cxxflags 	= ['-Wall', '-Wextra'] + add_cxx_flags,
 		target 		= 'daoNuma',
 		name   		= 'daoNuma',
+		use			= ['dao', 'daoProto'],
 		features	= 'pkg_build',
+		vnum   		= '0.0.1')
+
+	bld.shlib(
+		source 		= 'cpp/daoComponent.cpp',
+		includes 	= ['../include',  f'{bld.env.PREFIX}/include', '../build/'],
+		ldflags		= [''] + add_ld_flags,
+		cxxflags 	= ['-Wall', '-Wextra'] + add_cxx_flags,
+		target 		= 'daoComponent',
+		name   		= 'daoComponent',
+		features	= 'pkg_build',
+		use			= ['daoNuma', 'dao', 'daoProto'],
 		vnum   		= '0.0.1')
 	
 	# GPU SHMs (daoGpu.c): compiled in when configure found cuda.h

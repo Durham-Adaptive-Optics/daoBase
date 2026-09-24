@@ -89,6 +89,16 @@ namespace Dao
                 ThreadBase::m_signal_table->SignalReceiveSleep(index, usleep);
             }
 
+
+            inline virtual bool isSpawned() override
+            {
+                return ThreadBase::isSpawned();
+            }
+
+            inline virtual bool isRunning() override
+            {
+                return ThreadBase::isRunning();
+            }
         protected:
             virtual void RestartableThread() = 0;       
     };

@@ -113,7 +113,6 @@ namespace Dao
             {   
                 if(!m_spawned)
                 {
-                    m_spawned = true;
                     m_thread = std::thread{&ThreadBase::threadEntryPoint, this};
                     m_thread_id = pthread_self();
 
@@ -123,14 +122,19 @@ namespace Dao
                         // Linux has a 16 byte name limit for threads
                         int maxLen = std::min(m_thread_name.length(), (size_t)15);
                         m_thread_name.resize(maxLen);
+                        int rc = 0;
 #ifdef __APPLE__
-                        (void)pthread_setname_np(m_thread_name.c_str());
+                        rc = pthread_setname_np(m_thread_name.c_str());
 #else
-                        (void)pthread_setname_np(pthread_self(), m_thread_name.c_str());
+                        rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
 #endif
-                        // check error code?
+                        if(rc != 0)
+                        {
+                            m_log.Error("Thread name not set, %d - %s", rc, m_thread_name.c_str());
+                        }
                     }
                     m_log.Debug("Thread %s Spawned...", m_thread_name.c_str());
+                    m_signal_table->SignalReceiveSpin(SIGNAL_THREAD_READY);
                 }
                 else
                 {
@@ -161,16 +165,16 @@ namespace Dao
              * @brief Default constructor.
              * @param
              */
-            void Kill(int /*signal*/) // commenting out variable as function unused and not complete. Supressing warnings for now. Beaware if completing function
+            void Kill(int signal)
             {
-                // std::terminate();
+                pthread_kill(pthread_self(), signal);
             };
 
             virtual void Body() = 0; // overwritten later
 
             // get status stuff
             inline bool isRunning(){return m_running;};
-            inline bool isSpawned(){return m_spawned;};
+            bool isSpawned(){return m_spawned;};
             std::string getThreadName(){return m_thread_name;};
             int getAffinity(){return m_core;};
             int getNumaNode(){return m_node;};
@@ -196,20 +200,29 @@ namespace Dao
 #else
                     int rc = pthread_setname_np(pthread_self(), m_thread_name.c_str());
 #endif
-                    if(rc != 0)
-                        std::cout << "Return : " << rc << std::endl;
+                        if(rc != 0)
+                        {
+                            m_log.Error("Thread name not set, %d - %s", rc, m_thread_name.c_str());
+                        }
                 }
                 // realtime threads - set RT priority and FIFO scheduling
                 if(getuid() == 0 && m_rt_enabled)
                 {
                     struct sched_param param;
-                    param.sched_priority = 95;
-                    pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+                    param.sched_priority = 99;
+                    int sched_result = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+                    if (sched_result != 0) {
+                        m_log.Error("Failed to set thread scheduling parameters: %s", strerror(sched_result));
+                    } else {
+                        m_log.Debug("Thread %s set to SCHED_FIFO with priority %d", 
+                                   m_thread_name.c_str(), param.sched_priority);
+                    }
                 }
 
                 try
                 {
                     OnceOnSpawn();
+                    m_spawned = true;
                 }
                 catch(const std::exception& e)
                 {
