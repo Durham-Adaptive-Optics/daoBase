@@ -48,6 +48,24 @@ dependency on CUDA, and machines without a GPU keep using CPU SHMs unchanged. Bu
 support only needs the CUDA headers (``waf configure`` finds them from ``nvcc``, ``CUDA_HOME`` or
 ``/usr/local/cuda``; ``--without-gpu`` disables it).
 
+Host SHMs read by the GPU: keep them in RAM (tmpfs)
+---------------------------------------------------
+
+A CPU SHM is a file mapped in memory: processes read and write it in RAM, but if its folder is on a
+disk filesystem (ext4, xfs...), the kernel also writes its pages back to the disk every few seconds,
+and CUDA cannot pin those pages. The GPU then cannot read or write such an SHM in place (zero copy)
+and copies it whole instead, which is slower (for a 560x560 camera frame: about 95 µs for the whole
+RAMA chain instead of about 52 µs). ``daoGpuPipeline`` says so when it starts: "*... is not in RAM
+(its filesystem is not tmpfs) ...*".
+
+``/dev/shm`` is always in RAM. ``/tmp`` is in RAM on some distributions (Fedora, Arch, Debian 13) and
+on disk on others (Ubuntu). Check with ``df -T /tmp``: the type must be ``tmpfs``. Either create the
+SHMs in ``/dev/shm``, or mount ``/tmp`` as tmpfs by adding to ``/etc/fstab`` (then reboot)::
+
+   tmpfs  /tmp  tmpfs  defaults,noatime,size=8G,mode=1777  0  0
+
+Everything in ``/tmp`` then lives in RAM (up to ``size``) and is erased at each reboot.
+
 Several processes on one GPU: use MPS
 --------------------------------------
 
