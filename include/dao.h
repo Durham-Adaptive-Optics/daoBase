@@ -494,6 +494,78 @@ extern "C" {
     DLL_EXPORT int daoGetLogLevel();
     DLL_EXPORT unsigned daoBaseIp2Int(const char* ip);
 
+    // ----------------------------------------------------------------------
+    // Primary SHM API. New code should use these.
+    // ----------------------------------------------------------------------
+
+    // creation
+    DLL_EXPORT int_fast8_t daoShmCreate(IMAGE* image, const char* name, long naxis, uint32_t* size,
+        uint8_t atype, int shared, int NBkw);
+    DLL_EXPORT int_fast8_t daoShmCreateFifo(IMAGE* image, const char* name, long naxis, uint32_t* size,
+        uint8_t atype, int shared, int NBkw, uint32_t fifo_size);
+    DLL_EXPORT int_fast8_t daoShmCreate1D(const char* name, uint32_t nbVal, IMAGE** image);
+    DLL_EXPORT int_fast8_t daoShmCreateSem(IMAGE* image, long NBsem);
+
+    // open / close
+    DLL_EXPORT int_fast8_t daoShmOpen(const char* name, IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmClose(IMAGE* image);
+
+    // write
+    DLL_EXPORT int_fast8_t daoShmSetData(IMAGE* image, void* im, uint32_t nbVal);
+    DLL_EXPORT int_fast8_t daoShmSetDataQuiet(IMAGE* image, void* im, uint32_t nbVal);
+    DLL_EXPORT int_fast8_t daoShmSetDataPart(IMAGE* image, char* im, uint32_t nbVal, uint32_t position,
+        uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber);
+    DLL_EXPORT int_fast8_t daoShmSetDataPartFinalize(IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmCombine(IMAGE** imageCube, IMAGE* image, int nbChannel, int nbVal);
+
+    // read
+    DLL_EXPORT int_fast8_t daoShmGetData(IMAGE* image, void** segment_ptr, uint32_t* segment_idx, uint64_t* segment_cnt0);
+    DLL_EXPORT int_fast8_t daoShmGetDataNext(IMAGE* image, void** segment_ptr, uint32_t* segment_idx, uint64_t* segment_cnt0);
+    DLL_EXPORT int_fast8_t daoShmGetDataAt(IMAGE* image, void** segment_ptr, uint_fast32_t fifo_idx);
+    DLL_EXPORT int_fast8_t daoShmCheckOverwrite(IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmResetReadTail(IMAGE* image, uint32_t* segment_idx, uint64_t* segment_cnt0);
+    DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE* image);
+
+    // wait / synchronize
+    DLL_EXPORT int_fast8_t daoShmWaitSem(IMAGE* image, int32_t semNb);
+    DLL_EXPORT int_fast8_t daoShmWaitSemTimeout(IMAGE* image, int32_t semNb, const struct timespec* timeout);
+    DLL_EXPORT int_fast8_t daoShmWaitCounter(IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmWaitTargetCounter(IMAGE* image, uint64_t targetCnt0);
+    DLL_EXPORT int_fast8_t daoShmWaitData(IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmPostSem(IMAGE* image, int32_t semNb);
+    DLL_EXPORT int_fast8_t daoShmPostSemAll(IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmPostLog(IMAGE* image);
+
+    // ----------------------------------------------------------------------
+    // Legacy names, kept for existing code. Each one forwards to the
+    // primary-API function it maps to (see comment above each):
+    //   daoShmImageCreate            -> daoShmCreate
+    //   daoShmImageCreate_FIFO       -> daoShmCreateFifo
+    //   daoShmInit1D                 -> daoShmCreate1D
+    //   daoShmImageCreateSem         -> daoShmCreateSem
+    //   daoShmShm2Img                -> daoShmOpen
+    //   daoShmCloseShm               -> daoShmClose
+    //   daoShmImage2Shm              -> daoShmSetData
+    //   daoShmImage2ShmQuiet         -> daoShmSetDataQuiet
+    //   daoShmImagePart2Shm          -> daoShmSetDataPart
+    //   daoShmImagePart2ShmFinalize  -> daoShmSetDataPartFinalize
+    //   daoShmCombineShm2Shm         -> daoShmCombine
+    //   daoShmGetNewestSegment       -> daoShmGetData
+    //   daoShmGetNextSegment         -> daoShmGetDataNext
+    //   daoShmGetArbitrarySegment    -> daoShmGetDataAt
+    //   daoShmCheckSegmentOverwrite  -> daoShmCheckOverwrite
+    //   daoShmResetTail              -> daoShmResetReadTail
+    //   daoShmWaitForSemaphore       -> daoShmWaitSem
+    //   daoShmWaitForSemaphoreTimeout-> daoShmWaitSemTimeout
+    //   daoShmWaitForCounter         -> daoShmWaitCounter
+    //   daoShmWaitForTargetCounter   -> daoShmWaitTargetCounter
+    //   daoShmWaitForNextSegment     -> daoShmWaitData
+    //   daoSemPost                   -> daoShmPostSem
+    //   daoSemPostAll                -> daoShmPostSemAll
+    //   daoSemLogPost                -> daoShmPostLog
+    // ----------------------------------------------------------------------
+
     DLL_EXPORT int_fast8_t daoShmInit1D(const char* name, uint32_t nbVal, IMAGE** image);
     DLL_EXPORT int_fast8_t daoShmShm2Img(const char* name, IMAGE* image);
     DLL_EXPORT int_fast8_t daoShmImage2Shm(void* im, uint32_t nbVal, IMAGE* image);
@@ -512,7 +584,6 @@ extern "C" {
     DLL_EXPORT int_fast8_t daoShmWaitForSemaphoreTimeout(IMAGE* image, int32_t semNb, const struct timespec* timeout);
     DLL_EXPORT int_fast8_t daoShmWaitForCounter(IMAGE* image);
     DLL_EXPORT int_fast8_t daoShmWaitForTargetCounter(IMAGE* image, uint64_t targetCnt0);
-    DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE* image);
 
     DLL_EXPORT int_fast8_t daoShmGetNextSegment(IMAGE* image, void** segment_ptr, uint32_t* segment_idx, uint64_t* segment_cnt0);
     DLL_EXPORT int_fast8_t daoShmWaitForNextSegment(IMAGE* image);
@@ -522,7 +593,6 @@ extern "C" {
     DLL_EXPORT int_fast8_t daoShmResetTail(IMAGE* image, uint32_t* segment_idx, uint64_t* segment_cnt0);
 
     DLL_EXPORT int_fast8_t daoShmCloseShm(IMAGE* image);
-    DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE* image);
 
     DLL_EXPORT int_fast8_t daoSemPost(IMAGE* image, int32_t semNb);
     DLL_EXPORT int_fast8_t daoSemPostAll(IMAGE* image);

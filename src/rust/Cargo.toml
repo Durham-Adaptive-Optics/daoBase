@@ -1,13 +1,12 @@
 [package]
-name = "rust"
+name = "dao"
 version = "0.1.0"
 edition = "2021"
-
-[dependencies]
-bindgen = "0.70.1"  # Use the latest version of bindgen
+description = "Rust bindings for daoBase's SHM interface (libdao)"
 
 [build-dependencies]
-cc = "11.4.0"  # Required to compile C code if needed
-
-[build]
-rustflags = ["-L", "../../build/src/libdao.so"] # Path to libdao.a or libdao.so
+# Generates the raw FFI layer from daoBase/include/dao.h at build time, so
+# the struct layouts (IMAGE, IMAGE_METADATA, ...) can never drift from the
+# real C header. Requires libclang to be installed (see ../../README.md /
+# the crate's own README.md for the package name on your platform).
+bindgen = "0.70"

@@ -92,5 +92,15 @@ classdef daoShm
             % Call the MEX function to get the counter value from the IMAGE structure
             counter = daomex('get_counter', obj.ImagePtr);
         end
+
+        function close(obj)
+            % CLOSE Release the IMAGE structure (semaphores, mapped
+            %   metadata, and the struct itself).
+            %   obj.close() must be called once obj is no longer needed;
+            %   MATLAB does not call it automatically when obj goes out of
+            %   scope.
+
+            daomex('close_shm', obj.ImagePtr);
+        end
     end
 end
