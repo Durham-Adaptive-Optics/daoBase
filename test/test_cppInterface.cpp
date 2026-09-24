@@ -49,14 +49,14 @@ TEST_F(Suite, CreateInit)
     Dao::Shm smem(shmPath_, shape, frame);
 
     IMAGE image {};
-    ASSERT_EQ(daoShmShm2Img(shmPath_.c_str(), &image), DAO_SUCCESS);
+    ASSERT_EQ(daoShmOpen(shmPath_.c_str(), &image), DAO_SUCCESS);
     ASSERT_EQ(std::memcmp(frame, image.array.V, image.md->nelement * sizeof(int16_t)), 0);
     ASSERT_EQ(image.md->naxis, std::size(shape));
     ASSERT_EQ(image.md->atype, _DATATYPE_INT16);
     ASSERT_EQ(image.md->size[0], shape[0]);
     ASSERT_EQ(image.md->size[1], shape[1]);
     ASSERT_EQ(image.md->size[2], shape[2]);
-    ASSERT_EQ(daoShmCloseShm(&image), DAO_SUCCESS);
+    ASSERT_EQ(daoShmClose(&image), DAO_SUCCESS);
 }
 
 /**
@@ -68,13 +68,13 @@ TEST_F(Suite, CreateNoInit)
     Dao::Shm<int16_t> smem(shmPath_, shape);
 
     IMAGE image {};
-    ASSERT_EQ(daoShmShm2Img(shmPath_.c_str(), &image), DAO_SUCCESS);
+    ASSERT_EQ(daoShmOpen(shmPath_.c_str(), &image), DAO_SUCCESS);
     ASSERT_EQ(image.md->naxis, std::size(shape));
     ASSERT_EQ(image.md->atype, _DATATYPE_INT16);
     ASSERT_EQ(image.md->size[0], shape[0]);
     ASSERT_EQ(image.md->size[1], shape[1]);
     ASSERT_EQ(image.md->size[2], shape[2]);
-    ASSERT_EQ(daoShmCloseShm(&image), DAO_SUCCESS);
+    ASSERT_EQ(daoShmClose(&image), DAO_SUCCESS);
 }
 
 /**
@@ -97,7 +97,7 @@ TEST_F(Suite, Open)
 {
     IMAGE image {};
     uint32_t shape[] = { 1,1 };
-    const auto createStatus = daoShmImageCreate(
+    const auto createStatus = daoShmCreate(
         &image, shmPath_.c_str(),
         std::size(shape), shape,
         _DATATYPE_INT16, 1, 0
@@ -105,7 +105,7 @@ TEST_F(Suite, Open)
 
     ASSERT_EQ(createStatus, DAO_SUCCESS);
     ASSERT_NO_THROW(Dao::Shm<int16_t> smem(shmPath_));
-    ASSERT_EQ(daoShmCloseShm(&image), DAO_SUCCESS);
+    ASSERT_EQ(daoShmClose(&image), DAO_SUCCESS);
 }
 
 /**
