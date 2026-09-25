@@ -91,6 +91,35 @@ Start it before the pipeline processes, with the ``daoGpuMps`` helper installed 
 
 Processes already running when MPS starts do not use it. ``daoGpuMps`` uses the standard
 ``CUDA_MPS_PIPE_DIRECTORY`` (default ``/tmp/nvidia-mps``) and ``CUDA_MPS_LOG_DIRECTORY``.
+``daoGpuMps start`` can be called again at any time: when MPS already runs it says so and exits 0.
+
+Starting MPS from a pipeline's start script
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+libdao never starts MPS itself, but a pipeline's start script can, so that nobody has to
+remember it. The pattern:
+
+* start it **only when the pipeline uses GPU SHMs** (a CPU-only start leaves the GPUs alone);
+* start it **first**: before the process that creates the GPU SHMs (it is a CUDA client too) and
+  before every stage, and restart the processes that were already attached to the SHMs (anything
+  left running keeps using the GPU without MPS);
+* give an opt-out flag, and on failure warn and go on: the pipeline still works, only slower;
+* do not stop it in the stop script: other GPU processes (a simulator, a display) may still be
+  its clients; ``daoGpuMps stop`` by hand once they have all exited.
+
+.. code-block:: bash
+
+   if [ "$USE_GPU_SHM" = 1 ] && [ "$MPS" = 1 ]; then     # e.g. MPS=0 with --no-mps
+       if command -v daoGpuMps >/dev/null; then
+           daoGpuMps start || echo "MPS did not start: running without it (~100 us per GPU hand-over)" >&2
+       else
+           echo "daoGpuMps not on PATH (daoBase): running without MPS" >&2
+       fi
+   fi
+   # ... then create the GPU SHMs and start the stages ...
+
+Check it with ``daoGpuMps status``: the pipeline's processes are listed as the server's clients,
+and the *MPS is not running* warning below no longer appears in their logs.
 
 If a process creates or opens a GPU SHM while MPS is not running, libdao logs once:
 *NVIDIA MPS is not running: passing GPU SHMs between processes costs about 100 us per frame*.
