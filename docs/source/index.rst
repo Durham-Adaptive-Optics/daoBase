@@ -254,6 +254,7 @@ Need help optimising your adaptive optics real-time control system? We've recent
    shared_memory
    daoServer
    fifo
+   gpu_shm
    daoComponent
    threads
    state_machine

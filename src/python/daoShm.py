@@ -179,6 +179,11 @@ def daoType2CtypesType(daoType):
 
     return ctypesType
 
+# Must match dao.h: size of the SHM name fields, and the SHM layout it describes
+DAO_SHM_NAME_LEN = 256
+DAO_SHM_MAGIC = 0x4D485344
+DAO_SHM_LAYOUT_VERSION = 2
+
 # Define the struct timespec structure
 class timespec(ctypes.Structure):
     _fields_ = [
@@ -211,7 +216,9 @@ if sys.platform == "darwin":
             ]
 
         _fields_ = [
-            ("name", ctypes.c_char * 80),
+            ("magic", ctypes.c_uint32),          # DAO_SHM_MAGIC
+            ("layout", ctypes.c_uint32),         # DAO_SHM_LAYOUT_VERSION
+            ("name", ctypes.c_char * DAO_SHM_NAME_LEN),
             ("naxis", ctypes.c_uint8),
             ("size", ctypes.c_uint32 * 3),
             ("nelement", ctypes.c_uint64),
@@ -236,7 +243,14 @@ if sys.platform == "darwin":
             ("semCounter", ctypes.c_uint32 * 10),
             ("semLogCounter", ctypes.c_uint32),
             ("fifo_size", ctypes.c_uint32),
-            ("fifo_last_written", ctypes.c_uint32)
+            ("fifo_last_written", ctypes.c_uint32),
+            # GPU payload (daoShmCreateGpu), see dao.h
+            ("gpu_magic", ctypes.c_uint32),
+            ("gpu_device", ctypes.c_int32),
+            ("gpu_uuid", ctypes.c_uint8 * 16),
+            ("gpu_flags", ctypes.c_uint32),
+            ("gpu_size", ctypes.c_uint64),
+            ("gpu_id", ctypes.c_uint64)
         ]
 else:
     # Define the IMAGE_METADATA structure
@@ -248,7 +262,9 @@ else:
             ]
 
         _fields_ = [
-            ("name", ctypes.c_char * 80),
+            ("magic", ctypes.c_uint32),          # DAO_SHM_MAGIC
+            ("layout", ctypes.c_uint32),         # DAO_SHM_LAYOUT_VERSION
+            ("name", ctypes.c_char * DAO_SHM_NAME_LEN),
             ("naxis", ctypes.c_uint8),
             ("size", ctypes.c_uint32 * 3),
             ("nelement", ctypes.c_uint64),
@@ -271,7 +287,14 @@ else:
             ("packetTotal", ctypes.c_uint32),
             ("lastNbArray", ctypes.c_uint64 * 2024),
             ("fifo_size", ctypes.c_uint32),
-            ("fifo_last_written", ctypes.c_uint32)
+            ("fifo_last_written", ctypes.c_uint32),
+            # GPU payload (daoShmCreateGpu), see dao.h
+            ("gpu_magic", ctypes.c_uint32),
+            ("gpu_device", ctypes.c_int32),
+            ("gpu_uuid", ctypes.c_uint8 * 16),
+            ("gpu_flags", ctypes.c_uint32),
+            ("gpu_size", ctypes.c_uint64),
+            ("gpu_id", ctypes.c_uint64)
         ]
     
 
@@ -295,7 +318,7 @@ if sys.platform == "win32":
     #        ]
             
         _fields_ = [
-            ('name', ctypes.c_char * 80),
+            ('name', ctypes.c_char * DAO_SHM_NAME_LEN),
             ('used', ctypes.c_uint8),
             ('shmfd', ctypes.POINTER(ctypes.c_void_p)),
             ('memsize', ctypes.c_uint64),
@@ -309,7 +332,10 @@ if sys.platform == "win32":
             ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
             ('shmfm', ctypes.POINTER(ctypes.c_void_p)),
             ('fifo_last_read', ctypes.c_uint32),
-            ('fifo_last_read_cnt0', ctypes.c_uint64)
+            ('fifo_last_read_cnt0', ctypes.c_uint64),
+            # GPU SHM: device pointer of the payload, private GPU state
+            ('d_array', ctypes.c_void_p),
+            ('gpu', ctypes.c_void_p)
         ]
 else:
     # Define the IMAGE structure
@@ -331,7 +357,7 @@ else:
     #        ]
             
         _fields_ = [
-            ('name', ctypes.c_char * 80),
+            ('name', ctypes.c_char * DAO_SHM_NAME_LEN),
             ('used', ctypes.c_uint8),
             ('shmfd', ctypes.c_int32),
             ('memsize', ctypes.c_uint64),
@@ -344,7 +370,10 @@ else:
             ('semReadPID', ctypes.POINTER(ctypes.c_int32)),
             ('semWritePID', ctypes.POINTER(ctypes.c_int32)),
             ('fifo_last_read', ctypes.c_uint32),
-            ('fifo_last_read_cnt0', ctypes.c_uint64)
+            ('fifo_last_read_cnt0', ctypes.c_uint64),
+            # GPU SHM: device pointer of the payload, private GPU state
+            ('d_array', ctypes.c_void_p),
+            ('gpu', ctypes.c_void_p)
         ]
 
 class shm:
@@ -354,7 +383,11 @@ class shm:
     DAO_OVERWRITE = -2
     DAO_NOTREADY = -3
 
-    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=0, depth=1):
+    def __init__(self, fname=None, data=None, nbkw=0, pubPort=5555, subPort=5555, subHost='localhost', logLevel=0, depth=1,
+                 gpu=None, mirror=True):
+        # gpu: CUDA device index to create a GPU SHM (payload on the GPU, see
+        #      daoShmCreateGpu); only used with data. mirror: keep the /tmp host
+        #      copy current, so CPU readers and tools keep working.
         # int8_t daoShmCreate1D(const char *name, uint32_t nbVal, IMAGE **image);
         self.daoShmCreate1D = daoLib.daoShmCreate1D
         self.daoShmCreate1D.argtypes = [
@@ -508,6 +541,25 @@ class shm:
         self.daoShmClose.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmClose.restype = ctypes.c_int8
 
+        # GPU SHMs (daoGpu.c)
+        self.daoShmCreateGpu = daoLib.daoShmCreateGpu
+        self.daoShmCreateGpu.argtypes = [ctypes.POINTER(IMAGE), ctypes.c_char_p, ctypes.c_long,
+                                         ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint8, ctypes.c_int,
+                                         ctypes.c_int, ctypes.c_uint32]
+        self.daoShmCreateGpu.restype = ctypes.c_int8
+        self.daoShmIsGpu = daoLib.daoShmIsGpu
+        self.daoShmIsGpu.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmIsGpu.restype = ctypes.c_int
+        self.daoShmCommit = daoLib.daoShmCommit
+        self.daoShmCommit.argtypes = [ctypes.POINTER(IMAGE), ctypes.c_void_p]
+        self.daoShmCommit.restype = ctypes.c_int8
+        self.daoShmCommitSync = daoLib.daoShmCommitSync
+        self.daoShmCommitSync.argtypes = [ctypes.POINTER(IMAGE), ctypes.c_void_p]
+        self.daoShmCommitSync.restype = ctypes.c_int8
+        self.daoShmBeginWrite = daoLib.daoShmBeginWrite
+        self.daoShmBeginWrite.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmBeginWrite.restype = ctypes.c_int8
+
         self.image=IMAGE()
         if fname == '':
             log.error("Need at least a SHM name")
@@ -518,9 +570,21 @@ class shm:
 
             log.info("%s will be created or overwritten" % (fname,))
             dataSize = data.shape
-            self.daoShmCreateFifo(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
+            if gpu is not None:
+                if depth != 1:
+                    raise ValueError("daoShm.shm: FIFO (depth > 1) GPU SHMs are not supported")
+                result = self.daoShmCreateGpu(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),
+                                              (ctypes.c_uint32 * len(dataSize))(*dataSize),
+                                              npType2DaoType(data), int(gpu), nbkw,
+                                              1 if mirror else 0)
+                if result != self.DAO_SUCCESS:
+                    raise OSError("daoShm.shm: failed to create GPU SHM '%s' on device %s" % (fname, gpu))
+            else:
+                result = self.daoShmCreateFifo(ctypes.byref(self.image), fname.encode('utf-8'), len(dataSize),\
                                 (ctypes.c_uint32 * len(dataSize))(*dataSize),\
                                 npType2DaoType(data), 1, 0, depth)
+                if result != self.DAO_SUCCESS:
+                    raise OSError("daoShm.shm: failed to create SHM '%s'" % (fname,))
             if data.flags['C_CONTIGUOUS']:
                 cData = data.ctypes.data_as(ctypes.c_void_p)
             else:
@@ -742,6 +806,55 @@ class shm:
 
         return data
 
+
+    # ------------------------------------------------------------------
+    # GPU SHMs
+    def is_gpu(self):
+        ''' True if the payload of this SHM lives on a GPU (daoShmCreateGpu). '''
+        return bool(self.daoShmIsGpu(ctypes.byref(self.image)))
+
+    def device_ptr(self):
+        ''' Device pointer (int) of the GPU payload in this process, or None. '''
+        return self.image.d_array or None
+
+    def begin_write(self):
+        ''' Mark the frame as being written, before launching GPU work on
+        device_ptr(); commit() clears it. Readers (get_data) then never return
+        a frame that is half written. '''
+        self.daoShmBeginWrite(ctypes.byref(self.image))
+
+    def commit(self, stream=0, sync=False):
+        ''' Publish data written on the GPU (e.g. by a kernel into device_ptr()):
+        once the work already queued on `stream` is done, cnt0 is incremented,
+        the timestamp set and the semaphores posted. `stream` is a CUDA stream
+        handle (int, or a CuPy stream); 0 is the default stream.
+        sync=False returns at once (published by a CUDA callback); sync=True
+        waits for the stream and publishes directly, ~10-15 us sooner. '''
+        handle = getattr(stream, "ptr", stream) or None
+        fn = self.daoShmCommitSync if sync else self.daoShmCommit
+        if fn(ctypes.byref(self.image), ctypes.c_void_p(handle)) != self.DAO_SUCCESS:
+            raise OSError("daoShm.shm: commit failed")
+
+    def get_device_array(self):
+        ''' CuPy array viewing the GPU payload in place (no copy). Writes to it
+        are published with commit(). Requires CuPy. '''
+        import cupy
+        ptr = self.device_ptr()
+        if ptr is None:
+            raise ValueError("daoShm.shm: not a GPU SHM, or its GPU is not accessible here")
+        md = self.image.md.contents
+        shape = tuple(int(n) for n in md.size[:md.naxis])
+        dtype = np.dtype(daoType2NpType(md.atype))
+        device = self._cupy_device(cupy, bytes(md.gpu_uuid))
+        mem = cupy.cuda.UnownedMemory(ptr, int(md.nelement) * dtype.itemsize, self, device)
+        return cupy.ndarray(shape, dtype, cupy.cuda.MemoryPointer(mem, 0))
+
+    @staticmethod
+    def _cupy_device(cupy, uuid):
+        for i in range(cupy.cuda.runtime.getDeviceCount()):
+            if bytes(cupy.cuda.runtime.getDeviceProperties(i)["uuid"]) == uuid:
+                return i
+        raise ValueError("daoShm.shm: the SHM's GPU is not visible to CuPy")
 
     def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, x=None, y=None):
         ''' --------------------------------------------------------------

@@ -4,6 +4,11 @@ export  daoShmOpen, daoShmSetData, daoShmSetDataPart, daoShmSetDataPartFinalize,
 
 
 # Basic type definitions for clarity and consistency
+# Must match dao.h: size of the SHM name fields, and the SHM layout it describes
+const DAO_SHM_NAME_LEN = 256
+const DAO_SHM_MAGIC = 0x4D485344
+const DAO_SHM_LAYOUT_VERSION = 2
+
 const uint8_t = UInt8
 const int8_t = Int8
 const uint16_t = UInt16
@@ -49,7 +54,9 @@ end
 # wrong, which matters when indexing into a FIFO of metadata (image->md[i]).
 @static if Sys.isapple()
     struct IMAGE_METADATA
-        name::NTuple{80, Cchar}         # Image Name
+        magic::uint32_t                 # DAO_SHM_MAGIC
+        layout::uint32_t                # DAO_SHM_LAYOUT_VERSION
+        name::NTuple{DAO_SHM_NAME_LEN, Cchar}  # Image Name
         naxis::uint8_t                  # Number of axes (1, 2, or 3)
         size::NTuple{3, uint32_t}       # Size along each axis
         nelement::uint64_t              # Total number of elements
@@ -75,10 +82,18 @@ end
         semLogCounter::uint32_t            # macOS-only: log semaphore atomic counter
         fifo_size::uint32_t             # Number of slots in the FIFO
         fifo_last_written::uint32_t     # Index of the most recently written slot
+        gpu_magic::uint32_t             # DAO_GPU_MAGIC for a GPU SHM (daoShmCreateGpu)
+        gpu_device::int32_t             # CUDA ordinal in the creating process
+        gpu_uuid::NTuple{16, uint8_t}   # GPU UUID
+        gpu_flags::uint32_t             # DAO_GPU_MIRROR, ...
+        gpu_size::uint64_t              # Bytes allocated on the GPU
+        gpu_id::uint64_t                # Id of the allocation held by daoGpuShmd
     end
 else
     struct IMAGE_METADATA
-        name::NTuple{80, Cchar}         # Image Name
+        magic::uint32_t                 # DAO_SHM_MAGIC
+        layout::uint32_t                # DAO_SHM_LAYOUT_VERSION
+        name::NTuple{DAO_SHM_NAME_LEN, Cchar}  # Image Name
         naxis::uint8_t                  # Number of axes (1, 2, or 3)
         size::NTuple{3, uint32_t}       # Size along each axis
         nelement::uint64_t              # Total number of elements
@@ -102,6 +117,12 @@ else
         lastNbArray::NTuple{2024, uint64_t}
         fifo_size::uint32_t             # Number of slots in the FIFO
         fifo_last_written::uint32_t     # Index of the most recently written slot
+        gpu_magic::uint32_t             # DAO_GPU_MAGIC for a GPU SHM (daoShmCreateGpu)
+        gpu_device::int32_t             # CUDA ordinal in the creating process
+        gpu_uuid::NTuple{16, uint8_t}   # GPU UUID
+        gpu_flags::uint32_t             # DAO_GPU_MIRROR, ...
+        gpu_size::uint64_t              # Bytes allocated on the GPU
+        gpu_id::uint64_t                # Id of the allocation held by daoGpuShmd
     end
 end
 
@@ -110,7 +131,7 @@ end
 # Linux/macOS layout (Windows uses wider handle types for shmfd/semlog/semptr
 # and an extra shmfm field, and is not modeled here).
 struct IMAGE
-    name::NTuple{80, Cchar}    # Local name
+    name::NTuple{DAO_SHM_NAME_LEN, Cchar}  # Local name
     used::uint8_t              # Usage flag: 1 if used, 0 otherwise
     shmfd::int32_t             # File descriptor for shared memory
     memsize::uint64_t          # Total size in memory if shared
@@ -123,6 +144,8 @@ struct IMAGE
     semWritePID::Ptr{int32_t}  # PID of the process writing the data
     fifo_last_read::uint32_t   # Index of this reader's FIFO tail
     fifo_last_read_cnt0::uint64_t # cnt0 of this reader's FIFO tail
+    d_array::Ptr{Cvoid}        # GPU SHM: device pointer of the payload
+    gpu::Ptr{Cvoid}            # GPU SHM: private state of libdao
 end
 
 
