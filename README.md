@@ -3,6 +3,16 @@
 
 The core is written in C, with a C++ layer built on top for the component/threading/state-machine framework, and bindings for Python, Rust, Julia, and MATLAB — so a pipeline can mix languages freely while every process still talks over the same shared-memory buffers. See [`daoTools`](https://github.com/Durham-Adaptive-Optics/daoTools) for the application layer (centroiding, reconstruction, loop control, GUIs) built on top of this library.
 
+## Network SHMs
+
+Every dao SHM of the network, opened by its name as if it were local: run
+`daoShmNet.py start` on each machine, then `daoShmOpen("/tmp/dm1Cmd.im.shm", &img)` or
+`daoShm.shm('/tmp/dm1Cmd.im.shm')` works whichever machine the SHM lives on. The
+services find each other, stream an SHM only while another machine uses it (the newest
+frame, straight into a local replica with the same name), and send writes back to its
+owner. One-minute demo: `python examples/shmNet/demo.py`; details, options and measured
+performance: [`docs/source/shm_net.rst`](docs/source/shm_net.rst).
+
 ## 📖 Documentation
 
 The complete documentation for installation, usage, and API reference can be found here:

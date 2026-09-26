@@ -58,7 +58,7 @@ if platform.system() != "Windows":
 	gpu_includes = [bld.env.CUDA_INCLUDE] if bld.env.CUDA_INCLUDE else []
 
 	bld.shlib(
-		source = ['c/dao.c', 'c/daoGpu.c'],
+		source = ['c/dao.c', 'c/daoGpu.c', 'c/daoNetClient.c'],
 		includes = ['../include'] + gpu_includes,
 		defines = gpu_defines,
 		cflags = ['-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
@@ -69,6 +69,15 @@ if platform.system() != "Windows":
 		features	= 'pkg_build',
 		vnum   = '0.0.1')
 
+	# network SHMs: the service on each machine (daoNet.h, docs "Network SHMs")
+	bld.program(
+		source = 'c/daoShmNetd.c',
+		includes = '../include',
+		cflags = ['-Wall', '-Wextra', '-O2', '-pthread'],
+		ldflags = ['-pthread'],
+		use = ['dao'],
+		target = 'daoShmNetd')
+
 	# keeps GPU SHM payloads alive (no CUDA dependency)
 	if platform.system() == "Linux":
 		bld.program(
@@ -78,13 +87,22 @@ if platform.system() != "Windows":
 			target = 'daoGpuShmd')
 else:
 	bld.shlib(
-		source = ['c/dao.c', 'c/daoGpu.c'],
+		source = ['c/dao.c', 'c/daoGpu.c', 'c/daoNetClient.c'],
 		includes = '../include',
 		#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
 		#cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
 		cflags = ['/W3', '/D_CRT_SECURE_NO_WARNINGS'],
-		ldflags = ['advapi32.lib'] + add_ld_flags,
+		ldflags = ['advapi32.lib', 'ws2_32.lib'] + add_ld_flags,
 		target = 'dao',
 		name   = 'dao',
 		features	= 'pkg_build',
 		vnum   = '0.0.1')
+
+	# network SHMs: the service on each machine (daoNet.h, docs "Network SHMs")
+	bld.program(
+		source = 'c/daoShmNetd.c',
+		includes = '../include',
+		cflags = ['/W3', '/std:c11', '/D_CRT_SECURE_NO_WARNINGS'],
+		ldflags = ['ws2_32.lib', 'advapi32.lib'],
+		use = ['dao'],
+		target = 'daoShmNetd')

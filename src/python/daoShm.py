@@ -38,6 +38,25 @@ else:
 daoLib.daoSetLogLevel.argtypes = [ctypes.c_int]
 daoLib.daoSetLogLevel.restype = None
 
+# Network SHMs (daoNet.h): an SHM of another machine, made local by daoShmNetd
+try:
+    daoLib.daoNetResolve.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_int]
+    daoLib.daoNetResolve.restype = ctypes.c_int
+except AttributeError:                         # a libdao older than the network SHMs
+    pass
+
+
+def net_resolve(name, timeout_ms=0):
+    """The local path of an SHM of another machine, once daoShmNetd holds its data
+    (a replica with the same name), or None -- quickly when no service runs.
+    name: a path, a bare name, or either prefixed by its machine ("rtc1:dm1Cmd")."""
+    if not hasattr(daoLib, 'daoNetResolve') or not name:
+        return None
+    out = ctypes.create_string_buffer(1024)
+    if daoLib.daoNetResolve(name.encode('utf-8'), out, len(out), int(timeout_ms)) != 0:
+        return None
+    return out.value.decode('utf-8')
+
 # Add function prototype for daoGetLogLevel
 daoLib.daoGetLogLevel.argtypes = []
 daoLib.daoGetLogLevel.restype = ctypes.c_int
@@ -596,9 +615,17 @@ class shm:
             # log.info("loading existing %s " % (fname))
             # Fail cleanly instead of letting the C layer mmap nothing and
             # segfault later on the first get_data()/set_data().
-            if fname is None or not os.path.isfile(fname):
-                raise FileNotFoundError(
-                    "daoShm.shm: shared memory file '%s' does not exist" % (fname,))
+            if fname is None:
+                raise FileNotFoundError("daoShm.shm: no shared memory file name")
+            if not os.path.isfile(fname):
+                # not on this machine: the network SHM service brings it (daoNet),
+                # a replica with the same name -- used from here as any SHM
+                resolved = net_resolve(fname)
+                if resolved is None:
+                    raise FileNotFoundError(
+                        "daoShm.shm: shared memory file '%s' does not exist (here, nor on the "
+                        "network: daoShmNet.py ls lists the network's SHMs)" % (fname,))
+                fname = resolved
             result = self.daoShmOpen(fname.encode('utf-8'), ctypes.byref(self.image))
             if result != self.DAO_SUCCESS:
                 raise OSError(

@@ -252,6 +252,7 @@ Need help optimising your adaptive optics real-time control system? We've recent
    :caption: Core Concepts
 
    shared_memory
+   shm_net
    daoServer
    fifo
    gpu_shm

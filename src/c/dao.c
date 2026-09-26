@@ -19,6 +19,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "daoNet.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #include <aclapi.h>
@@ -463,6 +465,17 @@ void daoDestroyWindowsSecurityAttrs(SECURITY_ATTRIBUTES *sa, PACL dacl)
 /* semaphore names: the local name plus a prefix/suffix such as "Local\\DAO_" and "_sem00" */
 #define SEM_NAME_LEN (DAO_SHM_NAME_LEN + 32)
 
+/* Is there a file at path? (daoShmOpen: an SHM of another machine otherwise) */
+static int shm_file_exists(const char *path)
+{
+#ifdef _WIN32
+    DWORD a = GetFileAttributesA(path);
+    return a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY);
+#else
+    return access(path, F_OK) == 0;
+#endif
+}
+
 static int shm_name_fits(const char *name)
 {
     if (strlen(name) < sizeof(((IMAGE_METADATA *) 0)->name))
@@ -511,6 +524,15 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
     {
         image->used = 0;
         return DAO_ERROR;
+    }
+    /* not on this machine: the network SHM service brings it, with the same name
+     * (daoNet.h; "rtc1:dm1Cmd" names the machine). Without a service this fails at
+     * once and the open fails as it always did. */
+    if (!shm_file_exists(name))
+    {
+        char resolved[DAO_SHM_NAME_LEN];
+        if (daoNetResolve(name, resolved, sizeof resolved, 0) == 0 && strcmp(resolved, name) != 0)
+            return daoShmOpen(resolved, image);
     }
     sprintf(shmName, "%s", name);
     //sprintf(shmName, "%s/%s%s.im.shm", SHAREDMEMDIR, prefix, name);
@@ -629,7 +651,7 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
             rval = DAO_ERROR;
             exit(0);
         }
-        if(image->md[0].size[1]<1)
+        if(image->md[0].naxis > 1 && image->md[0].size[1]<1)   /* a 1-D SHM has no second axis */
         {
             daoError("IMAGE \"%s\" AXIS SIZE < 1... ABORTING\n", name);
             rval = DAO_ERROR;
