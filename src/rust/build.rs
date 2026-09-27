@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 fn main() {
     println!("cargo:rerun-if-changed=wrapper.h");
+    println!("cargo:rerun-if-changed=../../include/dao.h");
     println!("cargo:rerun-if-env-changed=DAOROOT");
 
     // Prefer an installed daoBase (`waf install`, see ../../install.sh),

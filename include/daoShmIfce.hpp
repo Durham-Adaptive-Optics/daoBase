@@ -85,6 +85,8 @@ namespace Dao
                 }
                 
                 m_shm = shm_p;
+                m_shm->semReadPID = NULL;       // libdao's semaphore bookkeeping: none yet
+                m_shm->semWritePID = NULL;
                 m_shm_filename = name;
     
                 m_shm_file = open(m_shm_filename.c_str(), O_RDWR);
@@ -231,6 +233,9 @@ namespace Dao
             {
                 if(m_file_is_open)
                 {
+                    // give back its semaphore, for other readers
+                    daoShmReleaseSem(m_shm);
+
                     // unmap memory
                     m_log.Debug("Unmapping m_shm memory ");
                     munmap(m_map, m_shm_filesize);
@@ -324,7 +329,7 @@ namespace Dao
                         m_time.tv_nsec %= 1000000000;
                     }
                     //int rVal = sem_timedwait(m_shm[0].semptr[1], &m_time);
-                    int rVal = daoShmWaitForSemaphoreTimeout(m_shm, 1, &m_time);
+                    int rVal = daoShmWaitForSemaphoreTimeout(m_shm, DAO_SEM_AUTO, &m_time);   // a semaphore of its own
                     return rVal;
                 }
                 else
