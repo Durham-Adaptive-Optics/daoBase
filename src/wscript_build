@@ -53,18 +53,32 @@ if platform.system() != "Windows":
 		use			= ['daoNuma', 'dao', 'daoProto'],
 		vnum   		= '0.0.1')
 	
+	# GPU SHMs (daoGpu.c): compiled in when configure found cuda.h
+	gpu_defines  = ['DAO_HAVE_CUDA'] if bld.env.CUDA_INCLUDE else []
+	gpu_includes = [bld.env.CUDA_INCLUDE] if bld.env.CUDA_INCLUDE else []
+
 	bld.shlib(
-		source = 'c/dao.c',
-		includes = '../include',
+		source = ['c/dao.c', 'c/daoGpu.c'],
+		includes = ['../include'] + gpu_includes,
+		defines = gpu_defines,
 		cflags = ['-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
 		ldflags = [''] + add_ld_flags,
+		lib = ['dl'],
 		target = 'dao',
 		name   = 'dao',
 		features	= 'pkg_build',
 		vnum   = '0.0.1')
+
+	# keeps GPU SHM payloads alive (no CUDA dependency)
+	if platform.system() == "Linux":
+		bld.program(
+			source = 'c/daoGpuShmd.c',
+			includes = '../include',
+			cflags = ['-Wall', '-Wextra', '-O2'],
+			target = 'daoGpuShmd')
 else:
 	bld.shlib(
-		source = 'c/dao.c',
+		source = ['c/dao.c', 'c/daoGpu.c'],
 		includes = '../include',
 		#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
 		#cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,

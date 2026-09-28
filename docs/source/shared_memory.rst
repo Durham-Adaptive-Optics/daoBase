@@ -137,6 +137,17 @@ The shared memory segment consists of:
 3. Optional keywords (for storing additional metadata)
 4. Semaphores for synchronization
 
+The SHM file stores its full path in the metadata, so a path can be at most
+``DAO_SHM_NAME_LEN - 1`` (255) characters. Longer names are refused: ``daoShmCreate`` and
+``daoShmOpen`` return ``DAO_ERROR``, and Python raises ``OSError``.
+
+The metadata starts with a magic number and a layout version (``DAO_SHM_MAGIC``,
+``DAO_SHM_LAYOUT_VERSION`` in ``dao.h``). ``daoShmOpen`` refuses an SHM with another layout
+("created by an older dao ... recreate it") instead of misreading it. After upgrading to a dao
+with a new layout, recreate the SHMs and rebuild every program that uses dao (C, C++, the MATLAB
+mex); the Python, Julia and Rust bindings follow ``dao.h``. A program built against an **older**
+dao cannot detect a newer SHM, so rebuild everything together.
+
 Closing Shared Memory
 ---------------------
 

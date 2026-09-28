@@ -38,6 +38,9 @@ def options(opt):
  
 	opt.add_option('--test', dest='test_flag', default=False, action='store_true',
              help='flags for running tests')
+
+	opt.add_option('--without-gpu', dest='without_gpu', default=False, action='store_true',
+             help='build without GPU SHM support even if CUDA is found')
 	
 def configure(conf):
 	conf.load('cxx compiler_c compiler_cxx gnu_dirs waf_unit_test')
@@ -55,6 +58,20 @@ def configure(conf):
 					args='--cflags --libs',
 					uselib_store='PROTOBUF'
 					)
+
+	# GPU SHMs: only the CUDA headers are needed at build time; libdao loads
+	# the driver (libcuda.so.1) at run time, so it still runs without a GPU.
+	conf.env.CUDA_INCLUDE = ''
+	if platform.system() == 'Linux' and not conf.options.without_gpu:
+		candidates = [os.environ.get('CUDA_HOME', ''), os.environ.get('CUDA_PATH', ''), '/usr/local/cuda']
+		nvcc = conf.find_program('nvcc', var='NVCC', mandatory=False)
+		if nvcc:
+			candidates.append(os.path.dirname(os.path.dirname(os.path.realpath(nvcc[0]))))
+		for root in candidates:
+			if root and os.path.isfile(os.path.join(root, 'include', 'cuda.h')):
+				conf.env.CUDA_INCLUDE = os.path.join(root, 'include')
+				break
+	conf.msg('GPU SHM support (cuda.h)', conf.env.CUDA_INCLUDE or 'no', color='GREEN' if conf.env.CUDA_INCLUDE else 'YELLOW')
 
 	# add some custom locations
 	conf.env.PYTHONDIR		= f'{conf.env.PREFIX}/python'
