@@ -193,14 +193,14 @@ system_deps() {
 
   local apt_pkgs="build-essential libtool pkg-config autoconf automake git curl wget \
 libssl-dev libncurses-dev libgsl-dev libgtest-dev libzmq3-dev libprotobuf-dev protobuf-compiler \
-libnuma-dev numactl redis-server"
+libnuma-dev numactl libyaml-cpp-dev redis-server"
   local dnf_pkgs="gcc gcc-c++ make autoconf automake libtool pkgconf-pkg-config git curl wget \
 openssl-devel ncurses-devel gsl-devel gtest-devel zeromq-devel protobuf-devel protobuf-compiler \
-numactl-devel numactl redis"
-  local pacman_pkgs="base-devel git curl wget openssl ncurses gsl gtest zeromq protobuf numactl redis"
+numactl-devel numactl yaml-cpp-devel redis"
+  local pacman_pkgs="base-devel git curl wget openssl ncurses gsl gtest zeromq protobuf numactl yaml-cpp redis"
   local zypper_pkgs="gcc gcc-c++ make autoconf automake libtool pkg-config git curl wget \
-libopenssl-devel ncurses-devel gsl-devel gtest zeromq-devel protobuf-devel libnuma-devel redis"
-  local brew_pkgs="pkg-config zeromq protobuf gsl"
+libopenssl-devel ncurses-devel gsl-devel gtest zeromq-devel protobuf-devel libnuma-devel yaml-cpp-devel redis"
+  local brew_pkgs="pkg-config zeromq protobuf gsl yaml-cpp"
 
   local sudo=""; [ "$(id -u)" -ne 0 ] && sudo="sudo"
 

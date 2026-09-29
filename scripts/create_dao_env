@@ -1,0 +1,123 @@
+#!/bin/bash
+# =========================================================
+# Create a "dao" conda environment with every dependency
+# daoBase needs (https://github.com/Durham-Adaptive-Optics/daoBase),
+# without sudo: the system packages the daoBase README installs
+# with apt/yum are taken from conda-forge instead.
+#
+# Usage:  create_dao_env [env_name]            (default: dao)
+# Then:   conda activate dao
+#         cd daoBase && waf configure --prefix=$DAOROOT && waf && waf install
+# =========================================================
+set -euo pipefail
+
+ENV_NAME="${1:-dao}"
+WAF_VERSION="2.0.27"
+: "${DAOROOT:=$HOME/DAOROOT}"
+: "${DAODATA:=$HOME/DAODATA}"
+
+command -v conda >/dev/null || { echo "conda not found in PATH" >&2; exit 1; }
+eval "$(conda shell.bash hook)"
+
+if conda env list | awk '{print $1}' | grep -qx "$ENV_NAME"; then
+	echo "Environment '$ENV_NAME' already exists - updating it"
+	ACTION=install
+else
+	ACTION=create
+fi
+
+# apt/yum package             -> conda-forge package
+#   build-essential           -> c-compiler cxx-compiler make
+#   libtool autoconf automake -> libtool autoconf automake
+#   pkg-config                -> pkg-config
+#   libssl-dev                -> openssl
+#   libncurses*-dev           -> ncurses
+#   redis                     -> redis-server
+#   libgtest-dev              -> gtest
+#   libgsl-dev                -> gsl
+#   libzmq3-dev               -> zeromq (+ cppzmq C++ headers)
+#   protobuf-compiler         -> libprotobuf (protoc + lib) and python protobuf,
+#                                both from conda-forge so their versions match
+#   numactl libnuma-dev       -> numactl (Linux only: libnuma does not exist on macOS)
+#   libyaml-cpp-dev           -> yaml-cpp
+# Python deps from the README's pip line (posix_ipc zmq protobuf astropy
+# redis sphinx screeninfo) are taken from conda-forge too where available.
+PLATFORM_PKGS=""
+[ "$(uname -s)" = Linux ] && PLATFORM_PKGS="numactl"
+# shellcheck disable=SC2086
+conda "$ACTION" -y -n "$ENV_NAME" --override-channels -c conda-forge \
+	python=3.11 pip \
+	c-compiler cxx-compiler make libtool autoconf automake pkg-config \
+	openssl ncurses redis-server gtest gsl zeromq cppzmq \
+	libprotobuf protobuf yaml-cpp $PLATFORM_PKGS \
+	numpy posix_ipc pyzmq astropy redis-py pyyaml sphinx screeninfo
+
+conda activate "$ENV_NAME"
+
+# Use the env's own python explicitly: an active virtualenv (VIRTUAL_ENV) can
+# stay ahead of the conda env in PATH, and a bare `python -m pip` would then
+# install into that venv instead. (Once the hooks below are installed, later
+# `conda activate` calls hide such a venv automatically.)
+ENV_PY="$CONDA_PREFIX/bin/python"
+
+# Not on conda-forge: python-statemachine. (Not the unrelated "statemachine"
+# package the README lists: it also provides a `statemachine` module and
+# clashes with python-statemachine.)
+"$ENV_PY" -m pip install python-statemachine
+"$ENV_PY" -c "import statemachine, yaml, google.protobuf, zmq, posix_ipc" \
+	|| { echo "python dependencies missing from '$ENV_NAME'" >&2; exit 1; }
+
+# waf, installed into the env's bin/ so it's on PATH whenever the env is active.
+if [ ! -x "$CONDA_PREFIX/bin/waf-$WAF_VERSION" ]; then
+	curl -fsSL "https://waf.io/waf-$WAF_VERSION" -o "$CONDA_PREFIX/bin/waf-$WAF_VERSION"
+	chmod u+x "$CONDA_PREFIX/bin/waf-$WAF_VERSION"
+fi
+ln -sf "waf-$WAF_VERSION" "$CONDA_PREFIX/bin/waf"
+
+# DAO environment variables, set on `conda activate` and undone on deactivate.
+mkdir -p "$DAOROOT" "$DAODATA" \
+	"$CONDA_PREFIX/etc/conda/activate.d" "$CONDA_PREFIX/etc/conda/deactivate.d"
+
+cat > "$CONDA_PREFIX/etc/conda/activate.d/dao_env.sh" <<EOF
+export _DAO_OLD_LD_LIBRARY_PATH="\${LD_LIBRARY_PATH:-}"
+export _DAO_OLD_PATH="\$PATH"
+export _DAO_OLD_PYTHONPATH="\${PYTHONPATH:-}"
+export _DAO_OLD_PKG_CONFIG_PATH="\${PKG_CONFIG_PATH:-}"
+export DAOROOT="$DAOROOT"
+export DAODATA="$DAODATA"
+export LD_LIBRARY_PATH="\$DAOROOT/lib:\$DAOROOT/lib64:\$CONDA_PREFIX/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
+export PATH="\$DAOROOT/bin:\$PATH"
+# A plain python venv active in the parent shell would shadow this env's
+# python3 (and "#!/usr/bin/env python3" scripts); hide it while dao is active.
+if [ -n "\${VIRTUAL_ENV:-}" ]; then
+	export _DAO_OLD_VIRTUAL_ENV="\$VIRTUAL_ENV"
+	export _DAO_OLD_VIRTUAL_ENV_PROMPT="\${VIRTUAL_ENV_PROMPT:-}"
+	PATH="\$(printf '%s' "\$PATH" | tr ':' '\n' | grep -vxF "\$VIRTUAL_ENV/bin" | paste -sd: -)"
+	unset VIRTUAL_ENV VIRTUAL_ENV_PROMPT
+fi
+export PYTHONPATH="\$DAOROOT/python\${PYTHONPATH:+:\$PYTHONPATH}"
+export PKG_CONFIG_PATH="\$DAOROOT/lib/pkgconfig:\$CONDA_PREFIX/lib/pkgconfig\${PKG_CONFIG_PATH:+:\$PKG_CONFIG_PATH}"
+# Let the compiler find conda-forge headers/libs (zmq, gsl, protobuf, numa...)
+export CPATH="\$CONDA_PREFIX/include\${CPATH:+:\$CPATH}"
+export LIBRARY_PATH="\$CONDA_PREFIX/lib\${LIBRARY_PATH:+:\$LIBRARY_PATH}"
+EOF
+
+cat > "$CONDA_PREFIX/etc/conda/deactivate.d/dao_env.sh" <<'EOF'
+export LD_LIBRARY_PATH="$_DAO_OLD_LD_LIBRARY_PATH"
+export PATH="$_DAO_OLD_PATH"
+export PYTHONPATH="$_DAO_OLD_PYTHONPATH"
+export PKG_CONFIG_PATH="$_DAO_OLD_PKG_CONFIG_PATH"
+if [ -n "${_DAO_OLD_VIRTUAL_ENV:-}" ]; then
+	export VIRTUAL_ENV="$_DAO_OLD_VIRTUAL_ENV"
+	export VIRTUAL_ENV_PROMPT="$_DAO_OLD_VIRTUAL_ENV_PROMPT"
+fi
+unset DAOROOT DAODATA CPATH LIBRARY_PATH \
+	_DAO_OLD_LD_LIBRARY_PATH _DAO_OLD_PATH _DAO_OLD_PYTHONPATH _DAO_OLD_PKG_CONFIG_PATH \
+	_DAO_OLD_VIRTUAL_ENV _DAO_OLD_VIRTUAL_ENV_PROMPT
+EOF
+
+echo
+echo "Done. Environment '$ENV_NAME' is ready:"
+echo "  conda activate $ENV_NAME"
+echo "  git clone https://github.com/Durham-Adaptive-Optics/daoBase && cd daoBase"
+echo "  waf configure --prefix=\$DAOROOT && waf && waf install"
