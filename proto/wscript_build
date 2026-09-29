@@ -24,21 +24,27 @@ class proto_cpp(Task):
     def run(self):
         output_folder = self.outputs[0].abspath()
         input_file = self.inputs[1].abspath()
+        protoc = self.env.get_flat('PROTOC')
         if platform.system() == "Windows":
-            return self.exec_command(f'protoc -I{self.inputs[0]} --cpp_out=dllexport_decl=DLL_EXPORT:{output_folder} {input_file}')
+            return self.exec_command(f'"{protoc}" -I{self.inputs[0]} --cpp_out=dllexport_decl=DLL_EXPORT:{output_folder} {input_file}')
         else:
-            return self.exec_command(f'protoc -I{self.inputs[0]} --cpp_out={output_folder} {input_file}')
+            return self.exec_command(f'"{protoc}" -I{self.inputs[0]} --cpp_out={output_folder} {input_file}')
 
 class proto_py(Task):
     name = 'proto_py'
     def run(self):
         output_folder = self.outputs[0].abspath()
         input_file = self.inputs[1].abspath()
-        return self.exec_command(f'protoc -I{self.inputs[0]} --python_out={output_folder} {input_file}')
+        protoc = self.env.get_flat('PROTOC')
+        return self.exec_command(f'"{protoc}" -I{self.inputs[0]} --python_out={output_folder} {input_file}')
 
 def build_proto_list(bld, list, proto_path='../../proto/', build_path='../'):
     print(f"Building proto files: {list}")
     Rebuild = False
+    # regenerate everything when protoc changed since the last generation
+    stamp = os.path.join(os.getcwd(), 'build', '.protoc_version')
+    if not os.path.exists(stamp) or open(stamp).read() != bld.env.PROTOC_VERSION:
+        Rebuild = True
     for i in list:
         input_file = os.path.join(os.path.join(os.getcwd(), 'proto'), i)
         output_file = os.path.join(os.path.join(os.getcwd(), 'build'), os.path.basename(input_file).replace('.proto', '.pb.cc'))
@@ -68,6 +74,9 @@ def build_proto_list(bld, list, proto_path='../../proto/', build_path='../'):
             py.set_outputs(bld.path.find_or_declare(build_path))
             bld.add_to_group(py)
         bld.execute_build()
+    if Rebuild:
+        with open(stamp, 'w') as f:
+            f.write(bld.env.PROTOC_VERSION)
     return bld
 
 def build(bld):

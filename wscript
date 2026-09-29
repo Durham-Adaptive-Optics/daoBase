@@ -42,6 +42,23 @@ def options(opt):
 	opt.add_option('--without-gpu', dest='without_gpu', default=False, action='store_true',
              help='build without GPU SHM support even if CUDA is found')
 	
+def find_protoc(conf):
+	# The generated *.pb.h only compile against the libprotobuf headers of the
+	# same version, so use the protoc installed next to the libprotobuf that
+	# pkg-config found (and not whichever protoc comes first in PATH).
+	pc_version = conf.cmd_and_log(conf.env.PKGCONFIG + ['--modversion', 'protobuf']).strip()
+	pc_prefix = conf.cmd_and_log(conf.env.PKGCONFIG + ['--variable=prefix', 'protobuf']).strip()
+	protoc = conf.find_program('protoc', var='PROTOC', path_list=[os.path.join(pc_prefix, 'bin')], mandatory=False)
+	if not protoc:
+		protoc = conf.find_program('protoc', var='PROTOC')
+	protoc_version = conf.cmd_and_log(protoc + ['--version']).split()[-1]
+	# protoc 35.1 <-> libprotobuf 35.1.0, protoc 3.12.4 <-> libprotobuf 3.12.4
+	if protoc_version.split('.')[:2] != pc_version.split('.')[:2]:
+		conf.fatal(f'{protoc[0]} is version {protoc_version} but libprotobuf (pkg-config, prefix {pc_prefix}) '
+				f'is {pc_version}: install the protoc matching that libprotobuf')
+	conf.env.PROTOC_VERSION = protoc_version
+	conf.msg('protoc version', protoc_version)
+
 def configure(conf):
 	conf.load('cxx compiler_c compiler_cxx gnu_dirs waf_unit_test')
 	conf.load('build_tools.pkg_tool')
@@ -58,6 +75,7 @@ def configure(conf):
 					args='--cflags --libs',
 					uselib_store='PROTOBUF'
 					)
+	find_protoc(conf)
 
 	conf.check_cfg( package='yaml-cpp',
 					args='--cflags --libs',
