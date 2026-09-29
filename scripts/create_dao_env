@@ -56,10 +56,8 @@ conda activate "$ENV_NAME"
 
 # Use the env's own python explicitly: an active virtualenv (VIRTUAL_ENV) can
 # stay ahead of the conda env in PATH, and a bare `python -m pip` would then
-# install into that venv instead.
-if [ -n "${VIRTUAL_ENV:-}" ]; then
-	echo "warning: virtualenv $VIRTUAL_ENV is active; run 'deactivate' before using the '$ENV_NAME' env" >&2
-fi
+# install into that venv instead. (Once the hooks below are installed, later
+# `conda activate` calls hide such a venv automatically.)
 ENV_PY="$CONDA_PREFIX/bin/python"
 
 # Not on conda-forge: python-statemachine. (Not the unrelated "statemachine"
@@ -89,6 +87,14 @@ export DAOROOT="$DAOROOT"
 export DAODATA="$DAODATA"
 export LD_LIBRARY_PATH="\$DAOROOT/lib:\$DAOROOT/lib64:\$CONDA_PREFIX/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
 export PATH="\$DAOROOT/bin:\$PATH"
+# A plain python venv active in the parent shell would shadow this env's
+# python3 (and "#!/usr/bin/env python3" scripts); hide it while dao is active.
+if [ -n "\${VIRTUAL_ENV:-}" ]; then
+	export _DAO_OLD_VIRTUAL_ENV="\$VIRTUAL_ENV"
+	export _DAO_OLD_VIRTUAL_ENV_PROMPT="\${VIRTUAL_ENV_PROMPT:-}"
+	PATH="\$(printf '%s' "\$PATH" | tr ':' '\n' | grep -vxF "\$VIRTUAL_ENV/bin" | paste -sd: -)"
+	unset VIRTUAL_ENV VIRTUAL_ENV_PROMPT
+fi
 export PYTHONPATH="\$DAOROOT/python\${PYTHONPATH:+:\$PYTHONPATH}"
 export PKG_CONFIG_PATH="\$DAOROOT/lib/pkgconfig:\$CONDA_PREFIX/lib/pkgconfig\${PKG_CONFIG_PATH:+:\$PKG_CONFIG_PATH}"
 # Let the compiler find conda-forge headers/libs (zmq, gsl, protobuf, numa...)
@@ -101,8 +107,13 @@ export LD_LIBRARY_PATH="$_DAO_OLD_LD_LIBRARY_PATH"
 export PATH="$_DAO_OLD_PATH"
 export PYTHONPATH="$_DAO_OLD_PYTHONPATH"
 export PKG_CONFIG_PATH="$_DAO_OLD_PKG_CONFIG_PATH"
+if [ -n "${_DAO_OLD_VIRTUAL_ENV:-}" ]; then
+	export VIRTUAL_ENV="$_DAO_OLD_VIRTUAL_ENV"
+	export VIRTUAL_ENV_PROMPT="$_DAO_OLD_VIRTUAL_ENV_PROMPT"
+fi
 unset DAOROOT DAODATA CPATH LIBRARY_PATH \
-	_DAO_OLD_LD_LIBRARY_PATH _DAO_OLD_PATH _DAO_OLD_PYTHONPATH _DAO_OLD_PKG_CONFIG_PATH
+	_DAO_OLD_LD_LIBRARY_PATH _DAO_OLD_PATH _DAO_OLD_PYTHONPATH _DAO_OLD_PKG_CONFIG_PATH \
+	_DAO_OLD_VIRTUAL_ENV _DAO_OLD_VIRTUAL_ENV_PROMPT
 EOF
 
 echo
