@@ -53,21 +53,14 @@ Syncronisation
 
     data = shm.get_data(check=True)
 
-This will check the semaphore before reading the data. If the semaphore is locked it will block until it is unlocked before reading the data. This is useful when reading data that is being written to by another process.
+This waits for the next write to the SHM, then reads the data. This is useful when reading data that is being written to by another process.
+
+If multiple processes are reading from the same shared memory file then they can all read at the same time: each SHM has several semaphores (16 by default, so up to 16 readers), the writer posts all of them, and each reader waits on its own. dao picks it for you -- one no other reader waits on -- at the first wait, and keeps it until the SHM is closed or the process ends (even if it crashes). No semaphore number to choose, and two readers never share one (they would each miss frames).
 
 .. note::
-    If shared memory has just been created then the semaphore will release immediately as it counts as the first write.
+    The first ``get_data(check=True)`` waits for the next write: writes made before the reader came do not count.
 
-If multiple processes are reading from the same shared memory file then they can all read at the same time. This is due to multiple semaphores attached to each shared memory file, by default 10 semaphores are created.
-
-To specify the number of semaphores to use when reading use:
-
-.. code-block:: python
-
-    import dao
-
-    shm = dao.shm('file.im.shm')
-    data = shm.get_data(check=True, nbSem=5)
+A semaphore number can still be given (``get_data(check=True, semNb=5)``); dao warns if another reader already waits on it.
 
 The other way to use the semaphore is to spin on a counter in the SHM file to change. This forces the code to stay in usersapace and block until the shm is updated. This is very useful in real-time processes as the function returns quicker then using the semaphore but it adds complexity to the system. This is really only useful for C/C++ tasks that need to run at high speed.
 

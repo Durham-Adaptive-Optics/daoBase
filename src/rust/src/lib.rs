@@ -125,6 +125,13 @@ impl Shm {
         Ok(unsafe { std::slice::from_raw_parts(ptr as *const T, nelement) })
     }
 
+    /// Block until the next frame, on a semaphore of this handle's own (no other
+    /// reader waits on it; taken at the first wait, kept until the handle is dropped).
+    pub fn wait(&mut self) -> Result<(), i8> {
+        let result = unsafe { sys::daoShmWait(&mut *self.image) };
+        if result == 0 { Ok(()) } else { Err(result as i8) }
+    }
+
     /// Block until semaphore `sem_nb` is posted (a new frame is available).
     pub fn wait_sem(&mut self, sem_nb: i32) -> Result<(), i8> {
         let result = unsafe { sys::daoShmWaitSem(&mut *self.image, sem_nb) };

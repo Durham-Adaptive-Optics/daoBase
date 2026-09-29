@@ -1,4 +1,6 @@
-classdef daoShm
+classdef daoShm < handle
+    % A handle: its SHM is closed once, by close() or when the last reference
+    % to it is cleared (delete), which frees its semaphore for other readers.
     properties (Access = public)
         ImagePtr % Pointer to the IMAGE structure returned by daoShmInit
     end
@@ -56,13 +58,14 @@ classdef daoShm
             %
             %   Parameters (optional):
             %   check - Whether to wait for semaphore (logical).
-            %   semNb - Semaphore number (integer).
+            %   semNb - Semaphore number (integer); -1 (default): one of
+            %           this object's own, no other reader waits on it.
 
             if nargin < 2
                 check = false; % Default: false
             end
             if nargin < 3
-                semNb = 1; % Default: 1
+                semNb = -1; % Default: this object's own semaphore
             end
 
             % Call the MEX function to get data from the IMAGE structure
@@ -95,12 +98,18 @@ classdef daoShm
 
         function close(obj)
             % CLOSE Release the IMAGE structure (semaphores, mapped
-            %   metadata, and the struct itself).
-            %   obj.close() must be called once obj is no longer needed;
-            %   MATLAB does not call it automatically when obj goes out of
-            %   scope.
+            %   metadata, and the struct itself). Called when the last
+            %   reference to obj is cleared; closing twice is harmless.
 
-            daomex('close_shm', obj.ImagePtr);
+            if ~isempty(obj.ImagePtr) && obj.ImagePtr ~= 0
+                daomex('close_shm', obj.ImagePtr);
+                obj.ImagePtr = uint64(0);
+            end
+        end
+
+        function delete(obj)
+            % DELETE Called by MATLAB when the last reference is cleared.
+            obj.close();
         end
     end
 end

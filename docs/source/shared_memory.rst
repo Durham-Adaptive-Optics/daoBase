@@ -76,14 +76,39 @@ Synchronization Methods
 
 The system provides two synchronization methods:
 
-1. **Semaphores**: Using the `daoShmWaitForSemaphore` function
+1. **Semaphores**: Using the `daoShmWait` function
    
    .. code-block:: python
       
-      # Wait for update using semaphore 0
-      data = shared_mem.get_data(check=True, semNb=0)
+      # Wait for the next update
+      data = shared_mem.get_data(check=True)
 
-By default, the shared memory is created with 10 separate semaphores for use by separate processes.
+   .. code-block:: c
+
+      daoShmWait(&image);                      // or daoShmWaitTimeout(&image, &until)
+
+By default, the shared memory is created with 16 separate semaphores for use by separate processes:
+the writer posts all of them, and each reader waits on a semaphore of its own. dao picks it at the
+reader's first wait -- one no other reader waits on -- and keeps it for that handle until it is closed
+or its process ends, even on a crash. The first wait is for the next write.
+
+How dao knows which semaphores are taken: the reader's handle holds an OS lock for its semaphore,
+which the OS releases with the handle or the process -- a lock on one byte of the SHM file, far past
+its data (Linux: open file description lock; Windows: ``LockFileEx``), or on macOS a lock on a hidden
+file next to the SHM (``.<file>.sem<n>``). ``daoShmClaimSem`` (Python: ``shm.sem``) gives a handle's
+semaphore, ``daoShmSemInUse`` (``shm.sem_in_use(n)``) whether any reader waits on semaphore n.
+
+A reader's semaphore is freed when its handle is closed: ``daoShmClose`` in C
+(``daoShmReleaseSem`` gives it back without closing), and in the other languages when the
+object is freed -- Python (``shm`` dropped or ``close()``), C++ (``Dao::Shm``,
+``ShmIfce`` destructors), Rust (drop), Julia (garbage collection or ``dao.close``),
+MATLAB (last reference cleared or ``close()``). Closing twice is harmless. In IPython, an
+object shown as a result is kept by the output history: ``close()`` it.
+
+Each thread that waits needs its own handle (``daoShmOpen``). A semaphore number can still be given
+(``daoShmWaitSem(&image, 3)``, ``get_data(check=True, semNb=3)``), as before; dao warns when
+another reader already waits on it, and automatic readers leave it alone. When all semaphores are
+taken, a wait fails with an error rather than sharing one.
 
 2. **Polling on Counter**: Using the `daoShmWaitForCounter` function
    
