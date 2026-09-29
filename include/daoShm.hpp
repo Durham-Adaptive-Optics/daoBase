@@ -29,7 +29,9 @@ namespace Dao
         SEM0 = 0, 
         SEM1, SEM2, SEM3,
         SEM4, SEM5, SEM6,
-        SEM7, SEM8, SEM9, 
+        SEM7, SEM8, SEM9,
+        SEM10, SEM11, SEM12,
+        SEM13, SEM14, SEM15,
         SEM,        /**< a semaphore of this Shm's own, no other reader waits on (DAO_SEM_AUTO) */
         SPIN, NONE
     };
