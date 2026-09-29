@@ -38,15 +38,18 @@ fi
 #   libzmq3-dev               -> zeromq (+ cppzmq C++ headers)
 #   protobuf-compiler         -> libprotobuf (protoc + lib) and python protobuf,
 #                                both from conda-forge so their versions match
-#   numactl libnuma-dev       -> numactl
+#   numactl libnuma-dev       -> numactl (Linux only: libnuma does not exist on macOS)
 #   libyaml-cpp-dev           -> yaml-cpp
 # Python deps from the README's pip line (posix_ipc zmq protobuf astropy
 # redis sphinx screeninfo) are taken from conda-forge too where available.
+PLATFORM_PKGS=""
+[ "$(uname -s)" = Linux ] && PLATFORM_PKGS="numactl"
+# shellcheck disable=SC2086
 conda "$ACTION" -y -n "$ENV_NAME" --override-channels -c conda-forge \
 	python=3.11 pip \
 	c-compiler cxx-compiler make libtool autoconf automake pkg-config \
 	openssl ncurses redis-server gtest gsl zeromq cppzmq \
-	libprotobuf protobuf numactl yaml-cpp \
+	libprotobuf protobuf yaml-cpp $PLATFORM_PKGS \
 	numpy posix_ipc pyzmq astropy redis-py pyyaml sphinx screeninfo
 
 conda activate "$ENV_NAME"
