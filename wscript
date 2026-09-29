@@ -59,6 +59,11 @@ def configure(conf):
 					uselib_store='PROTOBUF'
 					)
 
+	conf.check_cfg( package='yaml-cpp',
+					args='--cflags --libs',
+					uselib_store='YAMLCPP'
+					)
+
 	# GPU SHMs: only the CUDA headers are needed at build time; libdao loads
 	# the driver (libcuda.so.1) at run time, so it still runs without a GPU.
 	conf.env.CUDA_INCLUDE = ''
