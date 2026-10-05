@@ -39,7 +39,6 @@ extern "C" {
 #define DAO_NET_CONTROL_PORT   7709            /**< TCP on 127.0.0.1 only: local commands          */
 #define DAO_NET_BEACON_PORT    7711            /**< UDP: discovery                                   */
 #define DAO_NET_BEACON_GROUP   "239.255.77.10" /**< UDP multicast group of the discovery            */
-#define DAO_NET_SEM            9               /**< the semaphore of each SHM the service waits on  */
 #define DAO_NET_RESOLVE_MS     5000            /**< how long an open waits for a remote SHM         */
 
 /* environment */

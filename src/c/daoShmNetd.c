@@ -10,7 +10,7 @@
  *
  *   owner                                          reader
  *   writer -> /tmp/X.im.shm                        /tmp/X.im.shm -> any process, unchanged
- *                 | semaphore DAO_NET_SEM                 ^ written in place, published
+ *                 | a semaphore of its own                ^ written in place, published
  *                 v (no polling)                          | (counter + 1, semaphores posted)
  *            Source: one watcher  --- TCP: header + frame + trailer ---> Replica
  *            Session per reader   <-- WRITE: a local write on the replica --
@@ -691,7 +691,7 @@ static void retire_image(Source *src)
     src->retired[src->n_retired++] = src->img;
 }
 
-/** Wakes the sessions on each new frame: one thread per Source, asleep on DAO_NET_SEM. */
+/** Wakes the sessions on each new frame: one thread per Source, asleep on a semaphore of its own. */
 static void *source_thread(void *arg)
 {
     Source *src = (Source *) arg;
@@ -714,9 +714,8 @@ static void *source_thread(void *arg)
         until.tv_nsec = (long) (t % 1000000000LL);
         if (src->broken)
             dn_sleep_ms(200);                             /* its sessions are leaving */
-        else if (src->img.md[0].sem <= DAO_NET_SEM
-                 || daoShmWaitSemTimeout(&src->img, DAO_NET_SEM, &until) == DAO_ERROR)
-            dn_sleep_ms(1);                               /* no such semaphore: a short sleep instead */
+        else if (daoShmWaitSemTimeout(&src->img, DAO_SEM_AUTO, &until) == DAO_ERROR)
+            dn_sleep_ms(1);                               /* no semaphore left: a short sleep instead */
         cnt = source_counter(src);
         dn_lock(&src->m);
         if (cnt != src->cnt) {
@@ -1427,7 +1426,7 @@ static void *replica_thread(void *arg)
     return NULL;
 }
 
-/** Local writes (forwarded to the owner) and heartbeats: asleep on the replica's DAO_NET_SEM. */
+/** Local writes (forwarded to the owner) and heartbeats: asleep on a semaphore of the replica's own. */
 static void *replica_watch_thread(void *arg)
 {
     Replica *r = (Replica *) arg;
@@ -1448,12 +1447,13 @@ static void *replica_watch_thread(void *arg)
             int64_t t = dn_real_ns() + 250000000LL;
             IMAGE img;
             dn_lock(&r->m);
+            daoShmClaimSem(&r->img);                      /* on r->img, not the copy: kept by the handle */
             img = r->img;
             dn_unlock(&r->m);
             until.tv_sec = (time_t) (t / 1000000000LL);
             until.tv_nsec = (long) (t % 1000000000LL);
-            if (img.md[0].sem <= DAO_NET_SEM || daoShmWaitSemTimeout(&img, DAO_NET_SEM, &until) == DAO_ERROR)
-                dn_sleep_ms(1);
+            if (daoShmWaitSemTimeout(&img, DAO_SEM_AUTO, &until) == DAO_ERROR)
+                dn_sleep_ms(1);                           /* no semaphore left: a short sleep instead */
         }
         dn_lock(&r->m);
         forward_local_write(r);

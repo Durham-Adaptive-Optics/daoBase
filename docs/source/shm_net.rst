@@ -233,7 +233,7 @@ How it works
 
    owner                                             reader
    writer -> /tmp/X.im.shm                           /tmp/X.im.shm -> any process (unchanged)
-                  | semaphore 9 (no polling)                ^ written in place, then published:
+                  | own semaphore (no polling)              ^ written in place, then published:
                   v                                         | counter + 1, every semaphore posted
             Source: a watcher --- TCP: header + frame + trailer ---> Replica
             Session per reader <--- WRITE: a write on the replica ---
@@ -251,7 +251,7 @@ TCP connection to it (``SUBSCRIBE``), creates the replica from the shape, type a
 keywords sent first, and answers once the first frame is in. The first open takes a few
 milliseconds.
 
-**Streaming.** On the owner, one watcher per SHM sleeps on its semaphore 9 and wakes the
+**Streaming.** On the owner, one watcher per SHM sleeps on a semaphore of its own and wakes the
 sessions (one per reader). A session copies the newest frame **consistently** -- the
 SHM's counter and write flag checked around the copy, so a frame is never torn -- and
 sends it with its header and a trailer in **one system call**. If the writer wrote during
@@ -261,7 +261,7 @@ latency does not build up. On the reader, the frame is received **straight into 
 replica** (no copy there) with its trailer in one call, then published as a write:
 counter + 1, every semaphore posted.
 
-**Writes back.** A second thread of each replica sleeps on its semaphore 9: a counter it
+**Writes back.** A second thread of each replica sleeps on a semaphore of its own: a counter it
 did not leave means a local write, sent up to the owner (``WRITE``), which writes the
 source. The owner marks the frame of that write as an *echo* to that reader, which does
 not publish it again.
@@ -277,9 +277,10 @@ and their replicas are recreated.
 **Idle replicas.** A replica no process maps (``/proc/*/maps``) for ``--idle`` seconds is
 dropped, and its stream stops. ``want --keep`` replicas stay.
 
-**Semaphore 9.** The service waits on each SHM's semaphore 9 (of the 10 dao creates).
-Programs should leave it to it, as a program leaves the other semaphores to the other
-programs. An SHM with fewer semaphores is polled every millisecond instead.
+**Semaphores.** The service waits on each SHM with a semaphore of its own (libdao gives
+each reader one no other reader uses), so it never takes another program's frames and
+programs need not leave any number to it. When every semaphore of an SHM is taken, it is
+polled every millisecond instead.
 
 
 Performance

@@ -37,7 +37,7 @@ int main(int argc, char **argv)
         struct timespec until;
         timespec_get(&until, TIME_UTC);
         until.tv_sec += 2;
-        if (daoShmWaitSemTimeout(&img, 1, &until) != DAO_SUCCESS) {   /* its next frame */
+        if (daoShmWaitSemTimeout(&img, DAO_SEM_AUTO, &until) != DAO_SUCCESS) {   /* its next frame */
             printf("no frame for 2 s\n");
             continue;
         }
