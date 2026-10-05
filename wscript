@@ -64,6 +64,17 @@ def configure(conf):
 	conf.load('build_tools.pkg_tool')
 	conf.write_config_header('config.h')
 
+	# -march=native, only if its code runs here: some VMs (UTM on Apple silicon)
+	# advertise SVE but fault on it (SIGILL).
+	conf.env.MARCH_NATIVE = ['-march=native'] if conf.check_cc(
+		fragment="""#ifdef __ARM_FEATURE_SVE
+#include <arm_sve.h>
+int main(void) { return svcntw() == 0; }
+#else
+int main(void) { return 0; }
+#endif""",
+		cflags=['-march=native'], execute=True, mandatory=False,
+		msg='Checking that -march=native code runs') else []
 
 	# set required libs 
 	conf.check_cfg( package='libzmq',
