@@ -29,8 +29,11 @@ namespace Dao
         SEM0 = 0, 
         SEM1, SEM2, SEM3,
         SEM4, SEM5, SEM6,
-        SEM7, SEM8, SEM9, 
-        SEM, SPIN, NONE
+        SEM7, SEM8, SEM9,
+        SEM10, SEM11, SEM12,
+        SEM13, SEM14, SEM15,
+        SEM,        /**< a semaphore of this Shm's own, no other reader waits on (DAO_SEM_AUTO) */
+        SPIN, NONE
     };
 
     template <typename T>
@@ -85,6 +88,10 @@ namespace Dao
         ~Shm() {
             daoShmClose(&image_);
         }
+
+        // one handle, closed once (a copy would close it, and free its semaphore, twice)
+        Shm(const Shm &) = delete;
+        Shm &operator=(const Shm &) = delete;
 
         /**
          * @brief Writes new frame array into the shared memory.
@@ -145,7 +152,7 @@ namespace Dao
                 } break;
 
                 default: {
-                    const int32_t semNb = (sync == ShmSync::SEM) ? static_cast<int32_t>(ShmSync::SEM0) : static_cast<int32_t>(sync);
+                    const int32_t semNb = (sync == ShmSync::SEM) ? DAO_SEM_AUTO : static_cast<int32_t>(sync);
                     if(daoShmWaitSem(&image_, semNb) != DAO_SUCCESS)
                         return nullptr;
                 } break;
@@ -181,7 +188,7 @@ namespace Dao
                     clock_gettime(CLOCK_REALTIME, &ts);
                     ts.tv_sec += static_cast<time_t>(syncValue);
 
-                    const int32_t semNb = (sync == ShmSync::SEM) ? static_cast<int32_t>(ShmSync::SEM0) : static_cast<int32_t>(sync);
+                    const int32_t semNb = (sync == ShmSync::SEM) ? DAO_SEM_AUTO : static_cast<int32_t>(sync);
                     if(daoShmWaitSemTimeout(&image_, semNb, &ts) != DAO_SUCCESS)
                         return nullptr;
                 } break;

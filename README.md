@@ -214,7 +214,7 @@ rm -rf ~/miniconda3/miniconda.sh
 ```
 The following package should be installed
 ```
-pip install posix_ipc zmq protobuf astropy python-statemachine statemachine redis sphinx screeninfo
+pip install posix_ipc zmq protobuf astropy python-statemachine redis sphinx screeninfo
 ```
 For MACOS, check the version of your protoc
 ```

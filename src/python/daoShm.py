@@ -201,7 +201,8 @@ def daoType2CtypesType(daoType):
 # Must match dao.h: size of the SHM name fields, and the SHM layout it describes
 DAO_SHM_NAME_LEN = 256
 DAO_SHM_MAGIC = 0x4D485344
-DAO_SHM_LAYOUT_VERSION = 2
+DAO_SHM_LAYOUT_VERSION = 3 if sys.platform == 'darwin' else 2   # macOS: 16 semaphore counters
+IMAGE_NB_SEMAPHORE = 16                                          # semaphores per SHM (dao.h)
 
 # Define the struct timespec structure
 class timespec(ctypes.Structure):
@@ -259,7 +260,7 @@ if sys.platform == "darwin":
             ("packetNb", ctypes.c_uint32),
             ("packetTotal", ctypes.c_uint32),
             ("lastNbArray", ctypes.c_uint64 * 2024),
-            ("semCounter", ctypes.c_uint32 * 10),
+            ("semCounter", ctypes.c_uint32 * IMAGE_NB_SEMAPHORE),
             ("semLogCounter", ctypes.c_uint32),
             ("fifo_size", ctypes.c_uint32),
             ("fifo_last_written", ctypes.c_uint32),
@@ -524,6 +525,19 @@ class shm:
         ]
         self.daoShmWaitSemTimeout.restype = ctypes.c_int8
 
+        # this handle's own semaphore (dao.h, DAO_SEM_AUTO)
+        self.daoShmClaimSem = daoLib.daoShmClaimSem
+        self.daoShmClaimSem.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmClaimSem.restype = ctypes.c_int32
+
+        self.daoShmSemInUse = daoLib.daoShmSemInUse
+        self.daoShmSemInUse.argtypes = [ctypes.POINTER(IMAGE), ctypes.c_int32]
+        self.daoShmSemInUse.restype = ctypes.c_int8
+
+        self.daoShmReleaseSem = daoLib.daoShmReleaseSem
+        self.daoShmReleaseSem.argtypes = [ctypes.POINTER(IMAGE)]
+        self.daoShmReleaseSem.restype = ctypes.c_int8
+
         self.daoShmWaitCounter = daoLib.daoShmWaitCounter
         self.daoShmWaitCounter.argtypes = [ctypes.POINTER(IMAGE)]
         self.daoShmWaitCounter.restype = ctypes.c_int8
@@ -641,7 +655,8 @@ class shm:
         self.pubContext = 0# zmq.Context()
         
         self.pubEvent = Event()
-        self.pubThread = Thread(target = self.publish)
+        self._pubThread = None          # made on first use (pubThread): it refers back to this
+                                        # object, which would then not be freed when dropped
         self.pubEnable = False
         self.last_received_counter = 0  # Track last counter received from subscription
         #self.pubThread.start()
@@ -650,9 +665,31 @@ class shm:
         self.subHost = subHost
         self.subContext = 0 # zmq.Context()
         self.subEvent = Event()
-        self.subThread = Thread(target = self.subscribe)
+        self._subThread = None          # made on first use (subThread)
         self.subEnable = False
         #self.subThread.start()
+
+    @property
+    def pubThread(self):
+        ''' The thread publishing this SHM (publish), made on first use. '''
+        if self._pubThread is None:
+            self._pubThread = Thread(target=self.publish)
+        return self._pubThread
+
+    @pubThread.setter
+    def pubThread(self, thread):
+        self._pubThread = thread
+
+    @property
+    def subThread(self):
+        ''' The thread subscribing to a remote SHM (subscribe), made on first use. '''
+        if self._subThread is None:
+            self._subThread = Thread(target=self.subscribe)
+        return self._subThread
+
+    @subThread.setter
+    def subThread(self, thread):
+        self._subThread = thread
 
     def _cache_expected_type(self):
         ''' --------------------------------------------------------------
@@ -883,13 +920,90 @@ class shm:
                 return i
         raise ValueError("daoShm.shm: the SHM's GPU is not visible to CuPy")
 
-    def get_data(self, check=False, reform=True, semNb=0, timeout=0, spin=False, x=None, y=None):
+    @property
+    def sem(self):
+        ''' This object's own semaphore: one no other reader waits on, taken at
+        its first wait and kept until close() (or the end of the process). '''
+        return self.daoShmClaimSem(ctypes.byref(self.image))
+
+    def sem_in_use(self, semNb):
+        ''' True if a reader (of any process) waits on semaphore semNb. '''
+        result = self.daoShmSemInUse(ctypes.byref(self.image), semNb)
+        if result < 0:
+            raise ValueError("daoShm.shm: no semaphore %d" % (semNb,))
+        return bool(result)
+
+    def sem_users(self):
+        ''' The semaphores readers wait on: {semNb: [PIDs]}. The PIDs are found on
+        Linux, for the processes this user may inspect ([]: taken, PID unknown).
+        A reader that gave a semaphore number already taken by another is not listed. '''
+        nsem = self.image.md.contents.sem
+        users = {s: [] for s in range(nsem) if self.sem_in_use(s)}
+        if not users or not os.path.isdir('/proc/self/fdinfo'):
+            return users
+        # a reader holds semaphore s with a lock on byte 2**62 + s of the SHM file
+        # (dao.c, SEM_LOCK_BASE); /proc/<pid>/fdinfo/<fd> lists its open files' locks
+        st = os.fstat(self.image.shmfd)
+        dev = '%02x:%02x:%d' % (os.major(st.st_dev), os.minor(st.st_dev), st.st_ino)
+        base = 1 << 62
+        for pid in os.listdir('/proc'):
+            if not pid.isdigit():
+                continue
+            try:
+                fds = os.listdir('/proc/%s/fdinfo' % pid)
+            except OSError:
+                continue
+            for fd in fds:
+                try:
+                    with open('/proc/%s/fdinfo/%s' % (pid, fd)) as f:
+                        for line in f:
+                            if line.startswith('lock:') and 'OFDLCK' in line and ' ' + dev + ' ' in line:
+                                s = int(line.split()[-2]) - base
+                                if s in users and int(pid) not in users[s]:
+                                    users[s].append(int(pid))
+                except (OSError, ValueError):
+                    continue
+        return users
+
+    def _wait_sem(self, semNb, timeout):
+        ''' Waits for the next post of semaphore semNb (None: this object's own).
+        Returns False on timeout. '''
+        if semNb is None:
+            semNb = -1                               # DAO_SEM_AUTO
+        try:
+            if timeout == 0:
+                # On Windows, daoShmWaitSem returns DAO_TIMEOUT (=-1) after a short
+                # internal timeout so that Python regains control and can process
+                # KeyboardInterrupt. We loop here in Python so Ctrl+C works correctly.
+                result = self.DAO_TIMEOUT
+                while result == self.DAO_TIMEOUT:
+                    result = self.daoShmWaitSem(ctypes.byref(self.image), semNb)
+            else:
+                ts = make_timespec_from_now(timeout)
+                result = self.daoShmWaitSemTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))
+                if result == self.DAO_TIMEOUT:
+                    log.error("Timeout waiting for semaphore")
+                    return False
+        except BaseException:
+            # interrupted (Ctrl+C...): give the semaphore back now. The traceback keeps
+            # this object alive (IPython keeps the last one), so it would otherwise stay
+            # taken; a next wait takes one again.
+            self.daoShmReleaseSem(ctypes.byref(self.image))
+            raise
+        if result != self.DAO_SUCCESS:
+            raise RuntimeError("daoShm.shm: cannot wait on a semaphore of %s (see the error above)"
+                               % (self.image.md.contents.name.decode(errors='replace'),))
+        return True
+
+    def get_data(self, check=False, reform=True, semNb=None, timeout=0, spin=False, x=None, y=None):
         ''' --------------------------------------------------------------
         Reads and returns the newest data segment of the SHM file
 
         Parameters:
         ----------
         - check: integer (last index) if not False, waits image update
+        - semNb: the semaphore to wait on; None (default): this object's own,
+                 one no other reader waits on (see sem)
         - reform: boolean, if True, reshapes the array in a 2-3D format
         - x, y: optional slice objects to extract only a sub-region of the
                 image (e.g. x=slice(5,10), y=slice(10,15) for a 5x5 crop).
@@ -900,21 +1014,8 @@ class shm:
         if check == True:
             if spin == True:
                 result = self.daoShmWaitCounter(ctypes.byref(self.image))
-            else:
-                if timeout == 0:
-                    # On Windows, daoShmWaitForSemaphore returns DAO_TIMEOUT
-                    # (=-1) after a short internal timeout so that Python
-                    # regains control and can process KeyboardInterrupt.
-                    # We loop here in Python so Ctrl+C works correctly.
-                    result = -1
-                    while result == -1:
-                        result = self.daoShmWaitSem(ctypes.byref(self.image), semNb)
-                else:
-                    ts = make_timespec_from_now(timeout)
-                    result = self.daoShmWaitSemTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))
-                    if result != 0:
-                        log.error("Timeout waiting for semaphore")
-                        return None
+            elif not self._wait_sem(semNb, timeout):
+                return None
 
         arrayPtr = ctypes.c_void_p(None)
         seg_idx = ctypes.c_uint32(0)
@@ -963,7 +1064,7 @@ class shm:
 
 
 
-    def get_history(self, num_items=1, check=False, semNb=0, timeout=0, spin=False, buffer=False, x=None, y=None):
+    def get_history(self, num_items=1, check=False, semNb=None, timeout=0, spin=False, buffer=False, x=None, y=None):
         ''' --------------------------------------------------------------
         Reads and returns the last N segments written to the SHM
 
@@ -971,7 +1072,8 @@ class shm:
         ----------
         - num_items: Number of items to return
         - check:  if True, waits for the next semaphore post before reading history
-        - semNb:  semaphore number to wait on (used when check=True or buffer=True)
+        - semNb:  semaphore number to wait on (used when check=True or buffer=True);
+                  None (default): this object's own, one no other reader waits on
         - timeout: seconds to wait for semaphore (0 = wait indefinitely)
         - spin:   if True, use counter-based wait instead of semaphore
         - buffer: if True, waits for num_items new writes since last call before
@@ -996,18 +1098,8 @@ class shm:
             """Wait for a single new semaphore post. Returns False on timeout."""
             if spin:
                 self.daoShmWaitCounter(ctypes.byref(self.image))
-            else:
-                if timeout == 0:
-                    result = -1
-                    while result == -1:
-                        result = self.daoShmWaitSem(ctypes.byref(self.image), semNb)
-                else:
-                    ts = make_timespec_from_now(timeout)
-                    result = self.daoShmWaitSemTimeout(ctypes.byref(self.image), semNb, ctypes.byref(ts))
-                    if result != 0:
-                        log.error("Timeout waiting for semaphore")
-                        return False
-            return True
+                return True
+            return self._wait_sem(semNb, timeout)
 
         if buffer:
             # Accumulate num_items new writes before reading
@@ -1216,8 +1308,10 @@ class shm:
         Close the SHM file.
 
         -------------------------------------------------------------- '''
+        if not self.image.md:           # not open, or already closed
+            return
         result = self.daoShmClose(ctypes.byref(self.image))
-        
+
     def __del__(self):
         ''' --------------------------------------------------------------
         Destructor to ensure proper resource cleanup.
@@ -1225,8 +1319,8 @@ class shm:
         This method is automatically called when the object is garbage collected.
         -------------------------------------------------------------- '''
         try:
-            # Only call close if the image has been used/initialized
-            if hasattr(self, 'image') and self.image.used:
+            # an open SHM: unmapped, its file closed, its semaphore free for other readers
+            if hasattr(self, 'image') and self.image.md:
                 self.close()
         except:
             # Suppress errors during garbage collection

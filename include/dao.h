@@ -82,7 +82,11 @@ extern "C" {
  * whenever IMAGE_METADATA or IMAGE_KEYWORD change. The unversioned layout of
  * earlier releases (80-byte name first) counts as version 1. */
 #define DAO_SHM_MAGIC          0x4D485344u   /**< 'DSHM' */
-#define DAO_SHM_LAYOUT_VERSION 2u
+#ifdef __APPLE__
+#define DAO_SHM_LAYOUT_VERSION 3u   /* 3: 16 semaphore counters (IMAGE_NB_SEMAPHORE), not 10 */
+#else
+#define DAO_SHM_LAYOUT_VERSION 2u   /* the semaphore counters exist on macOS only */
+#endif
 
 #define DAO_SUCCESS     0
 #define DAO_ERROR       1
@@ -140,7 +144,8 @@ extern "C"
     #define SHAREDMEMDIR        ""        /**< location of file mapped semaphores */
 
     #define SEMAPHORE_MAXVAL    1 	          /**< maximum value for each of the semaphore, mitigates warm-up time when processes catch up with data that has accumulated */
-    #define IMAGE_NB_SEMAPHORE  10            /**< Number of semaphores per image */
+    #define IMAGE_NB_SEMAPHORE  16            /**< Number of semaphores per image (one per reader) */
+    #define DAO_SEM_AUTO        (-1)          /**< semNb: this handle's own semaphore, one no other reader waits on */
     #define CIRCULAR_BUFFER_SIZE 1000         /**< Number of data in the cuircular buffer */
 
     #define DAO_MAX_COMBINE_CHANNELS 1024     /**< Maximum number of channels that can be combined by daoShmCombineShm2Shm */
@@ -473,9 +478,10 @@ extern "C"
         IMAGE_KEYWORD* kw;
         // mem offset 136    
 
-        // PID of process that read shared memory stream
-        // Initialized at 0. Otherwise, when process is waiting on semaphore, its PID is written in this array
-        // The array can be used to look for available semaphores
+        // Semaphores this handle waits on (libdao's own bookkeeping, process memory; NULL
+        // until the first wait): [s] is this process's PID once the handle holds semaphore s
+        // (-PID: waits on it without holding it, another reader had it). On macOS the
+        // array is followed by the lock file of each semaphore (+1, 0: none).
         #ifdef _WIN32
         DWORD* semReadPID;
         #else
@@ -557,6 +563,16 @@ extern "C" {
     DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE* image);
 
     // wait / synchronize
+    // daoShmWait waits for the next frame on a semaphore of the SHM no other reader
+    // waits on: libdao picks it at the first wait and keeps it for this handle (open)
+    // until daoShmClose or the process ends. semNb DAO_SEM_AUTO in the calls below does
+    // the same; an explicit semNb is still honoured (with a warning if another reader
+    // already waits on it). One handle per waiting thread.
+    DLL_EXPORT int_fast8_t daoShmWait(IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmWaitTimeout(IMAGE* image, const struct timespec* timeout);
+    DLL_EXPORT int32_t     daoShmClaimSem(IMAGE* image);                 /**< this handle's semaphore, or -1 */
+    DLL_EXPORT int_fast8_t daoShmSemInUse(IMAGE* image, int32_t semNb);  /**< 1: a reader waits on it, 0: free, -1: error */
+    DLL_EXPORT int_fast8_t daoShmReleaseSem(IMAGE* image);               /**< give them back (daoShmClose does it) */
     DLL_EXPORT int_fast8_t daoShmWaitSem(IMAGE* image, int32_t semNb);
     DLL_EXPORT int_fast8_t daoShmWaitSemTimeout(IMAGE* image, int32_t semNb, const struct timespec* timeout);
     DLL_EXPORT int_fast8_t daoShmWaitCounter(IMAGE* image);

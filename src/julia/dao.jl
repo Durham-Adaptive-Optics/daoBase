@@ -1,13 +1,14 @@
 module dao
 
-export  daoShmOpen, daoShmSetData, daoShmSetDataPart, daoShmSetDataPartFinalize, daoShmCreate, daoShmWaitSem, daoShmWaitCounter, daoShmGetCounter, daoShmClose
+export  daoShmOpen, daoShmSetData, daoShmSetDataPart, daoShmSetDataPartFinalize, daoShmCreate, daoShmWait, daoShmWaitSem, daoShmWaitCounter, daoShmGetCounter, daoShmClose
 
 
 # Basic type definitions for clarity and consistency
 # Must match dao.h: size of the SHM name fields, and the SHM layout it describes
 const DAO_SHM_NAME_LEN = 256
 const DAO_SHM_MAGIC = 0x4D485344
-const DAO_SHM_LAYOUT_VERSION = 2
+const DAO_SHM_LAYOUT_VERSION = Sys.isapple() ? 3 : 2   # macOS: 16 semaphore counters
+const IMAGE_NB_SEMAPHORE = 16                          # semaphores per SHM (dao.h)
 
 const uint8_t = UInt8
 const int8_t = Int8
@@ -78,7 +79,7 @@ end
         packetNb::uint32_t              # Packet number (for partial writes)
         packetTotal::uint32_t           # Total number of packets (for partial writes)
         lastNbArray::NTuple{2024, uint64_t}
-        semCounter::NTuple{10, uint32_t}   # macOS-only: per-semaphore atomic counters
+        semCounter::NTuple{IMAGE_NB_SEMAPHORE, uint32_t}   # macOS-only: per-semaphore atomic counters
         semLogCounter::uint32_t            # macOS-only: log semaphore atomic counter
         fifo_size::uint32_t             # Number of slots in the FIFO
         fifo_last_written::uint32_t     # Index of the most recently written slot
@@ -215,6 +216,13 @@ function daoShmCombine(imageCube::Ptr{Ptr{IMAGE}}, image::Ptr{IMAGE}, nbChannel:
     return result
 end
 
+# daoShmWait wrapper: waits on a semaphore of this handle's own (no other reader waits on it)
+function daoShmWait(image::Ptr{IMAGE})
+    result = ccall((:daoShmWait, libda), Int8,
+                   (Ptr{IMAGE},), image)
+    return result
+end
+
 # daoShmWaitSem wrapper
 function daoShmWaitSem(image::Ptr{IMAGE}, semNb::Cint)
     result = ccall((:daoShmWaitSem, libda), Cint,
@@ -259,9 +267,23 @@ function shm(name, data=nothing)
     end
 end
 
+# A new IMAGE, zeroed: daoShmClose reads its pointers
+function new_image()
+    image = Ref{dao.IMAGE}()
+    ccall(:memset, Ptr{Cvoid}, (Ptr{Cvoid}, Cint, Csize_t),
+          Base.unsafe_convert(Ptr{dao.IMAGE}, image), 0, sizeof(dao.IMAGE))
+    return image
+end
+
+# Closed when the GC frees it (as by close): unmapped, its semaphore free for other
+# readers. Closing twice is harmless.
+function close_when_freed(image)
+    finalizer(img -> dao.daoShmClose(Base.unsafe_convert(Ptr{dao.IMAGE}, img)), image)
+end
+
 function create_shm(name, data)
     # create reference to an IMAGE
-    image = Ref{dao.IMAGE}();
+    image = new_image();
     # get the pointer
     image_ptr =  Base.unsafe_convert(Ptr{dao.IMAGE}, image);
 
@@ -298,6 +320,7 @@ function create_shm(name, data)
     end
     println("atype = $atype")
     res = daoShmCreate(image_ptr, name, Int64(naxis), Ptr{UInt32}(pointer(shmSize)), UInt8(atype), Int32(1), Int32(0))
+    close_when_freed(image)
     println("SHM created")
     res = daoShmSetData(image_ptr, Ptr{Nothing}(pointer(data)), UInt32(length(data)))
     return image
@@ -306,11 +329,14 @@ end
 function connect_shm(name)
     # Connect to an existing SHM
     # create reference to an IMAGE
-    image = Ref{dao.IMAGE}();
+    image = new_image();
     # get the pointer
     image_ptr =  Base.unsafe_convert(Ptr{dao.IMAGE}, image);
     # assume existing
     shm=dao.daoShmOpen(name, image_ptr);
+    if shm == 0
+        close_when_freed(image)
+    end
     return image
 end
 
@@ -337,7 +363,8 @@ function get_size(image)
     return Int(size_x), Int(size_y), Int(size_z)
 end
 
-function get_data(image, ;check::Bool=false, semNb::Int=0, spin::Bool=false)
+# semNb: the semaphore to wait on; -1 (default): one of this image's own, no other reader waits on it
+function get_data(image, ;check::Bool=false, semNb::Int=-1, spin::Bool=false)
     if check == true
         # get the pointer
         image_ptr =  Base.unsafe_convert(Ptr{dao.IMAGE}, image);

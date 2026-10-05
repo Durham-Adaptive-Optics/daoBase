@@ -142,8 +142,8 @@ void get_data(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     // Initialize the boolean parameter with a default value (false)
     bool waitForSemaphore = false;
 
-    // Initialize the integer parameter with a default value (1)
-    int semNb = 1;
+    // The semaphore: by default one of this SHM handle's own, no other reader waits on it
+    int semNb = DAO_SEM_AUTO;
 
     // Initialize the double parameter with a default value (0)
     unsigned long timeout_sec = 0;

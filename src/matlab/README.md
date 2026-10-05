@@ -44,17 +44,18 @@ r = daoShm('/tmp/test.im.shm');
 w.set_data(2 * ones(4, 4, 'single'));   % write the next frame
 data = r.get_data();                    % read the latest frame
 
-% Block until semaphore 1 is posted (a new frame), then read it.
-data = r.get_data(true, 1);
+% Block until the next frame, on a semaphore of r's own (no other reader
+% waits on it), then read it.
+data = r.get_data(true);
 
 w.close();
 r.close();
 ```
 
-`w.close()`/`r.close()` must be called explicitly once a `daoShm` object is
-no longer needed - MATLAB does not call it automatically when the variable
-goes out of scope, and skipping it leaks the SHM's semaphores and mapped
-memory for the life of the MATLAB process.
+`daoShm` is a handle class: `close()` releases the SHM (its mapped memory, and
+its semaphore for other readers), and MATLAB calls it when the last reference
+to the object is cleared (`clear r`, reassigning `r`, the end of a function).
+Closing twice is harmless.
 
 ## Example
 

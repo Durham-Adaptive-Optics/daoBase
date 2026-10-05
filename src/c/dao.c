@@ -62,7 +62,7 @@ static int clock_gettime(int clk_id, struct timespec *t)
 #include <omp.h>
 #endif
 
-#ifdef __APPLE__
+#ifndef _WIN32
 #include <stdatomic.h>
 #endif
 
@@ -494,6 +494,8 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
     daoTrace("\n");
     image->d_array = NULL;
     image->gpu = NULL;
+    image->semReadPID = NULL;     /* this handle's semaphores: none yet */
+    image->semWritePID = NULL;
 
     char shmName[DAO_SHM_NAME_LEN];
     IMAGE_METADATA *map;
@@ -834,7 +836,7 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
 		}
         daoDebug("%ld semaphores detected  (image->md[0].sem = %d)\n", snb, (int) image->md[0].sem);
         //        image->md[0].sem = snb;
-        image->semptr = (HANDLE*) malloc(sizeof(HANDLE) * image->md[0].sem);
+        image->semptr = (HANDLE*) calloc(image->md[0].sem, sizeof(HANDLE));   /* NULL: not there */
         for(s=0; s<snb; s++)
         {
             sprintf(shmSemName, "Local\\DAO_%s_sem%02ld", localName, s);
@@ -876,7 +878,7 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
         }
         daoDebug("%ld semaphores detected  (image->md[0].sem = %d)\n", snb, (int) image->md[0].sem);
         //        image->md[0].sem = snb;
-        image->semptr = (sem_t**) malloc(sizeof(sem_t*) * image->md[0].sem);
+        image->semptr = (sem_t**) calloc(image->md[0].sem, sizeof(sem_t*));   /* NULL: not there */
         for(s=0; s<snb; s++)
         {
             sprintf(shmSemName, "%s_sem%02ld", localName, s);
@@ -1314,6 +1316,8 @@ int_fast8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis,
     daoTrace("\n");
     image->d_array = NULL;
     image->gpu = NULL;
+    image->semReadPID = NULL;     /* this handle's semaphores: none yet */
+    image->semWritePID = NULL;
     long i;//,ii;
     long nelement;
     struct timespec timenow;
@@ -2063,7 +2067,7 @@ int_fast8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis,
     if(shared==1)
     {
         daoInfo("Creating Semaphores\n");
-        daoShmCreateSem(image, 10); // by default, create 10 semaphores
+        daoShmCreateSem(image, IMAGE_NB_SEMAPHORE); // one per reader, IMAGE_NB_SEMAPHORE readers
         daoInfo("Semaphores created\n");
 
 #ifdef __APPLE__
@@ -2305,15 +2309,391 @@ int_fast8_t daoShmCreate(IMAGE *image, const char *name, long naxis,
     return daoShmCreateFifo(image, name, naxis, size, atype, shared, NBkw, 1);
 }
 
+/* ------------------------------------------------------------------------- */
+/* Semaphore claims: each reader waits on a semaphore of its own              */
+/* ------------------------------------------------------------------------- */
+/*
+ * The writer posts every semaphore of an SHM once per frame. Two readers waiting on
+ * the same semaphore share its posts, and each misses frames: every reader needs its
+ * own. A handle (daoShmOpen) holds semaphore s with an OS lock:
+ *   Linux    an open-file-description lock on byte SEM_LOCK_BASE + s of the SHM file
+ *   Windows  a LockFileEx lock on that same byte
+ *            (both far beyond the end of the file: no data is covered)
+ *   macOS    flock on a hidden file next to the SHM, ".<file>.sem<s>" (macOS has no
+ *            byte locks per open file)
+ * The OS drops the lock when the handle is closed or its process ends, even on a
+ * crash: a semaphore is never kept by a reader that is gone. image->semReadPID
+ * points to this handle's bookkeeping (SemClaims), NULL until its first wait.
+ */
+
+#define SEM_LOCK_BASE ((uint64_t) 1 << 62)
+
+#if defined(__linux__) && !defined(F_OFD_SETLK)
+#define F_OFD_GETLK 36
+#define F_OFD_SETLK 37
+#endif
+
+enum { SEM_FREE = 0, SEM_HELD = 1, SEM_SHARED = 2 };  /* SHARED: waited on, another reader holds it */
+
+typedef struct {
+    int8_t state;
+    int    fd;                /* macOS: the lock file, -1: none */
+} SemClaim;
+
+typedef struct {
+    int64_t  pid;             /* the process of these claims: a forked child starts over */
+    int32_t  n;               /* semaphores of the SHM */
+    int32_t  autoSem;         /* the semaphore of daoShmWait / DAO_SEM_AUTO, -1: none yet */
+    SemClaim e[];
+} SemClaims;
+
+#ifdef _WIN32
+#define self_pid() ((int64_t) GetCurrentProcessId())
+static SRWLOCK sem_claim_mutex = SRWLOCK_INIT;
+static void claim_lock(void)   { AcquireSRWLockExclusive(&sem_claim_mutex); }
+static void claim_unlock(void) { ReleaseSRWLockExclusive(&sem_claim_mutex); }
+#else
+#define self_pid() ((int64_t) getpid())
+static atomic_flag sem_claim_mutex = ATOMIC_FLAG_INIT;
+static void claim_lock(void)   { while (atomic_flag_test_and_set(&sem_claim_mutex)) sched_yield(); }
+static void claim_unlock(void) { atomic_flag_clear(&sem_claim_mutex); }
+#endif
+
+static int sem_valid(IMAGE *image, int32_t s)
+{
+#ifdef _WIN32
+    return image->semptr && image->semptr[s] != NULL;
+#else
+    return image->semptr && image->semptr[s] != NULL && image->semptr[s] != SEM_FAILED;
+#endif
+}
+
+#ifdef __APPLE__
+/* ".<file>.sem<s>" next to the SHM file */
+static int sem_lock_path(IMAGE *image, int32_t s, char *out, size_t len)
+{
+    char path[PATH_MAX];
+    if (fcntl(image->shmfd, F_GETPATH, path) == -1)
+        return -1;
+    char *slash = strrchr(path, '/');
+    const char *base = slash ? slash + 1 : path;
+    if (slash)
+        *slash = '\0';
+    if (snprintf(out, len, "%s/.%s.sem%02d", slash ? path : ".", base, (int) s) >= (int) len)
+        return -1;
+    return 0;
+}
+#endif
+
+/* Take semaphore s for this handle: 1 taken, 0 another reader holds it, -1 no lock here */
+static int sem_lock(IMAGE *image, SemClaims *c, int32_t s)
+{
+#ifdef _WIN32
+    OVERLAPPED ov;
+    uint64_t off = SEM_LOCK_BASE + (uint64_t) s;
+    memset(&ov, 0, sizeof ov);
+    ov.Offset = (DWORD) off;
+    ov.OffsetHigh = (DWORD) (off >> 32);
+    (void) c;
+    if (LockFileEx(image->shmfd, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &ov))
+        return 1;
+    return GetLastError() == ERROR_LOCK_VIOLATION ? 0 : -1;
+#elif defined(__APPLE__)
+    char path[PATH_MAX];
+    int fd;
+    if (sem_lock_path(image, s, path, sizeof path) != 0)
+        return -1;
+    if ((fd = open(path, O_RDONLY | O_CREAT | O_CLOEXEC, 0644)) == -1)
+        return -1;
+    fchmod(fd, 0644);                              /* other users' readers open it too */
+    if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
+        c->e[s].fd = fd;
+        return 1;
+    }
+    int err = errno;
+    close(fd);
+    return err == EWOULDBLOCK ? 0 : -1;
+#else
+    struct flock fl;
+    (void) c;
+    memset(&fl, 0, sizeof fl);
+    fl.l_type = F_WRLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = (off_t) (SEM_LOCK_BASE + (uint64_t) s);
+    fl.l_len = 1;
+    if (fcntl(image->shmfd, F_OFD_SETLK, &fl) == 0) {
+        /* a program this process execs does not inherit it (it would hold the lock) */
+        fcntl(image->shmfd, F_SETFD, fcntl(image->shmfd, F_GETFD) | FD_CLOEXEC);
+        return 1;
+    }
+    return (errno == EAGAIN || errno == EACCES) ? 0 : -1;
+#endif
+}
+
+/* Posts made before this reader came: its first wait is for the next frame */
+static void sem_drain(IMAGE *image, int32_t s)
+{
+    if (!sem_valid(image, s))
+        return;
+#ifdef _WIN32
+    while (WaitForSingleObject(image->semptr[s], 0) == WAIT_OBJECT_0)
+        ;
+#elif defined(__APPLE__)
+    while (sem_trywait(image->semptr[s]) == 0) {
+        unsigned int val = atomic_load(&image->md[0].semCounter[s]);
+        while (val > 0 && !atomic_compare_exchange_weak(&image->md[0].semCounter[s], &val, val - 1))
+            ;
+    }
+#else
+    while (sem_trywait(image->semptr[s]) == 0)
+        ;
+#endif
+}
+
+/* The claims of this handle made by the parent of this (forked) process: they stay
+ * the parent's; the child claims its own. */
+static void sem_claims_forked(IMAGE *image, SemClaims *c)
+{
+#if defined(__APPLE__)
+    (void) image;
+    for (int32_t s = 0; s < c->n; s++)
+        if (c->e[s].fd >= 0)
+            close(c->e[s].fd);                  /* the parent's lock stays: it has the file open */
+#elif !defined(_WIN32)
+    /* the SHM file descriptor is shared with the parent, with its locks: a new one */
+    char path[64];
+    int fd;
+    snprintf(path, sizeof path, "/proc/self/fd/%d", (int) image->shmfd);
+    if ((fd = open(path, O_RDWR)) >= 0) {
+        dup2(fd, image->shmfd);
+        close(fd);
+    }
+#else
+    (void) image;
+#endif
+    free(c);
+}
+
+/**
+ * @brief Give back this handle's semaphores (daoShmClose does it): other readers
+ * can take them. The next wait takes one again.
+ */
+int_fast8_t daoShmReleaseSem(IMAGE *image)
+{
+    SemClaims *c;
+    if (!image)
+        return DAO_ERROR;
+    claim_lock();
+    c = (SemClaims *) image->semReadPID;
+    image->semReadPID = NULL;
+    claim_unlock();
+    if (!c)
+        return DAO_SUCCESS;
+    if (c->pid == self_pid()) {             /* a forked child leaves its parent's locks alone */
+        for (int32_t s = 0; s < c->n; s++) {
+            if (c->e[s].state != SEM_HELD)
+                continue;
+#ifdef _WIN32
+            OVERLAPPED ov;
+            uint64_t off = SEM_LOCK_BASE + (uint64_t) s;
+            memset(&ov, 0, sizeof ov);
+            ov.Offset = (DWORD) off;
+            ov.OffsetHigh = (DWORD) (off >> 32);
+            UnlockFileEx(image->shmfd, 0, 1, 0, &ov);
+#elif defined(__APPLE__)
+            if (c->e[s].fd >= 0)
+                close(c->e[s].fd);          /* releases its flock */
+#else
+            struct flock fl;
+            memset(&fl, 0, sizeof fl);
+            fl.l_type = F_UNLCK;
+            fl.l_whence = SEEK_SET;
+            fl.l_start = (off_t) (SEM_LOCK_BASE + (uint64_t) s);
+            fl.l_len = 1;
+            fcntl(image->shmfd, F_OFD_SETLK, &fl);
+#endif
+        }
+    }
+    free(c);
+    return DAO_SUCCESS;
+}
+
+static int32_t sem_claim_slow(IMAGE *image, int32_t semNb)
+{
+    const char *name = image->md[0].name;
+    int32_t n = (int32_t) image->md[0].sem;
+    int32_t r = -1, s;
+    SemClaims *c;
+
+    if (n <= 0 || !image->semptr) {
+        daoError("%s has no semaphores\n", name);
+        return -1;
+    }
+    if (semNb >= n) {
+        daoError("%s has no semaphore %d (it has %d)\n", name, (int) semNb, (int) n);
+        return -1;
+    }
+    claim_lock();
+    c = (SemClaims *) image->semReadPID;
+    if (c && c->pid != self_pid()) {
+        sem_claims_forked(image, c);
+        c = NULL;
+    }
+    if (!c) {
+        c = (SemClaims *) calloc(1, sizeof(SemClaims) + (size_t) n * sizeof(SemClaim));
+        if (!c) {
+            image->semReadPID = NULL;
+            claim_unlock();
+            daoError("out of memory\n");
+            return -1;
+        }
+        c->pid = self_pid();
+        c->n = n;
+        c->autoSem = -1;
+        for (s = 0; s < n; s++)
+            c->e[s].fd = -1;
+        image->semReadPID = (void *) c;
+    }
+
+    if (semNb < 0) {
+        /* one this handle already holds, else the first free one from the top
+         * (programs that still give a number mostly use the low ones) */
+        for (s = n - 1; s >= 0 && r < 0; s--)
+            if (c->e[s].state == SEM_HELD)
+                r = s;
+        for (s = n - 1; s >= 0 && r < 0; s--) {
+            if (c->e[s].state != SEM_FREE)
+                continue;
+            int got = sem_lock(image, c, s);
+            if (got != 0) {
+                if (got < 0)
+                    daoDebug("%s: no lock for semaphore %d here, taken without one\n", name, (int) s);
+                c->e[s].state = SEM_HELD;
+                sem_drain(image, s);
+                r = s;
+            }
+        }
+        if (r < 0)
+            daoError("all %d semaphores of %s are taken by other readers\n", (int) n, name);
+        c->autoSem = r;
+    } else {
+        if (c->e[semNb].state == SEM_FREE) {
+            if (sem_lock(image, c, semNb) == 0) {
+                c->e[semNb].state = SEM_SHARED;
+                daoWarning("semaphore %d of %s is already taken by another reader: the two share "
+                           "its frames. Wait without a semaphore number to get one of your own\n",
+                           (int) semNb, name);
+            } else
+                c->e[semNb].state = SEM_HELD;
+        }
+        r = semNb;
+    }
+    claim_unlock();
+    return r;
+}
+
+/* The semaphore a wait uses: after the first wait, a few loads */
+static int32_t sem_for_wait(IMAGE *image, int32_t semNb)
+{
+    SemClaims *c = (SemClaims *) image->semReadPID;
+    if (c && c->pid == self_pid()) {
+        if (semNb < 0) {
+            if (c->autoSem >= 0)
+                return c->autoSem;
+        } else if (semNb < c->n && c->e[semNb].state != SEM_FREE)
+            return semNb;
+    }
+    return sem_claim_slow(image, semNb);
+}
+
+/**
+ * @brief This handle's semaphore: one no other reader waits on, taken at the first
+ * call and kept until daoShmClose (or the end of the process).
+ *
+ * @return the semaphore number, or -1 (no semaphores, or all taken)
+ */
+int32_t daoShmClaimSem(IMAGE *image)
+{
+    if (!image || !image->md)
+        return -1;
+    return sem_for_wait(image, DAO_SEM_AUTO);
+}
+
+/**
+ * @brief Does a reader (of any process) wait on semaphore semNb?
+ *
+ * @return 1 taken, 0 free, -1 error
+ */
+int_fast8_t daoShmSemInUse(IMAGE *image, int32_t semNb)
+{
+    SemClaims *c;
+    if (!image || !image->md || semNb < 0 || semNb >= (int32_t) image->md[0].sem)
+        return -1;
+    c = (SemClaims *) image->semReadPID;
+    if (c && c->pid == self_pid() && semNb < c->n && c->e[semNb].state == SEM_HELD)
+        return 1;
+#ifdef _WIN32
+    OVERLAPPED ov;
+    uint64_t off = SEM_LOCK_BASE + (uint64_t) semNb;
+    memset(&ov, 0, sizeof ov);
+    ov.Offset = (DWORD) off;
+    ov.OffsetHigh = (DWORD) (off >> 32);
+    if (LockFileEx(image->shmfd, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &ov)) {
+        UnlockFileEx(image->shmfd, 0, 1, 0, &ov);
+        return 0;
+    }
+    return GetLastError() == ERROR_LOCK_VIOLATION ? 1 : -1;
+#elif defined(__APPLE__)
+    char path[PATH_MAX];
+    int fd, taken;
+    if (sem_lock_path(image, semNb, path, sizeof path) != 0)
+        return -1;
+    if ((fd = open(path, O_RDONLY | O_CLOEXEC)) == -1)
+        return errno == ENOENT ? 0 : -1;
+    taken = flock(fd, LOCK_EX | LOCK_NB) == 0 ? 0 : (errno == EWOULDBLOCK ? 1 : -1);
+    close(fd);                                    /* releases the test lock */
+    return taken;
+#else
+    struct flock fl;
+    memset(&fl, 0, sizeof fl);
+    fl.l_type = F_WRLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = (off_t) (SEM_LOCK_BASE + (uint64_t) semNb);
+    fl.l_len = 1;
+    if (fcntl(image->shmfd, F_OFD_GETLK, &fl) == -1)
+        return -1;
+    return fl.l_type != F_UNLCK;
+#endif
+}
+
+/**
+ * @brief Wait for the next frame, on this handle's own semaphore (daoShmClaimSem).
+ */
+int_fast8_t daoShmWait(IMAGE *image)
+{
+    return daoShmWaitSem(image, DAO_SEM_AUTO);
+}
+
+/**
+ * @brief daoShmWait, until the absolute time timeout (CLOCK_REALTIME).
+ */
+int_fast8_t daoShmWaitTimeout(IMAGE *image, const struct timespec *timeout)
+{
+    return daoShmWaitSemTimeout(image, DAO_SEM_AUTO, timeout);
+}
+
 /**
  * @brief Wait for new data in SHM
- * 
- * @param image 
- * @return uint_fast64_t 
+ *
+ * @param image
+ * @param semNb  the semaphore, or DAO_SEM_AUTO: this handle's own (daoShmClaimSem)
+ * @return uint_fast64_t
  */
 int_fast8_t daoShmWaitSem(IMAGE *image, int32_t semNb)
 {
     daoTrace("\n");
+    if (!image || !image->md || (semNb = sem_for_wait(image, semNb)) < 0)
+        return DAO_ERROR;
     // Wait for new image
 #ifdef _WIN32
     // On Windows we use a single short-timeout wait and return DAO_TIMEOUT so
@@ -2405,6 +2785,8 @@ int_fast8_t daoShmWaitSem(IMAGE *image, int32_t semNb)
 int_fast8_t daoShmWaitSemTimeout(IMAGE *image, int32_t semNb, const struct timespec * timeout)
 {
     daoTrace("\n");
+    if (!image || !image->md || (semNb = sem_for_wait(image, semNb)) < 0)
+        return DAO_ERROR;
     // Wait for new image
 #ifdef _WIN32
     // Convert absolute timespec to milliseconds from now
@@ -2874,6 +3256,8 @@ int_fast8_t daoShmClose(IMAGE *image)
         daoWarning("Null image pointer passed to daoShmCloseShm\n");
         return DAO_ERROR;
     }
+    if (!image->md)                 /* not open, or already closed */
+        return DAO_SUCCESS;
 
     // GPU SHM: unmap this process's view of the payload (daoGpuShmd keeps it)
     daoGpuDetach(image);
@@ -2909,12 +3293,9 @@ int_fast8_t daoShmClose(IMAGE *image)
     }
 #endif
 
-    // Free PID arrays if they exist
-    if (image->semReadPID) {
-        free(image->semReadPID);
-        image->semReadPID = NULL;
-    }
-    
+    // This handle's semaphores: free for other readers
+    daoShmReleaseSem(image);
+
     if (image->semWritePID) {
         free(image->semWritePID);
         image->semWritePID = NULL;
