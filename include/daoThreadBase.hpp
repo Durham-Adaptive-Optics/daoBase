@@ -15,6 +15,7 @@
 
 #include <thread>
 #include <pthread.h>
+#include <csignal>
 #include <mutex>
 #include <condition_variable>
 
