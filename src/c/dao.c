@@ -1092,6 +1092,18 @@ int_fast8_t daoShmSetDataPart(IMAGE *image, char *im, uint32_t nbVal, uint32_t p
  */
 int_fast8_t daoShmSetDataPartFinalize(IMAGE *image)
 {
+    struct timespec t;
+    clock_gettime(CLOCK_REALTIME, &t);
+
+    return daoShmSetDataPartFinalizeAt(image, (int64_t)t.tv_sec * 1000000000LL + t.tv_nsec);
+}
+
+/*
+ * daoShmSetDataPartFinalize with the time the data was written (CLOCK_REALTIME,
+ * ns) instead of now: set before the semaphores are posted
+ */
+int_fast8_t daoShmSetDataPartFinalizeAt(IMAGE *image, int64_t ns)
+{
     daoTrace("\n");
 
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
@@ -1103,7 +1115,7 @@ int_fast8_t daoShmSetDataPartFinalize(IMAGE *image)
 
     image->md[0].fifo_last_written = writing_idx;
 
-    daoShmTimestampShm(image);
+    daoShmTimestampShmAt(image, ns);
     daoShmPostSemAll(image);
 
     if(image->semlog != NULL)
@@ -3343,6 +3355,20 @@ int_fast8_t daoShmTimestampShm(IMAGE *image)
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
 
+    return daoShmTimestampShmAt(image, (int64_t)t.tv_sec * 1000000000LL + t.tv_nsec);
+}
+
+/**
+ * @brief Time stamp the most recently written segment of the image with a given
+ * time, for a writer that knows when the data was really written (e.g. a GPU
+ * pipeline publishing its outputs after the whole frame)
+ *
+ * @param image
+ * @param ns CLOCK_REALTIME, in ns
+ * @return int_fast8_t
+ */
+int_fast8_t daoShmTimestampShmAt(IMAGE *image, int64_t ns)
+{
     volatile IMAGE_METADATA *vol_md = (volatile IMAGE_METADATA *)image->md;
 
     uint32_t fifo_last_written = vol_md[0].fifo_last_written;
@@ -3350,7 +3376,7 @@ int_fast8_t daoShmTimestampShm(IMAGE *image)
                                 ? vol_md[0].fifo_size - 1
                                 : fifo_last_written - 1;
 
-    vol_md[fifo_last_written].atime.tsfixed.secondlong = ((int64_t)(1e9 * t.tv_sec) + t.tv_nsec);
+    vol_md[fifo_last_written].atime.tsfixed.secondlong = ns;
     vol_md[fifo_last_written].cnt0 = vol_md[fifo_prior_write].cnt0 + 1;
 
     return DAO_SUCCESS;
