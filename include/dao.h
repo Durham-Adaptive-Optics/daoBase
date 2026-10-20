@@ -551,6 +551,7 @@ extern "C" {
     DLL_EXPORT int_fast8_t daoShmSetDataPart(IMAGE* image, char* im, uint32_t nbVal, uint32_t position,
         uint16_t packetId, uint16_t packetTotal, uint64_t frameNumber);
     DLL_EXPORT int_fast8_t daoShmSetDataPartFinalize(IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmSetDataPartFinalizeAt(IMAGE* image, int64_t ns);
     DLL_EXPORT int_fast8_t daoShmCombine(IMAGE** imageCube, IMAGE* image, int nbChannel, int nbVal);
 
     // read
@@ -561,6 +562,7 @@ extern "C" {
     DLL_EXPORT int_fast8_t daoShmResetReadTail(IMAGE* image, uint32_t* segment_idx, uint64_t* segment_cnt0);
     DLL_EXPORT uint64_t    daoShmGetCounter(IMAGE* image);
     DLL_EXPORT int_fast8_t daoShmTimestampShm(IMAGE* image);
+    DLL_EXPORT int_fast8_t daoShmTimestampShmAt(IMAGE* image, int64_t ns);
 
     // wait / synchronize
     // daoShmWait waits for the next frame on a semaphore of the SHM no other reader
