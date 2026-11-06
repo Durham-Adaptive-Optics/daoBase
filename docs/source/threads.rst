@@ -295,3 +295,98 @@ Usage Example
         
         return 0;
     }
+
+C API: daoThread.h
+------------------
+
+``include/daoThread.h`` gives C programs threads, CPU pinning, real-time priority, mutexes
+and timed waits that build on every platform dao builds on, in place of ``pthread``,
+``sched_setscheduler``, ``mlockall`` and ``clock_nanosleep`` (which Windows does not have).
+It is in ``libdao``: ``src/c/daoThreadPosix.c`` on Linux and macOS,
+``src/c/daoThreadWin32.c`` on Windows. The C++ classes above are a separate, higher-level
+layer.
+
+.. code-block:: c
+
+    #include "daoThread.h"
+
+    static void *loop(void *arg) { ... return NULL; }     /* the pthread signature */
+
+    int main(void)
+    {
+        daoProcessRtSetup(93);                 /* lock memory, this thread at SCHED_FIFO 93 */
+
+        daoThreadAttr a = DAO_THREAD_ATTR_DEFAULT;
+        a.cpu = 4;                             /* pinned from its first instruction */
+        a.rtPriority = 93;                     /* 0: inherited from the creator */
+        a.name = "myLoop";                     /* shown by top -H, ps, gdb */
+        daoThread *t;
+        if (daoThreadCreate(&t, &a, loop, NULL) != DAO_SUCCESS)
+            return 1;
+        daoThreadJoin(t, NULL);
+        return 0;
+    }
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - Does
+   * - ``daoThreadCreate(&t, &attr, fn, arg)``
+     - starts ``fn(arg)``; ``attr``: CPU (-1: any), real-time priority (0: inherited), name.
+       A CPU that does not exist is an error, nothing is started.
+   * - ``daoThreadJoin(t, &ret)``
+     - waits for it, gives ``fn``'s return value, frees ``t``
+   * - ``daoThreadPin(t, cpu)``
+     - moves a thread to one CPU (``t`` NULL: the calling thread)
+   * - ``daoThreadSetRtPriority(t, p)``
+     - real-time priority (``t`` NULL: the calling thread; 0: normal). Not allowed at ``p``:
+       the highest allowed, with a warning. Returns the priority set.
+   * - ``daoCpuCount()``
+     - CPUs: numbers 0 to count - 1
+   * - ``daoMemLock()``
+     - locks the process's memory, now and to come (``mlockall``)
+   * - ``daoProcessRtSetup(p)``
+     - ``daoMemLock()`` + the calling thread at ``p`` (+ on Windows the HIGH class and a 1 ms
+       timer)
+   * - ``daoMutex m = DAO_MUTEX_INIT``, ``daoMutexLock/Unlock``, ``daoMutexInit/Destroy``
+     - a mutex, static or not
+   * - ``daoTimeNs()``, ``daoSleepUntilNs(t)``, ``daoSleepNs(dt)``
+     - monotonic time; absolute and relative waits. A periodic loop:
+       ``t += period; daoSleepUntilNs(t);``
+
+Failures are reported with ``daoError`` / ``daoWarning``: a caller can ignore the return
+value when it has nothing better to do than go on.
+
+.. list-table:: Per platform
+   :header-rows: 1
+
+   * -
+     - Linux
+     - macOS
+     - Windows
+   * - Pinning
+     - ``pthread_setaffinity_np``
+     - not available (a warning)
+     - ``SetThreadGroupAffinity`` (above 64 CPUs too)
+   * - Real-time priority
+     - ``SCHED_FIFO`` 1..99; needs ``CAP_SYS_NICE`` or an ``rtprio`` limit
+     - ``SCHED_FIFO`` within the system's range
+     - any ``p > 0``: ``THREAD_PRIORITY_TIME_CRITICAL`` in the HIGH priority class
+   * - Memory lock
+     - ``mlockall``; needs ``CAP_IPC_LOCK`` or a ``memlock`` limit
+     - ``mlockall``
+     - not available (a warning)
+   * - Mutex
+     - ``pthread_mutex_t``
+     - ``pthread_mutex_t``
+     - ``SRWLOCK``
+   * - Absolute wait
+     - ``clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME)``
+     - ``nanosleep`` to the deadline
+     - high-resolution waitable timer
+
+``daoMemLock`` is separate from the priority on purpose: with memory locked, an allocation
+beyond the ``memlock`` limit fails, so only the real-time programs should lock.
+
+``test/testThread.c`` checks threads, the mutex, pinning, priorities and periodic waits.

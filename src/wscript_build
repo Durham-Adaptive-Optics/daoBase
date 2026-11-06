@@ -58,7 +58,7 @@ if platform.system() != "Windows":
 	gpu_includes = [bld.env.CUDA_INCLUDE] if bld.env.CUDA_INCLUDE else []
 
 	bld.shlib(
-		source = ['c/dao.c', 'c/daoGpu.c'],
+		source = ['c/dao.c', 'c/daoGpu.c', 'c/daoThreadPosix.c'],
 		includes = ['../include'] + gpu_includes,
 		defines = gpu_defines,
 		cflags = ['-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
@@ -78,12 +78,12 @@ if platform.system() != "Windows":
 			target = 'daoGpuShmd')
 else:
 	bld.shlib(
-		source = ['c/dao.c', 'c/daoGpu.c'],
+		source = ['c/dao.c', 'c/daoGpu.c', 'c/daoThreadWin32.c'],
 		includes = '../include',
 		#cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe'],
 		#cflags = ['-Ofast', '-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
 		cflags = ['/W3', '/D_CRT_SECURE_NO_WARNINGS'],
-		ldflags = ['advapi32.lib'] + add_ld_flags,
+		ldflags = ['advapi32.lib', 'winmm.lib'] + add_ld_flags,
 		target = 'dao',
 		name   = 'dao',
 		features	= 'pkg_build',

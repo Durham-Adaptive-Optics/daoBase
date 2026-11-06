@@ -151,3 +151,13 @@ bld.program(
 # 	use= 'dao',
 # 	cflags = ['-Ofast', '-Wall', '-Wextra', '-Werror', '-pipe', '-fdiagnostics-color=auto'],
 # 	)
+
+# daoThread.h (C): build/test/testThread, exit code = failures
+bld.program(
+	target   = 'testThread',
+	source   = [ 'testThread.c' ],
+	includes = ['../include/'],
+	cflags   = ['-Wall', '-Wextra', '-O2'] + (['-pthread'] if platform.system() != "Windows" else []),
+	ldflags  = ['-pthread'] if platform.system() != "Windows" else [],
+	use      = ['dao']
+	)
