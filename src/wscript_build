@@ -65,7 +65,8 @@ if platform.system() != "Windows":
 		ldflags = [''] + add_ld_flags,
 		# daoThreadPosix.c calls pthread_* / sem_*: in libpthread before glibc 2.34,
 		# linked here so programs using libdao need not add -lpthread themselves
-		lib = ['dl', 'pthread', 'rt'],
+		# (Linux only: macOS has them in libSystem and no librt)
+		lib = ['dl'] + (['pthread', 'rt'] if platform.system() == "Linux" else []),
 		target = 'dao',
 		name   = 'dao',
 		features	= 'pkg_build',
