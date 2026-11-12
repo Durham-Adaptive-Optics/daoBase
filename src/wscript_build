@@ -63,7 +63,9 @@ if platform.system() != "Windows":
 		defines = gpu_defines,
 		cflags = ['-Wall', '-Wextra', '-pipe', '-fdiagnostics-color=auto', '-fstack-protector'] + add_c_flags,
 		ldflags = [''] + add_ld_flags,
-		lib = ['dl'],
+		# daoThreadPosix.c calls pthread_* / sem_*: in libpthread before glibc 2.34,
+		# linked here so programs using libdao need not add -lpthread themselves
+		lib = ['dl', 'pthread', 'rt'],
 		target = 'dao',
 		name   = 'dao',
 		features	= 'pkg_build',
