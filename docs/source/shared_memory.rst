@@ -102,7 +102,7 @@ A reader's semaphore is freed when its handle is closed: ``daoShmClose`` in C
 (``daoShmReleaseSem`` gives it back without closing), and in the other languages when the
 object is freed -- Python (``shm`` dropped or ``close()``), C++ (``Dao::Shm``,
 ``ShmIfce`` destructors), Rust (drop), Julia (garbage collection or ``dao.close``),
-MATLAB (last reference cleared or ``close()``). Closing twice is harmless. In IPython, an
+MATLAB (last reference cleared or ``close()``), JavaScript (garbage collection or ``close()``). Closing twice is harmless. In IPython, an
 object shown as a result is kept by the output history: ``close()`` it.
 
 Each thread that waits needs its own handle (``daoShmOpen``). A semaphore number can still be given
@@ -170,7 +170,7 @@ The metadata starts with a magic number and a layout version (``DAO_SHM_MAGIC``,
 ``DAO_SHM_LAYOUT_VERSION`` in ``dao.h``). ``daoShmOpen`` refuses an SHM with another layout
 ("created by an older dao ... recreate it") instead of misreading it. After upgrading to a dao
 with a new layout, recreate the SHMs and rebuild every program that uses dao (C, C++, the MATLAB
-mex); the Python, Julia and Rust bindings follow ``dao.h``. A program built against an **older**
+mex, the Node.js addon); the Python, Julia and Rust bindings follow ``dao.h``. A program built against an **older**
 dao cannot detect a newer SHM, so rebuild everything together.
 
 Closing Shared Memory
