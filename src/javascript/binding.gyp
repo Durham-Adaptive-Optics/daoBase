@@ -1,6 +1,7 @@
 # Builds the dao Node-API addon (daoShm.c) against libdao.
-# Headers: ../../include (this checkout). Library: $DAOROOT/lib (an installed
-# daoBase) and ../../build/src (an in-tree waf build), both also set as rpath.
+# Headers: ../../include (this checkout). Library: ../../build/src (an in-tree
+# waf build) first, else $DAOROOT/lib (an installed daoBase); both also set as
+# rpath, $DAOROOT/lib first. waf install runs this with DAOROOT=its prefix.
 {
   "targets": [
     {
@@ -11,9 +12,9 @@
       "conditions": [
         ["OS!='win'", {
           "libraries": [
+            "-L<(module_root_dir)/../../build/src",
             "-L<!(echo ${DAOROOT:-/nonexistent})/lib",
             "-L<!(echo ${DAOROOT:-/nonexistent})/lib64",
-            "-L<(module_root_dir)/../../build/src",
             "-Wl,-rpath,<!(echo ${DAOROOT:-/nonexistent})/lib",
             "-Wl,-rpath,<(module_root_dir)/../../build/src",
             "-ldao"

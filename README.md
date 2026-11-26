@@ -223,6 +223,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$DAOROOT/lib:$DAOROOT/lib64
 export PATH=$PATH:$HOME/bin:$HOME/DAOROOT/bin
 export PYTHONPATH=$PYTHONPATH:$DAOROOT/python
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$DAOROOT/lib/pkgconfig
+export NODE_PATH=$NODE_PATH:$DAOROOT/lib/node_modules   # JavaScript binding: require('dao')
 
 ```
 For MACOS, add the following variables in your environment
@@ -245,6 +246,9 @@ waf configure --prefix=$DAOROOT
 waf
 waf install
 ```
+When `node` and `node-gyp` are found (`apt install nodejs node-gyp`), waf also builds the
+JavaScript binding and installs it to `$DAOROOT/lib/node_modules/dao`
+(`waf configure --without-javascript` to skip it).
 
 # Documentation
 Documents are built using doxygen and sphinx. To build the documents use the following command

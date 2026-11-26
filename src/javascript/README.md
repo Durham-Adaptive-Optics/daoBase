@@ -15,22 +15,38 @@ daoTools' `daoShmWebViewer.py` is the full viewer.
 You need Node.js ≥ 16 with its headers, `node-gyp`, a C compiler and daoBase
 (`apt install nodejs node-gyp` on Debian/Ubuntu).
 
+### With waf (installed in `$DAOROOT`)
+
+When `waf configure` finds `node` and `node-gyp`, `waf` builds the addon and
+`waf install` puts it in `$DAOROOT/lib/node_modules/dao` (`index.js`,
+`index.d.ts`, `package.json`, `build/Release/dao.node`, rpath `$DAOROOT/lib`).
+With `NODE_PATH` set (`dao_env.sh` does it), `require('dao')` works from anywhere:
+
+```bash
+export NODE_PATH=$NODE_PATH:$DAOROOT/lib/node_modules
+node -e "console.log(require('dao').open('/tmp/cred2.im.shm').shape)"
+```
+
+`waf configure --without-javascript` skips it. waf runs node-gyp with the
+system Python (`/usr/bin/python3`), see below.
+
+### By hand (in place)
+
 ```bash
 cd src/javascript
 node-gyp rebuild          # or: npm run build
 npm test                  # node --test test/
 ```
 
-`binding.gyp` links `libdao` from `$DAOROOT/lib` (an installed daoBase) or from
-`../../build/src` (an in-tree `waf build`), and sets both as rpath. waf does not
-build or install the addon, the same as the Rust crate.
+`binding.gyp` links `libdao` from `../../build/src` (an in-tree `waf build`)
+first, else from `$DAOROOT/lib` (an installed daoBase), and sets both as rpath.
 
 With the Debian `node-gyp` and a conda Python first in `PATH`, gyp fails with
 `No package metadata was found for gyp`. Use the system Python:
 `PYTHON=/usr/bin/python3 node-gyp rebuild`.
 
-To use it from another project: `npm install /path/to/daoBase/src/javascript`, or
-`require('/path/to/daoBase/src/javascript')`.
+To use it from another project without installing: `npm install /path/to/daoBase/src/javascript`,
+or `require('/path/to/daoBase/src/javascript')`.
 
 ## Usage
 
