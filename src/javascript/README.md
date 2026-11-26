@@ -98,9 +98,8 @@ cam.close();    // also done when the object is garbage collected
 - **Copies.** `getData()` copies the frame. When its writer recreates a SHM (for
   example a camera changing its ROI), a view would point at the old file. Reopen the
   SHM when its shape should change (see `example_web.js`).
-- **1-D SHMs.** `libdao`'s `daoShmOpen` exits the process when an axis has size 0, so
-  `create(name, [n])` makes an `[n, 1]` SHM, as DAO SHMs always are, and `open()`
-  refuses a true 1-D SHM with an error instead of letting libdao exit.
+- **Shapes.** `create(name, [n])` makes a 1-D SHM, `[rows, cols]` a 2-D one, up to
+  3 axes; `shape` gives the same sizes back, as numpy's shape in Python.
 - Tested on Linux (Node 18). macOS should build the same way but is untested. Windows
   is not done: `binding.gyp` has no Windows link line.
 

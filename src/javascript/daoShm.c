@@ -17,9 +17,7 @@
 #define NAPI_VERSION 8
 #include <node_api.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <string.h>
-#include <unistd.h>
 #include <time.h>
 #include "dao.h"
 
@@ -114,28 +112,6 @@ static Shm* unwrap(napi_env env, napi_callback_info info, size_t* argc, napi_val
     return s;
 }
 
-/* daoShmOpen exit()s the whole process on a SHM whose first or second axis is 0 (a
- * 1-D SHM). Read its metadata first, and refuse those with a JS error instead.
- * Returns 0 if daoShmOpen can be called. */
-static int precheck_open(const char* name, char* why, size_t whylen)
-{
-    IMAGE_METADATA md;
-    int fd = open(name, O_RDONLY);
-    if (fd < 0)
-        return 0;   /* let daoShmOpen report it */
-    ssize_t n = pread(fd, &md, sizeof md, 0);
-    close(fd);
-    if (n != (ssize_t)sizeof md || md.magic != DAO_SHM_MAGIC || md.layout != DAO_SHM_LAYOUT_VERSION)
-        return 0;   /* daoShmOpen refuses these with an error, without exiting */
-    if (md.size[0] < 1 || md.size[1] < 1) {
-        snprintf(why, whylen, "dao: SHM %s has naxis %u, size %u x %u: libdao cannot open a "
-                 "SHM with an axis of size 0 (1-D SHMs: make them [n, 1])",
-                 name, md.naxis, md.size[0], md.size[1]);
-        return -1;
-    }
-    return 0;
-}
-
 /* ------------------------------------------------------------------ constructor */
 
 static napi_value Shm_new(napi_env env, napi_callback_info info)
@@ -165,12 +141,6 @@ static napi_value Shm_new(napi_env env, napi_callback_info info)
         napi_typeof(env, argv[1], &t);
 
     if (t == napi_undefined || t == napi_null) {
-        char why[DAO_SHM_NAME_LEN + 160];
-        if (precheck_open(name, why, sizeof why) != 0) {
-            free(s);
-            napi_throw_error(env, NULL, why);
-            return NULL;
-        }
         if (daoShmOpen(name, &s->img) != DAO_SUCCESS) {
             free(s);
             THROW("dao: cannot open SHM %s", name);

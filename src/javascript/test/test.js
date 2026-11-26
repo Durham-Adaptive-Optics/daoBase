@@ -60,15 +60,14 @@ test('bad arguments', () => {
     assert.throws(() => dao.create(shmPath('x'), [0, 2]), /positive/);
 });
 
-test('1-D: create makes [n, 1]; a real 1-D SHM is refused, not exit()ed by libdao', () => {
-    const v = dao.create(shmPath('vec'), [5], 'float32');
-    assert.deepStrictEqual(v.shape, [5, 1]);
-    assert.deepStrictEqual(dao.open(shmPath('vec')).shape, [5, 1]);
+test('1-D: create [n] makes a 1-D SHM, which open() reads back', () => {
+    const v = dao.create(shmPath('vec'), [5], 'float32', { data: [1, 2, 3, 4, 5] });
+    assert.deepStrictEqual(v.shape, [5]);
+    const r = dao.open(shmPath('vec'));
+    assert.deepStrictEqual(r.shape, [5]);
+    assert.deepStrictEqual(Array.from(r.getData()), [1, 2, 3, 4, 5]);
+    r.close();
     v.close();
-    const native = require('../build/Release/dao.node');
-    const one = new native.Shm(shmPath('vec1d'), [5], dao.DTYPES.float32.atype, 1);
-    assert.throws(() => dao.open(shmPath('vec1d')), /axis of size 0/);
-    one.close();
 });
 
 test('wait: a frame wakes it, without blocking the event loop', async () => {

@@ -28,7 +28,7 @@ export class Shm {
 }
 
 export function open(name: string): Shm;
-/** A 1-D shape [n] is created as [n, 1] (libdao cannot open a SHM with an axis of size 0). */
+/** shape: 1 to 3 sizes, [n] for a 1-D SHM, [rows, cols] for 2-D. */
 export function create(name: string, shape: number[], dtype?: DType,
                        opts?: { depth?: number; data?: Frame | ArrayLike<number> }): Shm;
 export const DTYPES: Record<DType, { atype: number; array: Function; complex?: boolean }>;

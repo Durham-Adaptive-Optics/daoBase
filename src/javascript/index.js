@@ -102,8 +102,6 @@ function open(name) {
 function create(name, shape, dtype = 'float32', opts = {}) {
     const d = DTYPES[dtype];
     if (!d) throw new Error(`dao: unknown dtype ${dtype} (${Object.keys(DTYPES).join(', ')})`);
-    // libdao cannot open a SHM with an axis of size 0: a vector is [n, 1], as in Python
-    if (Array.isArray(shape) && shape.length === 1) shape = [shape[0], 1];
     const shm = new Shm(new native.Shm(name, shape, d.atype, opts.depth || 1));
     if (opts.data !== undefined) shm.setData(opts.data);
     return shm;

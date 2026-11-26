@@ -583,6 +583,12 @@ class shm:
                 depth = 1
 
             log.info("%s will be created or overwritten" % (fname,))
+            data = np.asarray(data)
+            if data.ndim == 0:
+                data = data.reshape(1)          # a scalar: a 1-D SHM of one element
+            if data.ndim > 3 or data.size == 0:
+                raise ValueError("daoShm.shm: '%s': shape %s, a SHM has 1 to 3 axes of at least "
+                                 "one element" % (fname, data.shape))
             dataSize = data.shape
             if gpu is not None:
                 if depth != 1:
@@ -663,6 +669,12 @@ class shm:
     @subThread.setter
     def subThread(self, thread):
         self._subThread = thread
+
+    def _frame_shape(self):
+        ''' The numpy shape of one frame: the first naxis sizes of the SHM,
+        (n,) for a 1-D SHM, (rows, cols) for 2-D, (n0, n1, n2) for 3-D. '''
+        md = self.image.md.contents
+        return tuple(int(md.size[i]) for i in range(md.naxis))
 
     def _cache_expected_type(self):
         ''' --------------------------------------------------------------
@@ -747,19 +759,9 @@ class shm:
         data = None
         
         if result == self.DAO_SUCCESS or result == self.DAO_OVERWRITE:
-            arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
-                                                        ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
-
             arrayPtr = ctypes.cast(arrayPtr,\
                                 ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
-            #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
-            if arraySize[2] == 0:
-                if arraySize[1] == 0:
-                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
-                else:
-                    data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
-            else:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+            data = np.ctypeslib.as_array(arrayPtr, shape=self._frame_shape())
 
             # Apply the requested ROI to the zero-copy view *before* the
             # complex-reconstruction/cast below, so only the sub-region ends
@@ -809,18 +811,7 @@ class shm:
         arrayPtr = ctypes.cast(arrayPtr.value,\
                                ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
 
-        # Get the array size
-        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
-                                                      ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
-
-        #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
-        if arraySize[2] == 0:
-            if arraySize[1] == 0:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
-            else:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
-        else:
-            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+        data = np.ctypeslib.as_array(arrayPtr, shape=self._frame_shape())
 
         # Apply the requested ROI to the zero-copy view *before* the
         # complex-reconstruction/cast below, so only the sub-region ends up
@@ -1001,18 +992,7 @@ class shm:
         arrayPtr = ctypes.cast(arrayPtr.value,\
                                ctypes.POINTER(daoType2CtypesType(self.image.md.contents.atype)))
 
-        # Get the array size
-        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
-                                                      ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
-
-        #data=np.ctypeslib.as_array(arrayPtr, shape=(self.image.md.contents.nelement,)).astype(daoType2NpType(self.image.md.contents.atype))
-        if arraySize[2] == 0:
-            if arraySize[1] == 0:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0],))#.astype(daoType2NpType(self.image.md.contents.atype))
-            else:
-                data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1]))#.astype(daoType2NpType(self.image.md.contents.atype))
-        else:
-            data=np.ctypeslib.as_array(arrayPtr, shape=(arraySize[0], arraySize[1], arraySize[2]))#.astype(daoType2NpType(self.image.md.contents.atype))
+        data = np.ctypeslib.as_array(arrayPtr, shape=self._frame_shape())
 
         # Apply the requested ROI to the zero-copy view *before* the
         # complex-reconstruction/cast below, so only the sub-region ends up
@@ -1085,16 +1065,7 @@ class shm:
                 return None
 
         # Now determine the size of array to reserve
-        arraySize = np.ctypeslib.as_array(ctypes.cast(self.image.md.contents.size,\
-                                                      ctypes.POINTER(ctypes.c_uint32)), shape=(3,))
-        
-        if arraySize[2] == 0:
-            if arraySize[1] == 0:
-                frame_shape = (arraySize[0],)
-            else:
-                frame_shape = (arraySize[0], arraySize[1])
-        else:
-            frame_shape = (arraySize[0], arraySize[1], arraySize[2])
+        frame_shape = self._frame_shape()
 
         # Compute the cropped per-frame shape (if x/y were requested) so the
         # preallocated history buffer, and thus every per-frame copy below,
