@@ -1,0 +1,14 @@
+{
+  "name": "dao",
+  "version": "0.1.0",
+  "description": "Node.js binding of the daoBase shared-memory (SHM) API",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "gypfile": true,
+  "scripts": {
+    "build": "node-gyp rebuild",
+    "test": "node --test test/"
+  },
+  "engines": { "node": ">=16" },
+  "license": "MIT"
+}

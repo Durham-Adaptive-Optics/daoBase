@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # encoding: utf-8
 # Sylvain Cetre and David Barr
-import os,glob,platform
+import os,glob,platform,shutil
 # the following two variables are used by the target "waf dist"
 VERSION='0.0.1'
 APPNAME='daoBase'
@@ -41,7 +41,10 @@ def options(opt):
 
 	opt.add_option('--without-gpu', dest='without_gpu', default=False, action='store_true',
              help='build without GPU SHM support even if CUDA is found')
-	
+
+	opt.add_option('--without-javascript', dest='without_javascript', default=False, action='store_true',
+             help='do not build the Node.js binding even if node-gyp is found')
+
 def find_protoc(conf):
 	# The generated *.pb.h only compile against the libprotobuf headers of the
 	# same version, so use the protoc installed next to the libprotobuf that
@@ -107,12 +110,43 @@ int main(void) { return 0; }
 				break
 	conf.msg('GPU SHM support (cuda.h)', conf.env.CUDA_INCLUDE or 'no', color='GREEN' if conf.env.CUDA_INCLUDE else 'YELLOW')
 
+	# Node.js binding (src/javascript): built by node-gyp, optional
+	conf.env.NODE_GYP = []
+	if not conf.options.without_javascript:
+		node = conf.find_program('node', var='NODE', mandatory=False)
+		node_gyp = conf.find_program('node-gyp', var='NODE_GYP', mandatory=False)
+		if not (node and node_gyp):
+			conf.env.NODE_GYP = []
+		else:
+			# gyp runs in a Python that has its gyp package: the system one
+			# (with a conda Python first in PATH, node-gyp fails)
+			conf.find_program('python3', var='GYP_PYTHON', path_list=['/usr/bin'], mandatory=False)
+	conf.msg('Node.js binding (node-gyp)', 'yes' if conf.env.NODE_GYP else 'no',
+			color='GREEN' if conf.env.NODE_GYP else 'YELLOW')
+
 	# add some custom locations
 	conf.env.PYTHONDIR		= f'{conf.env.PREFIX}/python'
 	conf.env.DATADIR		= f'{conf.env.PREFIX}/data'
 	conf.env.PKGCONFIGDIR	= f'{conf.env.LIBDIR}/pkgconfig'
 	conf.env.JULIADIR		= f'{conf.env.PREFIX}/julia'
- 
+	conf.env.NODEDIR		= f'{conf.env.PREFIX}/lib/node_modules/dao'
+
+def build_javascript(task):
+	"""node-gyp rebuild in src/javascript, linking the libdao of this build, then
+	copy the addon to the build directory"""
+	bld = task.generator.bld
+	src = bld.path.find_dir('src/javascript').abspath()
+	env = dict(os.environ)
+	env['DAOROOT'] = bld.env.PREFIX            # rpath of the installed addon
+	if bld.env.GYP_PYTHON:
+		env['PYTHON'] = bld.env.GYP_PYTHON[0]
+	run = subprocess.run(bld.env.NODE_GYP + ['rebuild'], cwd=src, env=env,
+			stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+	if run.returncode:
+		Logs.error(run.stdout)
+		return run.returncode
+	shutil.copyfile(os.path.join(src, 'build', 'Release', 'dao.node'), task.outputs[0].abspath())
+
 def build(bld):
 	bld.env.DEFINES=['WAF=1']
 	Logs.info("Building proto files...")
@@ -151,6 +185,16 @@ def build(bld):
 	files = glob.glob('src/julia/*.jl')
 	for file in files:
 		bld.install_files(bld.env.JULIADIR, file, relative_trick=False)
+
+	# Node.js binding: $PREFIX/lib/node_modules/dao (NODE_PATH=$DAOROOT/lib/node_modules)
+	if bld.env.NODE_GYP:
+		bld.add_group()                         # after libdao is built
+		js = bld.path.find_dir('src/javascript')
+		bld(rule=build_javascript,
+			source=js.ant_glob('daoShm.c binding.gyp') + [bld.path.find_node('include/dao.h')],
+			target='javascript/dao.node')
+		bld.install_files(bld.env.NODEDIR, js.ant_glob('index.js index.d.ts package.json README.md'))
+		bld.install_files(f'{bld.env.NODEDIR}/build/Release', 'javascript/dao.node')
 	# apps
 	files = glob.glob('apps/*.py')
 	for file in files:

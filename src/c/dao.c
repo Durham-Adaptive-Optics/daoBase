@@ -550,8 +550,8 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
 		if (shmFm == NULL) {
 			CloseHandle(shmFd);
 			daoError("Error creating file mapping (%s)\n", shmName);
-            rval = DAO_ERROR;
-            exit(0);
+            image->used = 0;
+            return DAO_ERROR;
 		}
 		
 		map = (IMAGE_METADATA*) MapViewOfFile(shmFm, FILE_MAP_ALL_ACCESS, 0, 0, 0);
@@ -559,8 +559,8 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
 			CloseHandle(shmFd);
 			CloseHandle(shmFm);
 			daoError("Error creating view of file mapping (%s)\n", shmName);
-            rval = DAO_ERROR;
-            exit(0);
+            image->used = 0;
+            return DAO_ERROR;
 		}
 		
 		image->memsize = (int64_t)fileSizeLow | ((int64_t)fileSizeHigh << 32);
@@ -581,8 +581,8 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
         {
             close(shmFd);
             perror("Error mmapping the file");
-            rval = DAO_ERROR;
-            exit(0);
+            image->used = 0;
+            return DAO_ERROR;
         }
 
         image->memsize = file_stat.st_size;
@@ -625,17 +625,29 @@ int_fast8_t daoShmOpen(const char *name, IMAGE *image)
 //            rval = DAO_ERROR;
 //            exit(0);
 //        }
-        if(image->md[0].size[0]<1)
+        // 1, 2 or 3 axes, each of at least one element (the axes past naxis
+        // are unused: size[1] is 0 in a 1-D SHM); refuse anything else
         {
-            daoError("IMAGE \"%s\" AXIS SIZE < 1... ABORTING\n", name);
-            rval = DAO_ERROR;
-            exit(0);
-        }
-        if(image->md[0].size[1]<1)
-        {
-            daoError("IMAGE \"%s\" AXIS SIZE < 1... ABORTING\n", name);
-            rval = DAO_ERROR;
-            exit(0);
+            int bad = image->md[0].naxis < 1 || image->md[0].naxis > 3;
+            for (int ax = 0; !bad && ax < image->md[0].naxis; ax++)
+                bad = image->md[0].size[ax] < 1;
+            if (bad)
+            {
+                daoError("IMAGE \"%s\": invalid geometry (naxis %u, size %u x %u x %u)\n", name,
+                         (unsigned) image->md[0].naxis, (unsigned) image->md[0].size[0],
+                         (unsigned) image->md[0].size[1], (unsigned) image->md[0].size[2]);
+#ifdef _WIN32
+                UnmapViewOfFile(map);
+                CloseHandle(shmFm);
+                CloseHandle(shmFd);
+#else
+                munmap(map, image->memsize);
+                close(shmFd);
+#endif
+                image->md = NULL;
+                image->used = 0;
+                return DAO_ERROR;
+            }
         }
 
         /* Get the size of the FIFO */
@@ -1321,6 +1333,20 @@ int_fast8_t daoShmCreateFifo(IMAGE *image, const char *name, long naxis,
 //    char kname[16];
     if (!shm_name_fits(name))
         return DAO_ERROR;
+    // md.size holds 3 axes: 1 to 3 axes, each of at least one element
+    if (naxis < 1 || naxis > 3)
+    {
+        daoError("%s: naxis %ld, must be 1, 2 or 3\n", name, naxis);
+        return DAO_ERROR;
+    }
+    for (i = 0; i < naxis; i++)
+    {
+        if (size[i] < 1)
+        {
+            daoError("%s: axis %ld has size 0\n", name, i);
+            return DAO_ERROR;
+        }
+    }
     nelement = 1;
 
 #ifdef _WIN32

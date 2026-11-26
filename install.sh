@@ -465,6 +465,7 @@ export PATH="\$PATH:$BIN_DIR:\$DAOROOT/bin"
 export LD_LIBRARY_PATH="\${LD_LIBRARY_PATH:-}:\$DAOROOT/lib:\$DAOROOT/lib64"
 export PYTHONPATH="\${PYTHONPATH:-}:\$DAOROOT/python"
 export PKG_CONFIG_PATH="\${PKG_CONFIG_PATH:-}:\$DAOROOT/lib/pkgconfig:\$DAOROOT/lib64/pkgconfig"
+export NODE_PATH="\${NODE_PATH:-}:\$DAOROOT/lib/node_modules"
 
 $mac_block${conda_block}
 EOF
